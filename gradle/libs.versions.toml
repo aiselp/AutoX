@@ -14,6 +14,7 @@ appcompat = "1.7.0"
 material = "1.12.0"
 savedstate = "1.2.1"
 mlkit-text = "16.0.0-beta5"
+junit-ktx = "1.2.1"
 
 [libraries]
 # androidx
@@ -101,6 +102,7 @@ ktsh = "com.jaredrummler:ktsh:1.0.0"
 
 #test libraries ===================================
 junit = { module = "junit:junit", version.ref = "junit" }
+androidx-junit-ktx = { group = "androidx.test.ext", name = "junit-ktx", version.ref = "junit-ktx" }
 #leakcanary
 leakcanary-android = "com.squareup.leakcanary:leakcanary-android:2.13"
 leakcanary-object-watcher-android = "com.squareup.leakcanary:leakcanary-object-watcher-android:2.13"

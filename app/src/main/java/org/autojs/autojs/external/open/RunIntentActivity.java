@@ -4,12 +4,15 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+
 import androidx.annotation.Nullable;
+
 import android.widget.Toast;
 
 import com.stardust.autojs.script.StringScriptSource;
 import com.stardust.autojs.servicecomponents.EngineController;
 import com.stardust.pio.PFiles;
+
 import org.autojs.autojs.external.ScriptIntents;
 import org.autojs.autoxjs.R;
 import org.autojs.autojs.model.script.Scripts;
@@ -43,6 +46,6 @@ public class RunIntentActivity extends Activity {
             return;
         }
         String path = uri.getPath();
-        EngineController.INSTANCE.runScript(new File(path),null);
+        EngineController.INSTANCE.runScript(new File(path), null, null);
     }
 }

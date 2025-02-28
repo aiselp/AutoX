@@ -63,11 +63,14 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
         val listener = bundle.getBinder(BinderScriptListener.TAG)?.let {
             BinderScriptListener.ServerInterface(it)
         }
+        val config = bundle.getString(ExecutionConfig.tag)?.let {
+            ExecutionConfig.fromJson(it)
+        }
         Log.d(TAG, "engineName = ${taskInfo.engineName}")
         val source: ScriptSource = ScriptFile(taskInfo.sourcePath).toSource()
         AutoJs.instance.scriptEngineService.execute(
             source, listener,
-            ExecutionConfig(workingDirectory = taskInfo.workerDirectory)
+            config ?: ExecutionConfig(workingDirectory = taskInfo.workerDirectory)
         )
     }
 

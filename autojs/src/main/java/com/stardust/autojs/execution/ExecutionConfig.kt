@@ -2,6 +2,7 @@ package com.stardust.autojs.execution
 
 import android.os.Parcel
 import android.os.Parcelable
+import com.google.gson.Gson
 import com.stardust.autojs.project.ScriptConfig
 
 /**
@@ -77,6 +78,15 @@ data class ExecutionConfig(
     }
 
     companion object CREATOR : Parcelable.Creator<ExecutionConfig> {
+
+        private val gson = Gson()
+        fun toJson(c: ExecutionConfig): String {
+            return gson.toJson(c)
+        }
+
+        fun fromJson(str: String): ExecutionConfig? {
+            return gson.fromJson(str, ExecutionConfig::class.java)
+        }
 
         @JvmStatic
         val tag = "execution.config"

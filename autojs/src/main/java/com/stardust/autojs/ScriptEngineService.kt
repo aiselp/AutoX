@@ -108,14 +108,17 @@ class ScriptEngineService internal constructor(builder: ScriptEngineServiceBuild
     }
 
     fun execute(
-        source: ScriptSource?,
+        source: ScriptSource,
         listener: ScriptExecutionListener?,
-        config: ExecutionConfig?
+        config: ExecutionConfig = ExecutionConfig()
     ): ScriptExecution {
         return execute(ScriptExecutionTask(source, listener, config))
     }
 
-    fun execute(source: ScriptSource?, config: ExecutionConfig?): ScriptExecution {
+    fun execute(
+        source: ScriptSource,
+        config: ExecutionConfig = ExecutionConfig()
+    ): ScriptExecution {
         return execute(ScriptExecutionTask(source, null, config))
     }
 

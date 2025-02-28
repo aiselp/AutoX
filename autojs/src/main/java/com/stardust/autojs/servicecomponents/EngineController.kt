@@ -52,7 +52,11 @@ object EngineController {
         return@lazy listeners
     }
 
-    fun runScript(taskInfo: TaskInfo, listener: BinderScriptListener? = null) = scope.launch {
+    fun runScript(
+        taskInfo: TaskInfo,
+        listener: BinderScriptListener? = null,
+        config: ExecutionConfig? = null
+    ) = scope.launch {
         try {
             AutoJs.instance
             val source: ScriptSource = ScriptFile(taskInfo.sourcePath).toSource()
@@ -61,7 +65,7 @@ object EngineController {
                 ExecutionConfig(workingDirectory = taskInfo.workerDirectory)
             )
         } catch (e: Throwable) {
-            serviceConnection.runScript(taskInfo, listener)
+            serviceConnection.runScript(taskInfo, listener, config)
         }
     }
 
@@ -74,7 +78,11 @@ object EngineController {
         }
 
 
-    fun runScript(file: File, listener: BinderScriptListener? = null) {
+    fun runScript(
+        file: File,
+        listener: BinderScriptListener? = null,
+        config: ExecutionConfig? = null
+    ) {
         scope.launch {
             val engineName = when (file.extension) {
                 "mjs" -> NodeScriptEngine.ID
@@ -88,7 +96,7 @@ object EngineController {
                 override val workerDirectory: String = file.parent ?: "/"
                 override val sourcePath: String = file.path
                 override val isRunning: Boolean = false
-            }, listener)
+            }, listener, config)
         }
     }
 

@@ -49,6 +49,7 @@ android {
 }
 
 dependencies {
+    androidTestImplementation(libs.androidx.junit.ktx)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(libs.test.runner)
     androidTestImplementation(libs.test.rules)

@@ -34,7 +34,7 @@ class JsEngines(private val engine: NodeScriptEngine) : NativeApi {
     @V8Function
     fun execScriptFile(
         path: String,
-        config: ExecutionConfig?,
+        config: ExecutionConfig,
         listener: V8ValueFunction?
     ): ScriptExecution {
         if (listener != null) {

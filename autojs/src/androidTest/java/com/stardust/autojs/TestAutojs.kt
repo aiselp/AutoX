@@ -1,21 +1,20 @@
 package com.stardust.autojs
 
 import android.app.Application
-import android.content.Context
 
 class TestAutojs(application: Application) : AutoJs(application) {
 
     override fun ensureAccessibilityServiceEnabled() {
-
+        TODO("Not yet implemented")
     }
 
     override fun waitForAccessibilityServiceEnabled() {
-
+        TODO("Not yet implemented")
     }
 
     companion object {
-        fun init(context: Context){
-            instance = TestAutojs(context.applicationContext as Application)
+        fun init(application: Application) {
+            instance = TestAutojs(application)
         }
     }
 }

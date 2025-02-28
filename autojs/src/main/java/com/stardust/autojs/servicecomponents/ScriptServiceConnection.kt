@@ -8,6 +8,7 @@ import android.os.Binder
 import android.os.Bundle
 import android.os.IBinder
 import com.stardust.autojs.IndependentScriptService
+import com.stardust.autojs.execution.ExecutionConfig
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -61,11 +62,15 @@ class ScriptServiceConnection : ServiceConnection {
 
     suspend fun runScript(
         taskInfo: TaskInfo,
-        listener: BinderScriptListener? = null
+        listener: BinderScriptListener? = null,
+        config: ExecutionConfig? = null
     ) = sendBinder {
         action = ScriptBinder.Action.RUN_SCRIPT.id
         data.writeBundle(Bundle().apply {
             putBundle(TaskInfo.TAG, taskInfo.toBundle())
+            if (config != null) {
+                putString(ExecutionConfig.tag, ExecutionConfig.toJson(config))
+            }
             if (listener != null) {
                 putBinder(BinderScriptListener.TAG, listener.toBinder())
             }
@@ -96,7 +101,7 @@ class ScriptServiceConnection : ServiceConnection {
         send()
     }
 
-    suspend fun notificationListenerServiceStatus():Boolean  = sendBinder {
+    suspend fun notificationListenerServiceStatus(): Boolean = sendBinder {
         action = ScriptBinder.Action.NOTIFICATION_LISTENER_SERVICE_STATUS.id
         send()
         reply!!.readException()
