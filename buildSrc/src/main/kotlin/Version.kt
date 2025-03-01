@@ -8,8 +8,8 @@ import java.io.File
 lateinit var versions: Versions
     private set
 
-const val kotlin_version = "1.8.0"
-const val compose_version = "1.4.1"
+const val kotlin_version = "1.9.25"
+const val compose_version = "1.5.15"
 
 fun initVersions(file: File) {
     val json = file.readText()

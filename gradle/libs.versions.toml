@@ -1,11 +1,11 @@
 [versions]
-activity-compose = "1.9.1"
+activity = "1.9.1"
 coil-compose-version = "2.0.0-rc03"
-core-ktx = "1.8.0"
+core-ktx = "1.13.0"
 google-gson = "2.9.1"
 junit = "4.13.2"
 kotlinx-coroutines-android = "1.6.2"
-lifecycle = "2.8.4"
+lifecycle = "2.8.7"
 okhttp = "4.10.0"
 ktor-version = "2.0.3"
 androidx-test-ext-junit = "1.2.1"
@@ -23,15 +23,15 @@ core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 androidx-viewpager2 = "androidx.viewpager2:viewpager2:1.1.0"
 androidx-work = "androidx.work:work-runtime:2.9.1"
 androidx-swiperefreshlayout = "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
-androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.1.4" }
-androidx-activity-ktx = "androidx.activity:activity-ktx:1.9.1"
-androidx-webkit = "androidx.webkit:webkit:1.11.0"
+androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.2.0" }
+androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
+androidx-webkit = "androidx.webkit:webkit:1.12.1"
 documentfile = "androidx.documentfile:documentfile:1.0.1"
 androidx-savedstate = { module = "androidx.savedstate:savedstate", version.ref = "savedstate" }
 androidx-savedstate-ktx = { module = "androidx.savedstate:savedstate-ktx", version.ref = "savedstate" }
 preference-ktx = "androidx.preference:preference-ktx:1.2.1"
 androidx-annotation = "androidx.annotation:annotation:1.9.1"
-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity-compose" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 # material ======================================
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
@@ -50,7 +50,7 @@ lifecycle-compiler = { module = "androidx.lifecycle:lifecycle-compiler", version
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
 
 # androidx compose
-compose-bom = "androidx.compose:compose-bom:2024.04.01"
+compose-bom = "androidx.compose:compose-bom:2025.02.00"
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
@@ -108,12 +108,12 @@ leakcanary-android = "com.squareup.leakcanary:leakcanary-android:2.13"
 leakcanary-object-watcher-android = "com.squareup.leakcanary:leakcanary-object-watcher-android:2.13"
 retrofit2-retrofit = "com.squareup.retrofit2:retrofit:2.9.0"
 retrofit2-converter-gson = "com.squareup.retrofit2:converter-gson:2.9.0"
-test-runner = "androidx.test:runner:1.5.2"
-test-rules = "androidx.test:rules:1.5.0"
+test-runner = "androidx.test:runner:1.6.2"
+test-rules = "androidx.test:rules:1.6.1"
 androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidx-test-ext-junit" }
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
 
-timscriptov-apksigner ="com.github.TimScriptov:apksigner:1.2.0"
+timscriptov-apksigner = "com.github.TimScriptov:apksigner:1.2.0"
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil-compose-version" }
 #Deprecated ========================================
 #Glide
