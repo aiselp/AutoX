@@ -10,7 +10,7 @@ You are now looking at the project based on the original 4.1 version. Later, I w
 The latest [Autox.js address](https://github.com/kkevsekk1/AutoX), there are many original project paths in the document,
 I do not intend to replace the original project if it is not deleted, to show respect for the original author. This document contains encryption-related content that may conflict with the actual operation.
 If you want to encrypt the code you write to protect intellectual property, please refer to the project https://github.com/kkevsekk1/webpack-autojs
-I will gradually improve and update the program code to keep it consistent as much as possible. ~~
+I will gradually improve and update the program code to keep it consistent as much as possible.~~
 
 This project is obtained from [hyb1996](https://github.com/hyb1996/Auto.js) autojs and named Autox.js (autojs modified version).
 You are now looking at the project based on the original 4.1 version.
@@ -134,7 +134,10 @@ Starting from version 7.0, before building, you need to run the following comman
 ```shell
 ./gradlew autojs:buildJsModule
 ```
-
+##### Building Documentation
+```shell
+./gradlew app:buildDocs
+````
 ##### Locally install the debug version to the device:
 ```shell
 ./gradlew app:buildDebugTemplateApp && ./gradlew app:assembleV7Debug && ./gradlew app:installV7Debug

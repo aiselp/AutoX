@@ -1,5 +1,5 @@
-
 import com.android.build.gradle.internal.tasks.factory.dependsOn
+import java.io.FileNotFoundException
 
 plugins {
     id("com.android.application")
@@ -28,7 +28,7 @@ android {
             }
         }
         resourceConfigurations.addAll(
-            listOf("zh", "en", "es", "ar", "ja", "zh_TW", "fr", "de", "it", "ko", "ru", "tr","lt")
+            listOf("zh", "en", "es", "ar", "ja", "zh_TW", "fr", "de", "it", "ko", "ru", "tr", "lt")
         )
     }
     buildFeatures {
@@ -259,5 +259,48 @@ tasks.register("buildDebugTemplateApp") {
 tasks.named("clean").configure {
     doFirst {
         delete(File(assetsDir, "template.apk"))
+    }
+}
+
+tasks.register("buildDocs") {
+    doLast {
+        val v2DocDir = File(rootProject.projectDir, "docs/v2")
+        val jsApiDir = File(rootProject.projectDir, "autojs/src/js-api")
+        if (!v2DocDir.isDirectory) {
+            logger.error("run command: `git submodule update --init --recursive` install docs/v2")
+            throw FileNotFoundException("${v2DocDir.path} not found")
+        }
+        val buildFile = File.createTempFile("buildJs", ".mjs")
+        exec {
+            workingDir(jsApiDir)
+            buildFile.writeText(
+                """
+                import { execSync } from 'child_process'
+                execSync('npm install', { stdio: 'inherit' })
+                execSync('npm run docs', { stdio: 'inherit' })
+            """.trimIndent()
+            )
+            commandLine("node", buildFile.path)
+        }
+        copy {
+            from(File(jsApiDir, "docs"))
+            into(File(v2DocDir,"docs/nodejs/modules"))
+        }
+        exec {
+            workingDir(v2DocDir)
+            buildFile.writeText(
+                """
+                import { execSync } from 'child_process'
+                execSync('npm install', { stdio: 'inherit' })
+                execSync('npm run build', { stdio: 'inherit' })
+            """.trimIndent()
+            )
+            commandLine("node", buildFile.path)
+        }
+        copy {
+            from(File(v2DocDir,"build"))
+            into(File(projectDir, "src/main/assets/docs/v2"))
+        }
+        buildFile.delete()
     }
 }

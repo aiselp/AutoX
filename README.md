@@ -126,7 +126,10 @@
 ```shell
 ./gradlew autojs:buildJsModule
 ```
-
+##### 构建文档
+```shell
+./gradlew app:buildDocs
+````
 ##### 本地安装调试版本到设备：
 ```shell
 ./gradlew app:buildDebugTemplateApp && ./gradlew app:assembleV7Debug && ./gradlew app:installV7Debug

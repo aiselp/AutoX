@@ -22,27 +22,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20.x
+      - run: chmod 777 ./gradlew
       - name: Build Docs
         run: |
-          pushd autojs/src/js-api
-          npm install
-          npm run docs
-          popd
-          rm -rf docs/v2/docs/nodejs/docs
-          mv autojs/src/js-api/docs docs/v2/docs/nodejs/
-          pushd docs/v2/
-          npm install
-          npm run build
-          popd
-          mkdir -p app/src/main/assets/docs/v2
-          mv docs/v2/build/* app/src/main/assets/docs/v2/
+          ./gradlew app:buildDocs
       - name: Setup Gradle
         uses: gradle/gradle-build-action@v3
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
       - name: Build with Gradle
-        run: |
-          chmod 777 ./gradlew 
+        run: | 
           ./gradlew autojs:buildJsModule
           ./gradlew :inrt:assemble 
           ./gradlew :app:assembleRelease

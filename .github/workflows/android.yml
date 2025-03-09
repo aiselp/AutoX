@@ -36,19 +36,7 @@ jobs:
         run: |
           ./gradlew autojs:buildJsModule
       - name: Build Docs
-        run: |
-          pushd autojs/src/js-api
-          npm install
-          npm run docs
-          popd
-          rm -rf docs/v2/docs/nodejs/docs
-          mv autojs/src/js-api/docs docs/v2/docs/nodejs/
-          pushd docs/v2/
-          npm install
-          npm run build
-          popd
-          mkdir -p app/src/main/assets/docs/v2
-          mv docs/v2/build/* app/src/main/assets/docs/v2/
+        run: ./gradlew app:buildDocs
       - name: Build inrt template
         run: |
           ./gradlew app:buildTemplateApp
