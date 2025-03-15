@@ -107,6 +107,7 @@ open class OCRPredictorNative(config: Config) {
                 try {
                     System.loadLibrary("Native")
                 } catch (e: Throwable) {
+                    isSOLoaded.set(false)
                     throw RuntimeException(
                         "Load libNative.so failed, please check it exists in apk file.", e
                     )

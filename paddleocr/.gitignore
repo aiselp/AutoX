@@ -1,1 +1,5 @@
 /build
+/.cxx/
+/OpenCV/
+/PaddleLite/java/
+/PaddleLite/paddle_lite_libs_v2_10.tar.gz
