@@ -38,14 +38,13 @@ static paddle::lite_api::PowerMode
 str_to_cpu_mode(const std::string &cpu_mode) {
   static std::map<std::string, paddle::lite_api::PowerMode> cpu_mode_map{
       {"LITE_POWER_HIGH", paddle::lite_api::LITE_POWER_HIGH},
-      {"LITE_POWER_LOW", paddle::lite_api::LITE_POWER_HIGH},
+      {"LITE_POWER_LOW", paddle::lite_api::LITE_POWER_LOW},
       {"LITE_POWER_FULL", paddle::lite_api::LITE_POWER_FULL},
       {"LITE_POWER_NO_BIND", paddle::lite_api::LITE_POWER_NO_BIND},
       {"LITE_POWER_RAND_HIGH", paddle::lite_api::LITE_POWER_RAND_HIGH},
       {"LITE_POWER_RAND_LOW", paddle::lite_api::LITE_POWER_RAND_LOW}};
-  std::string upper_key;
-  std::transform(cpu_mode.cbegin(), cpu_mode.cend(), upper_key.begin(),
-                 ::toupper);
+  std::string upper_key = cpu_mode;
+  std::transform(cpu_mode.begin(), cpu_mode.end(), upper_key.begin(), ::toupper);
   auto index = cpu_mode_map.find(upper_key);
   if (index == cpu_mode_map.end()) {
     LOGE("cpu_mode not found %s", upper_key.c_str());
