@@ -263,7 +263,12 @@ class ScriptListFragment : Fragment() {
                 return@BaseDialog
             }
             if (dir != null && name.isNotEmpty()) {
-                val newDir = File(dir, name).apply { mkdirs() }
+                val newDir = File(dir, name)
+                if (newDir.exists()){
+                    showSnackbar(explorerView, R.string.text_file_exists)
+                    return@BaseDialog
+                }
+                newDir.mkdirs()
                 Explorers.workspace()
                     .notifyItemCreated(ExplorerDirPage(newDir, explorerView.currentPage))
                 showSnackbar(explorerView, R.string.text_already_create)

@@ -20,9 +20,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
-import butterknife.BindView
-import butterknife.ButterKnife
-import butterknife.OnClick
 import com.google.android.material.snackbar.Snackbar
 import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.pio.PFiles
@@ -54,6 +51,7 @@ import org.autojs.autojs.ui.widget.BindableViewHolder
 import org.autojs.autojs.workground.WrapContentGridLayoutManger
 import org.autojs.autoxjs.R
 import org.autojs.autoxjs.databinding.ScriptFileListDirectoryBinding
+import org.autojs.autoxjs.databinding.ScriptFileListFileBinding
 import java.io.File
 import java.util.Stack
 
@@ -77,13 +75,21 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
     val currentPage get() = currentPageState.currentPage
     private var disposable: Disposable? = null
 
-    constructor(context: Context) : super(context) {
-        init()
+    init {
+        Log.d(
+            LOG_TAG, "item bg = " + Integer.toHexString(
+                ContextCompat.getColor(context, R.color.item_background)
+            )
+        )
+        setOnRefreshListener(this)
+        inflate(context, R.layout.explorer_view, this)
+        explorerItemListView = findViewById(R.id.explorer_item_list)
+        projectToolbar = findViewById(R.id.project_toolbar)
+        initExplorerItemListView()
     }
 
-    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs) {
-        init()
-    }
+    constructor(context: Context) : super(context)
+    constructor(context: Context, attrs: AttributeSet?) : super(context, attrs)
 
     fun setRootPage(page: ExplorerPage?) {
         pageStateHistory.clear()
@@ -127,11 +133,11 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
             explorerItemList.sortConfig = sortConfig
         }
 
-    fun setExplorer(explorer: Explorer?, rootPage: ExplorerPage?) {
+    fun setExplorer(explorer: Explorer, rootPage: ExplorerPage?) {
         disposable?.dispose()
         this.explorer = explorer
         setRootPage(rootPage)
-        disposable = this.explorer!!.registerChangeListener { event -> onExplorerChange(event) }
+        disposable = explorer.registerChangeListener { event -> onExplorerChange(event) }
     }
 
     fun setExplorer(explorer: Explorer?, rootPage: ExplorerPage?, currentPage: ExplorerPage) {
@@ -193,21 +199,6 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
 
     override fun isFocused(): Boolean {
         return true
-    }
-
-    private fun init() {
-        Log.d(
-            LOG_TAG, "item bg = " + Integer.toHexString(
-                ContextCompat.getColor(
-                    context, R.color.item_background
-                )
-            )
-        )
-        setOnRefreshListener(this)
-        inflate(context, R.layout.explorer_view, this)
-        explorerItemListView = findViewById(R.id.explorer_item_list)
-        projectToolbar = findViewById(R.id.project_toolbar)
-        initExplorerItemListView()
     }
 
     private fun initExplorerItemListView() {
@@ -312,8 +303,11 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
                 .rename(selectedItem as ExplorerFileItem?)
                 .subscribe(Observers.emptyObserver())
 
-            R.id.delete -> ScriptOperations(context, this, currentPage)
-                .delete(selectedItem!!.toScriptFile())
+            R.id.delete -> kotlin.run {
+                ScriptOperations(context, this, currentPage)
+                    .delete(selectedItem!!.toScriptFile())
+                loadItemList()
+            }
 
             R.id.run_repeatedly -> {
                 ScriptLoopDialog(context, selectedItem!!.toScriptFile())
@@ -390,15 +384,6 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
             }
     }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        disposable?.dispose()
-    }
-
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
-        disposable?.dispose()
-    }
 
     protected open fun onCreateViewHolder(
         inflater: LayoutInflater,
@@ -408,11 +393,7 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
         return when (viewType) {
             VIEW_TYPE_ITEM -> {
                 ExplorerItemViewHolder(
-                    inflater.inflate(
-                        R.layout.script_file_list_file,
-                        parent,
-                        false
-                    )
+                    ScriptFileListFileBinding.inflate(inflater, parent, false)
                 )
             }
 
@@ -496,65 +477,52 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
         }
     }
 
-    @SuppressLint("NonConstantResourceId")
-    inner class ExplorerItemViewHolder internal constructor(itemView: View) :
-        BindableViewHolder<Any>(itemView) {
-        @JvmField
-        @BindView(R.id.name)
-        var name: TextView? = null
-
-        @JvmField
-        @BindView(R.id.first_char)
-        var firstChar: TextView? = null
-
-        @JvmField
-        @BindView(R.id.desc)
-        var desc: TextView? = null
-
-        @JvmField
-        @BindView(R.id.more)
-        var options: View? = null
-
-        @JvmField
-        @BindView(R.id.edit)
-        var edit: View? = null
-
-        @JvmField
-        @BindView(R.id.run)
-        var run: View? = null
+    inner class ExplorerItemViewHolder internal constructor(itemBinding: ScriptFileListFileBinding) :
+        BindableViewHolder<Any>(itemBinding.root) {
+        var name = itemBinding.name
+        var firstChar = itemBinding.firstChar
+        var desc = itemBinding.desc
+        var options = itemBinding.more
+        var edit = itemBinding.edit
+        var run = itemBinding.run
         var firstCharBackground: GradientDrawable
         private var explorerItem: ExplorerItem? = null
+
+        init {
+            itemBinding.item.setOnClickListener { onItemClick() }
+            run.setOnClickListener { run() }
+            edit.setOnClickListener { edit() }
+            options.setOnClickListener { showOptionMenu() }
+            firstCharBackground = firstChar.background as GradientDrawable
+        }
+
         override fun bind(item: Any, position: Int) {
             if (item !is ExplorerItem) return
             explorerItem = item
-            name!!.text = ExplorerViewHelper.getDisplayName(item)
-            desc!!.text = PFiles.getHumanReadableSize(item.size)
-            firstChar!!.text = ExplorerViewHelper.getIconText(item)
+            name.text = ExplorerViewHelper.getDisplayName(item)
+            desc.text = PFiles.getHumanReadableSize(item.size)
+            firstChar.text = ExplorerViewHelper.getIconText(item)
             firstCharBackground.setColor(ExplorerViewHelper.getIconColor(item))
-            edit!!.visibility = if (item.isEditable) VISIBLE else GONE
-            run!!.visibility = if (item.isExecutable) VISIBLE else GONE
+            edit.visibility = if (item.isEditable) VISIBLE else GONE
+            run.visibility = if (item.isExecutable) VISIBLE else GONE
         }
 
-        @OnClick(R.id.item)
-        fun onItemClick() {
+        private fun onItemClick() {
             onItemClickListener?.invoke(itemView, explorerItem)
             notifyOperated()
         }
 
-        @OnClick(R.id.run)
         fun run() {
             EngineController.runScript(File(explorerItem!!.path))
             notifyOperated()
         }
 
-        @OnClick(R.id.edit)
         fun edit() {
             edit(context, ScriptFile(explorerItem!!.path))
             notifyOperated()
         }
 
-        @OnClick(R.id.more)
-        fun showOptionMenu() {
+        private fun showOptionMenu() {
             selectedItem = explorerItem
             val popupMenu = PopupMenu(context, options)
             popupMenu.inflate(R.menu.menu_script_options)
@@ -574,11 +542,6 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
             }
             popupMenu.setOnMenuItemClickListener(this@ExplorerViewKt)
             popupMenu.show()
-        }
-
-        init {
-            ButterKnife.bind(this, itemView)
-            firstCharBackground = firstChar!!.background as GradientDrawable
         }
     }
 
