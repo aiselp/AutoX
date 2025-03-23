@@ -3,19 +3,26 @@ package com.stardust.autojs
 import android.app.Application
 import androidx.test.core.app.ActivityScenario
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.espresso.Espresso
+import androidx.test.espresso.action.ViewActions.click
+import androidx.test.espresso.matcher.ViewMatchers.withText
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.filters.MediumTest
 import com.aiselp.autox.test.activicy.TestLogActivity
 import com.stardust.app.GlobalAppContext
 import com.stardust.autojs.script.ScriptSource
 import com.stardust.autojs.script.StringScriptSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+@MediumTest
 class V6ScriptTest {
     val application: Application = ApplicationProvider.getApplicationContext()
 
@@ -72,6 +79,14 @@ class V6ScriptTest {
     }
 
     @Test
+    fun emitter_test(): Unit = runBlocking {
+        val resultViewer = ScriptResultViewer()
+        val execute =
+            getScriptEngineService().execute(openScriptSource("emitter.js"), resultViewer)
+        resultViewer.waitForSuccess(2000) { execute.engine.forceStop() }
+    }
+
+    @Test
     fun base64_test(): Unit = runBlocking {
         val resultViewer = ScriptResultViewer()
         val execute =
@@ -81,6 +96,16 @@ class V6ScriptTest {
 
     @Test
     fun dialog_test(): Unit = runBlocking {
+        val job = launch {
+            delay(1000)
+            Espresso.onView(withText(R.string.ok)).perform(click())
+            delay(500)
+            Espresso.onView(withText(R.string.ok)).perform(click())
+            delay(2500)
+            Espresso.onView(withText(R.string.ok)).perform(click())
+            delay(2500)
+            Espresso.onView(withText("选项C")).perform(click())
+        }
         ActivityScenario.launch(TestLogActivity::class.java).use {
             val r = Job()
             it.onActivity { activity ->
@@ -92,6 +117,7 @@ class V6ScriptTest {
             getScriptEngineService().execute(openScriptSource("dialog.js"), resultViewer)
             resultViewer.waitForSuccess()
         }
+        job.cancel()
     }
 
     companion object {

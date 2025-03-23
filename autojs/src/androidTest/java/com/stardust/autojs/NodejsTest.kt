@@ -1,6 +1,7 @@
 package com.stardust.autojs
 
-import androidx.test.runner.AndroidJUnit4
+
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.caoccao.javet.interop.NodeRuntime
 import com.caoccao.javet.interop.V8Host
 import com.caoccao.javet.values.primitive.V8ValueInteger
