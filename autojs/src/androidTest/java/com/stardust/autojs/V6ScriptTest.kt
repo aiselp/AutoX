@@ -51,6 +51,14 @@ class V6ScriptTest {
     }
 
     @Test
+    fun app_test(): Unit = runBlocking {
+        val resultViewer = ScriptResultViewer()
+        val execute =
+            getScriptEngineService().execute(openScriptSource("app.js"), resultViewer)
+        resultViewer.waitForSuccess(1000) { execute.engine.forceStop() }
+    }
+
+    @Test
     fun timers_test() = runBlocking {
         val resultViewer = ScriptResultViewer()
         val execute =

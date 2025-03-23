@@ -150,8 +150,6 @@ module.exports = function (runtime, global) {
             app.fileProviderAuthority, file);
     };
 
-    app.launch = app.launchPackage;
-
     app.versionCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode;
     app.versionName = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionName;
 
@@ -256,6 +254,7 @@ module.exports = function (runtime, global) {
 
     Object.setPrototypeOf(app, runtime.app)
 
+    app.launch = app.launchPackage;
     global.__asGlobal__(app, ['launchPackage', 'launch', 'launchApp', 'getPackageName', 'getAppName', 'openAppSetting']);
 
     function parseIntentFlag(flag) {
