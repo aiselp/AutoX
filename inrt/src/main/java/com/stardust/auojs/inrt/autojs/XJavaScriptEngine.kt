@@ -2,43 +2,29 @@ package com.stardust.auojs.inrt.autojs
 
 import android.content.Context
 import com.stardust.autojs.engine.LoopBasedJavaScriptEngine
-import com.stardust.autojs.engine.encryption.ScriptEncryption
+import com.stardust.autojs.engine.encryption.ScriptEncryption.decrypt
 import com.stardust.autojs.script.EncryptedScriptFileHeader
+import com.stardust.autojs.script.EncryptedScriptFileHeader.isValidFile
 import com.stardust.autojs.script.JavaScriptFileSource
 import com.stardust.autojs.script.ScriptSource
 import com.stardust.autojs.script.StringScriptSource
-import com.stardust.pio.PFiles
-import java.io.File
-import java.security.GeneralSecurityException
 
 class XJavaScriptEngine(context: Context) : LoopBasedJavaScriptEngine(context) {
 
 
     override fun execute(source: ScriptSource, callback: ExecuteCallback?) {
         if (source is JavaScriptFileSource) {
-            try {
-                if (execute(source.file)) {
-                    return
-                }
-            } catch (e: Throwable) {
-                e.printStackTrace()
+            val data = source.file.readBytes()
+            if (isValidFile(data)) {
+                val script = decrypt(data, EncryptedScriptFileHeader.BLOCK_SIZE)
+                    .toString(Charsets.UTF_8)
+                super.execute(
+                    StringScriptSource(source.file.name, script), callback
+                )
                 return
             }
         }
         super.execute(source, callback)
-    }
-
-    private fun execute(file: File): Boolean {
-        val bytes = PFiles.readBytes(file.path)
-        if (!EncryptedScriptFileHeader.isValidFile(bytes)) {
-            return false
-        }
-        try {
-            super.execute(StringScriptSource(file.name, String(ScriptEncryption.decrypt(bytes, EncryptedScriptFileHeader.BLOCK_SIZE))))
-        } catch (e: GeneralSecurityException) {
-            e.printStackTrace()
-        }
-        return true
     }
 
 }

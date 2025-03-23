@@ -62,8 +62,7 @@ class ApkBuilder(
     private var projectConfig: ProjectConfig? = null
     private val waitSignApk1: String =
         PFiles.join(outApkFile.parent!!, outApkFile.nameWithoutExtension + NO_SIGN_APK_SUFFIX)
-    private var encryptInitVector: String? = null
-    private var encryptKey: String? = null
+    private var advancedEncryptionStandard: AdvancedEncryptionStandard? = null
 
     private val nativePath = File(GlobalAppContext.get().cacheDir, "native-lib").path
 
@@ -76,6 +75,7 @@ class ApkBuilder(
     suspend fun prepare(): ApkBuilder {
         _progressState.emit(BuildState.PREPARE)
         File(workspacePath).mkdirs()
+        PFiles.deleteFilesOfDir(File(workspacePath))
         Zip.unzip(apkInputStream, File(workspacePath))
         unzipLibs()
         return this
@@ -96,7 +96,9 @@ class ApkBuilder(
         if (PFiles.isDir(path)) {
             copyDir(path, "assets/project/")
         } else if (PFiles.isFile(path)) {
-            replaceFile(oldFile = File(path), "assets/project/${projectConfig!!.mainScript}")
+            val mainFile = File(path)
+            replaceFile(oldFile = File(path), "assets/project/${mainFile.name}")
+            projectConfig!!.mainScript = mainFile.name
         } else {
             throw IllegalArgumentException("Invalid source path: $path")
         }
@@ -151,13 +153,9 @@ class ApkBuilder(
         }
         val out = newFile.outputStream()
         EncryptedScriptFileHeader.writeHeader(
-            out,
-            JavaScriptFileSource(file).executionMode.toShort()
+            out, JavaScriptFileSource(file).executionMode.toShort()
         )
-        AdvancedEncryptionStandard(
-            encryptKey!!.toByteArray(),
-            encryptInitVector!!
-        ).encrypt(file.inputStream(), out, true)
+        advancedEncryptionStandard!!.encrypt(file.inputStream(), out, true)
     }
 
     fun replaceFile(oldFile: File, relativeTargetPath: String): ApkBuilder {
@@ -191,12 +189,12 @@ class ApkBuilder(
             .setVersionName(config.versionName)
             .setVersionCode(config.versionCode)
             .setPackageName(config.packageName)
-
+        setEncryptKey(config)
         arscPackageName = config.packageName!!
-        updateAndWriteProjectConfig(config)
         copyLibraries(config)
         copyAssets(config)
         setScriptFile(config.sourcePath!!)
+        updateAndWriteProjectConfig(config)
         return this
     }
 
@@ -275,18 +273,20 @@ class ApkBuilder(
     private val manifestFile: File
         get() = File(workspacePath, "AndroidManifest.xml")
 
-    private fun updateAndWriteProjectConfig(config: ProjectConfig) {
+    private fun setEncryptKey(config: ProjectConfig) {
         config.buildInfo = BuildInfo.generate(
             config.versionCode.toLong()
         )
+        advancedEncryptionStandard = AdvancedEncryptionStandard(
+            MD5.md5(config.packageName + config.versionName).toByteArray(Charsets.UTF_8),
+            MD5.md5(config.buildInfo.buildId + config.name).substring(0, 16)
+        )
+    }
+
+    private fun updateAndWriteProjectConfig(config: ProjectConfig) {
         val projectFile = File(workspacePath, "assets/project/project.json")
         projectFile.parentFile?.let { if (!it.exists()) it.mkdirs() }
         projectFile.writeText(config.toJson())
-        encryptKey =
-            MD5.md5(config.packageName + config.versionName + config.mainScript)
-        encryptInitVector =
-            MD5.md5(config.buildInfo.buildId + config.name)
-                .substring(0, 16)
     }
 
     suspend fun build(): ApkBuilder = withContext(Dispatchers.IO) {

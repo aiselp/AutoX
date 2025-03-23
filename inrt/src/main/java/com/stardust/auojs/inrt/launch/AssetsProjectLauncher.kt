@@ -33,9 +33,9 @@ open class AssetsProjectLauncher(
     private val context: Context
 ) {
     private val mProjectDir: String = File(context.filesDir, "project/").path
-    private val mProjectConfig =
+    private val projectConfig =
         ProjectConfig.fromAssets(context, ProjectConfig.configFileOfDir(assetsProjectDir))!!
-    private val mMainScriptFile: File = File(mProjectDir, mProjectConfig.mainScript!!)
+    private val mMainScriptFile: File = File(mProjectDir, projectConfig.mainScript!!)
     private val mHandler: Handler = Handler(Looper.getMainLooper())
     private var mScriptExecution: ScriptExecution? = null
 
@@ -68,15 +68,14 @@ open class AssetsProjectLauncher(
     }
 
     fun stop() {
-        if (mScriptExecution?.engine?.isDestroyed != true) {
+        if (mScriptExecution?.engine?.isDestroyed == false) {
             mScriptExecution?.engine?.forceStop()
         }
     }
 
     private fun runScript(activity: Activity?) {
-        if (mScriptExecution?.engine?.isDestroyed == false) {
-            stop()
-        }
+        stop()
+
         try {
             val source = JavaScriptFileSource("main", mMainScriptFile)
             val config = ExecutionConfig(workingDirectory = mProjectDir)
@@ -99,12 +98,12 @@ open class AssetsProjectLauncher(
         val projectConfigPath = PFiles.join(mProjectDir, ProjectConfig.CONFIG_FILE_NAME)
         val projectConfig = ProjectConfig.fromProject(File(projectConfigPath))
         if (!BuildConfig.DEBUG && projectConfig != null &&
-            TextUtils.equals(projectConfig.buildInfo.buildId, mProjectConfig.buildInfo.buildId)
+            TextUtils.equals(projectConfig.buildInfo.buildId, this.projectConfig.buildInfo.buildId)
         ) {
             initKey(projectConfig)
             return
         }
-        initKey(mProjectConfig)
+        initKey(this.projectConfig)
         PFiles.deleteRecursively(File(mProjectDir))
         try {
             PFiles.copyAssetDir(context.assets, assetsProjectDir, mProjectDir, null)
@@ -115,13 +114,13 @@ open class AssetsProjectLauncher(
 
     private fun initKey(projectConfig: ProjectConfig) {
         val key =
-            MD5.md5(projectConfig.packageName + projectConfig.versionName + projectConfig.mainScript)
+            MD5.md5(projectConfig.packageName + projectConfig.versionName)
         val vec = MD5.md5(projectConfig.buildInfo.buildId + projectConfig.name).substring(0, 16)
         ScriptEncryption.mKey = key
         ScriptEncryption.mInitVector = vec
     }
 
     companion object {
-        val TAG = AssetsProjectLauncher::class.java.simpleName
+        val TAG: String = AssetsProjectLauncher::class.java.simpleName
     }
 }
