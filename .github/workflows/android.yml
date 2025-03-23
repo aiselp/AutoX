@@ -30,8 +30,13 @@ jobs:
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
       - name: Setup Gradle
-        uses: gradle/gradle-build-action@v3
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          build-scan-publish: true
+          build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
+          build-scan-terms-of-use-agree: "yes"
       - run: chmod 777 ./gradlew
+
       - name: Build JsModule
         run: |
           ./gradlew autojs:buildJsModule
@@ -39,10 +44,10 @@ jobs:
         run: ./gradlew app:buildDocs
       - name: Build inrt template
         run: |
-          ./gradlew app:buildTemplateApp
+          ./gradlew app:buildTemplateApp --scan
       - name: Build App
         run: |
-          ./gradlew app:assembleV7
+          ./gradlew app:assembleV7 --scan
       - uses: Tlaster/android-sign@v1.2.2
         name: Sign app APK
         with:
