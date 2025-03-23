@@ -1,9 +1,10 @@
 
 let __runtime = runtime
 let __context = context
+let shizuku = runtime.shizuku
 
 exports = module.exports = function(cmd){
-    return __runtime.shell.runShizukuShellCommand(cmd);
+    return shizuku.runShizukuShellCommand(cmd);
 }
 /*
 exports.createShell = function() {
@@ -11,11 +12,15 @@ exports.createShell = function() {
 }*/
 
 exports.isAlive = function(){
-    return __runtime.shizuku.isShizukuAlive();
+    return shizuku.isShizukuAlive();
+}
+
+exports.openAccessibility = function(){
+    shizuku.openAccessibility();
 }
 
 exports.runRhinoScriptFile = function(path){
-    let data =  __runtime.shizuku.runRhinoScriptFile(path);
+    let data =  shizuku.runRhinoScriptFile(path);
     if (!data){
         return data;
     }else return JSON.parse(data);

@@ -40,7 +40,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     lateinit var consoleExtension: ConsoleExtension
     val shell = ScriptShell()
     val keyboard = Keyboard()
-    val shizuku = Shizuku()
+    val shizuku = Shizuku(uiHandler.context)
 
     @ScriptVariable
     val automator = SimpleActionAutomator(accessibilityBridge, this)
@@ -106,6 +106,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     override fun onExit() {
         super.onExit()
         shell.recycle(console)
+        shizuku.recycle()
         consoleExtension.close()
         ObjectWatcher.default.watch(this, engines.myEngine().toString() + "::" + TAG)
     }

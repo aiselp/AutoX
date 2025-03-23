@@ -34,6 +34,7 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.lifecycle.lifecycleScope
 import coil.compose.rememberAsyncImagePainter
 import com.aiselp.autox.ui.material3.theme.AppTheme
+import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.autojs.autojs.ui.main.MainActivity
@@ -47,6 +48,7 @@ class SplashActivity : AppCompatActivity() {
     private var mPaused = false
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ScriptServiceConnection.start(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.attributes = window.attributes.apply {
                 layoutInDisplayCutoutMode =

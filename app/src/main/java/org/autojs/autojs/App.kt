@@ -20,7 +20,6 @@ import com.aiselp.autox.ui.material3.activity.ErrorReportActivity
 import com.stardust.app.GlobalAppContext
 import com.stardust.autojs.core.pref.PrefKey
 import com.stardust.autojs.servicecomponents.EngineController
-import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.autojs.util.ProcessUtils
 import com.stardust.theme.ThemeColor
 import kotlinx.coroutines.delay
@@ -82,7 +81,6 @@ class App : Application(), Configuration.Provider {
                 WebView.setDataDirectorySuffix(getString(R.string.text_script_process_name))
             };
         } else if (ProcessUtils.isMainProcess(this)) {
-            ScriptServiceConnection.start(this)
             initResource()
             EngineController.scope.launch {
                 delay(1000)
