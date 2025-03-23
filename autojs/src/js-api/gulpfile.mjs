@@ -36,7 +36,6 @@ async function createRootPackageFile(cb) {
     const packageFile = {
         name: n.name,
         version: n.version,
-        description: n.description,
         type: "module",
         bin,
         license: n.license,

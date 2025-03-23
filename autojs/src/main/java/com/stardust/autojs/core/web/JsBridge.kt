@@ -1,10 +1,14 @@
 package com.stardust.autojs.core.web
 
-import android.os.Build
 import android.os.Looper
 import android.util.Log
-import android.webkit.*
-import androidx.annotation.RequiresApi
+import android.webkit.JavascriptInterface
+import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
+import android.webkit.WebView
+import android.webkit.WebViewClient
+import androidx.webkit.WebViewAssetLoader
+import com.aiselp.autox.web.FilePathHandler
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.annotations.Expose
@@ -13,9 +17,9 @@ import org.mozilla.javascript.Context
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.Undefined
 import java.io.ByteArrayOutputStream
+import java.io.File
 import kotlin.random.Random
 
-@RequiresApi(Build.VERSION_CODES.M)
 class JsBridge(private val webView: WebView) {
     companion object {
         const val WEBOBJECTNAME = "\$autox"
@@ -157,7 +161,7 @@ class JsBridge(private val webView: WebView) {
         //web调用安卓
         fun callHandle(reqData: String) {
             val pos = gson.fromJson(reqData, Pos::class.java)
-            Log.i(LOG_TAG,"onHandle: ${pos.event}")
+            Log.i(LOG_TAG, "onHandle: ${pos.event}")
             val handler = handles[pos.event]
             val callBack: Handle? = if (pos.callBackId != null) {
                 Handle { data, _ ->
@@ -210,6 +214,8 @@ class JsBridge(private val webView: WebView) {
             const val SDKPATH = "autox://sdk.v1.js"
         }
 
+        private var assetLoader: WebViewAssetLoader? = null
+
         override fun shouldInterceptRequest(
             view: WebView,
             request: WebResourceRequest
@@ -225,7 +231,14 @@ class JsBridge(private val webView: WebView) {
                 }
                 return webResponse
             }
-            return super.shouldInterceptRequest(view, request)
+            return assetLoader?.shouldInterceptRequest(url)
+        }
+
+        fun setFileAsset(path: String, file: File) {
+            assetLoader = WebViewAssetLoader.Builder()
+                .setHttpAllowed(true)
+                .addPathHandler(path, FilePathHandler(file))
+                .build()
         }
 
         override fun onPageFinished(view: WebView?, url: String?) {

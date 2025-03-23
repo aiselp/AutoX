@@ -1,15 +1,16 @@
 package com.stardust.autojs.core.ui.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
-import android.os.Build
 import android.util.AttributeSet
-import android.webkit.*
-import androidx.annotation.RequiresApi
+import android.webkit.WebView
+import androidx.webkit.WebViewAssetLoader
 import com.stardust.autojs.core.web.JsBridge
+import java.io.File
 
+@SuppressLint("SetJavaScriptEnabled")
 open class JsWebView : WebView {
     //val events = EventEmitter()
-    @RequiresApi(Build.VERSION_CODES.M)
     val jsBridge = JsBridge(this)
 
     init {
@@ -21,7 +22,7 @@ open class JsWebView : WebView {
         settings.javaScriptCanOpenWindowsAutomatically = true
         settings.domStorageEnabled = true
         settings.displayZoomControls = false
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) webViewClient = JsBridge.SuperWebViewClient()
+        webViewClient = JsBridge.SuperWebViewClient()
     }
 
     constructor(context: Context) : super(context)
@@ -31,8 +32,27 @@ open class JsWebView : WebView {
         attrs,
         defStyleAttr
     )
-    @RequiresApi(Build.VERSION_CODES.M)
-    fun injectionJsBridge(){
+
+    fun loadLocalFile(path: String) {
+        val webViewClient = webViewClient
+        if (webViewClient !is JsBridge.SuperWebViewClient) {
+            throw Error("WebViewClient must be JsBridge.SuperWebViewClient")
+        }
+        val dir = File(path)
+        if (dir.isDirectory) {
+            webViewClient.setFileAsset("/", dir)
+            loadUrl("https://${WebViewAssetLoader.DEFAULT_DOMAIN}")
+            return
+        }
+        if (dir.isFile) {
+            webViewClient.setFileAsset("/", dir.parentFile!!)
+            loadUrl("https://${WebViewAssetLoader.DEFAULT_DOMAIN}/${dir.name}")
+            return
+        }
+        throw Error("Invalid path: $path")
+    }
+
+    fun injectionJsBridge() {
         JsBridge.injectionJsBridge(this)
     }
 }

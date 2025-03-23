@@ -4,7 +4,8 @@ ui.layout(`
     <vertical>
         <webview id="web" h="*"/>
     </vertical>`)
-
+//允许访问文件资源
+ui.web.settings.allowFileAccess = true
 ui.web.loadUrl("file://" + files.path("./网页.html"))
 /*
     注意：在web与安卓端传递的数据只能是字符串，其他数据需自行使用JSON序列化
