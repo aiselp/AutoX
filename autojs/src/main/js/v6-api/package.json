@@ -1,0 +1,41 @@
+{
+  "name": "autox-v6-api",
+  "version": "1.0.1",
+  "description": "",
+  "scripts": {
+    "build": "npx eslint && gulp build",
+    "clean": "gulp clear",
+    "docs": "typedoc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "aiselp <aiselpk@gmail.com>",
+  "license": "ISC",
+  "dependencies": {
+    "@types/lodash": "^4.17.7",
+    "cheerio": "^1.0.0",
+    "htm": "^3.1.1",
+    "ts-node": "^10.9.2",
+    "tslib": "^2.6.3"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.10",
+    "@babel/preset-env": "^7.26.9",
+    "@eslint/js": "^9.23.0",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^26.0.1",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-replace": "^5.0.7",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^11.1.6",
+    "eslint": "^9.23.0",
+    "fs-extra": "^11.2.0",
+    "gulp": "^5.0.0",
+    "gulp-cli": "^3.0.0",
+    "inquirer": "^10.1.8",
+    "lodash": "^4.17.21",
+    "rollup": "^4.37.0",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.27.0"
+  }
+}

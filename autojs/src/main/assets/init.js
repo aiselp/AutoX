@@ -55,16 +55,15 @@ runtime.init();
 
     global.process = require('process')
     global.Promise = require('bluebird');
-    global.shizuku = require('shizuku');
 
 
     //初始化全局函数
     require("__globals__")(runtime, global);
     //初始化一般模块
     (function (scope) {
-        var modules = ['app', 'automator', 'console', 'dialogs', 'files', 'io', 'selector', 'shell', 'web', 'ui',
+        var modules = ['app', 'automator', 'console', 'dialogs', 'selector', 'web', 'ui',
             "images", "threads", "events", "engines", "RootAutomator", "http", "storages", "floaty",
-            "sensors", "media", "plugins", "continuation", "$zip", "$base64", "$crypto", "paddle"];
+            "sensors", "plugins", "continuation", "$zip", "$crypto", "paddle"];
         var len = modules.length;
         for (var i = 0; i < len; i++) {
             var m = modules[i];
@@ -76,12 +75,7 @@ runtime.init();
         }
     })(global);
 
-    importClass(android.view.KeyEvent);
-    importClass(android.graphics.Paint);
-    Canvas = com.stardust.autojs.core.graphics.ScriptCanvas;
-    Image = com.stardust.autojs.core.image.ImageWrapper;
-    OkHttpClient = Packages["okhttp3"].OkHttpClient;
-    Intent = android.content.Intent;
+    require("/android_asset/v6modules/init.js")
 
     //重定向require以便支持相对路径和npm模块
     Module = require("jvm-npm.js");

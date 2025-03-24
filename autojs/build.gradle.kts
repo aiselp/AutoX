@@ -1,3 +1,5 @@
+import org.gradle.kotlin.dsl.support.listFilesOrdered
+
 plugins {
     id("com.android.library")
     id("kotlin-android")
@@ -95,17 +97,29 @@ dependencies {
 }
 
 tasks.register("buildJsModule") {
-    val jsApiDir = File(projectDir, "src/main/js/v7-api")
-    val jsModuleDir = File(projectDir, "src/main/assets/v7modules")
+    val v7ApiDir = File(projectDir, "src/main/js/v7-api")
+    val v7ModuleDir = File(projectDir, "src/main/assets/v7modules")
+
+    val v6ApiDir = File(projectDir, "src/main/js/v6-api")
+    val v6ModuleDir = File(projectDir, "src/main/assets/v6modules")
     doFirst {
         exec {
-            workingDir = jsApiDir
+            workingDir = v7ApiDir
             commandLine("node", "build.mjs")
         }
-        delete(jsModuleDir)
+        exec {
+            workingDir = v6ApiDir
+            commandLine("node", "build.mjs")
+        }
         copy {
-            from(File(jsApiDir, "dist"))
-            into(jsModuleDir)
+            delete(v7ModuleDir)
+            from(File(v7ApiDir, "dist"))
+            into(v7ModuleDir)
+        }
+        copy {
+            delete(v6ModuleDir)
+            from(File(v6ApiDir, "dist"))
+            into(v6ModuleDir)
         }
     }
 }

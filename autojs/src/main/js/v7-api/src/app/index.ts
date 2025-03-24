@@ -19,7 +19,7 @@
 import { loadClass, android } from '@/java'
 import { EmailOptions, IntentOptions, PMOptions } from './types'
 
-const Intent = loadClass("android.content.Intent") as android.IntentConstructor
+const Intent = loadClass("android.content.Intent") as android.IntentClass
 const Uri = loadClass("android.net.Uri") as any
 const { context, app } = Autox
 const appUtils = app.getAppUtils()

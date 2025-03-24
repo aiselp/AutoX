@@ -6,7 +6,7 @@ namespace android {
         sendBroadcast: (intent: Intent) => void;
         getPackageName(): string
     }
-    interface IntentConstructor extends java.JavaClass {
+    interface IntentClass extends java.JavaClass {
         new(): Intent
         FLAG_ACTIVITY_NEW_TASK: number
         EXTRA_EMAIL: string
