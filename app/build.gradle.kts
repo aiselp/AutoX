@@ -265,7 +265,7 @@ tasks.named("clean").configure {
 tasks.register("buildDocs") {
     doLast {
         val v2DocDir = File(rootProject.projectDir, "docs/v2")
-        val jsApiDir = File(rootProject.projectDir, "autojs/src/js-api")
+        val jsApiDir = File(rootProject.projectDir, "autojs/src/main/js/v7-api")
         if (!v2DocDir.isDirectory) {
             logger.error("run command: `git submodule update --init --recursive` install docs/v2")
             throw FileNotFoundException("${v2DocDir.path} not found")

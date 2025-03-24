@@ -95,7 +95,7 @@ dependencies {
 }
 
 tasks.register("buildJsModule") {
-    val jsApiDir = File(projectDir, "src/js-api")
+    val jsApiDir = File(projectDir, "src/main/js/v7-api")
     val jsModuleDir = File(projectDir, "src/main/assets/v7modules")
     doFirst {
         exec {
