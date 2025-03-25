@@ -69,7 +69,7 @@ function startUi(element: ui.ComposeElement, listener?: ActivityEventListener) {
 export function startActivity(app: App<PxElement>, listener?: ActivityEventListener) {
     const root = nodeOps.createElement('box')
     app.mount(root)
-    let n = Object.create(listener || {})
+    const n = Object.create(listener || {})
     n.onDestroy = function (...args: any[]) {
         app.unmount()
         listener?.onDestroy?.(...args)

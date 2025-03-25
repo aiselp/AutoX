@@ -12,7 +12,7 @@ import DialogFactory from './DialogFactory'
 const dialogs = Autox.dialogs
 type DialogOps = dialogs.DialogOps
 export type DialogType = 'app' | 'overlay' | DialogFactory
-export let defaultDialogType: DialogType = 'app'
+export const defaultDialogType: DialogType = 'app'
 
 
 export function showAppDialog(comp: Component, ops?: DialogOps) {
@@ -230,12 +230,12 @@ export const showMultiChoiceDialog: IDialogs['showMultiChoiceDialog'] = async fu
     items: string[],
     initialSelectedIndices?: number[],
     options?: DialogBuilderOptions) {
-    let select = new Set<number>()
+    const select = new Set<number>()
 
     const DialogContent = defineComponent(function () {
         const state = reactive(items.map(() => false))
         if (initialSelectedIndices) {
-            for (let i of initialSelectedIndices) {
+            for (const i of initialSelectedIndices) {
                 if (i >= items.length) continue;
                 select.add(i)
                 state[i] = true;
@@ -291,7 +291,7 @@ export const showSingleChoiceDialog: IDialogs['showSingleChoiceDialog'] = async 
     items: string[],
     initialSelectedIndex?: number,
     options?: DialogBuilderOptions) {
-    let select = ref(initialSelectedIndex || 0)
+    const select = ref(initialSelectedIndex || 0)
 
     const DialogContent = defineComponent(function () {
         function click(i: number) {

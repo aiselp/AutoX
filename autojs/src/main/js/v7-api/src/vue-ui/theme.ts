@@ -41,14 +41,14 @@ export interface ColorSchemeOptions {
 
 export function darkColorScheme(ops: ColorSchemeOptions) {
     const map = new Map<string, Color>()
-    for (let [key, value] of Object.entries(ops)) {
+    for (const [key, value] of Object.entries(ops)) {
         map.set(key, value)
     }
     return ui.theme.darkColorScheme(map)
 }
 export function lightColorScheme(ops: ColorSchemeOptions) {
     const map = new Map<string, string | bigint>()
-    for (let [key, value] of Object.entries(ops)) {
+    for (const [key, value] of Object.entries(ops)) {
         map.set(key, value)
     }
     return ui.theme.lightColorScheme(map)

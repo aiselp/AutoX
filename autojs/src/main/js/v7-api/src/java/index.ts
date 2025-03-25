@@ -9,7 +9,9 @@ const createPackage = memoize(function (name?: string): any {
     if (name) {
         try {
             return loadClass(name)
-        } catch (e: any) { }
+        } catch (e: any) {
+            // ignore
+        }
     }
     return new Proxy({ name }, {
         get(target, propKey) {

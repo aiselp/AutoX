@@ -24,7 +24,7 @@ export class PxElement implements PxNode {
     __xel: ComposeElement
     children: PxNode[] = []
     props: Record<string, any> = {}
-    eventListeners: Record<string, Function | Function[]> | null = {}
+    eventListeners: Record<string, (...args: any[]) => any | Array<(...args: any[]) => any>> | null = {}
     constructor(tag: string) {
         this.tag = tag
         this.__xel = createElement(tag)
