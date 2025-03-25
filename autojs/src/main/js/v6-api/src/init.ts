@@ -4,12 +4,15 @@ import base64 from './base64'
 import shell from './shell'
 import './inline_modules/files'
 import media, { Media } from './inline_modules/media'
+import ui, { Ui } from './inline_modules/ui'
 
 declare global {
     var shizuku: (cmd: string) => Autox.ShellResult
     var media: Media
+    var ui: Ui
 }
 setGlobal('shizuku', shizuku)
+setGlobalAnd$('ui', ui)
 setGlobalAnd$('base64', base64)
 setGlobalAnd$('shell', shell)
 setGlobalAnd$("media", media)

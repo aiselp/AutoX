@@ -1,6 +1,6 @@
 {
   "name": "autox-v6-api",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "",
   "scripts": {
     "build": "npx eslint && gulp build",

@@ -27,6 +27,7 @@ import com.stardust.pio.UncheckedIOException
 import com.stardust.util.ClipboardUtil
 import com.stardust.util.Supplier
 import com.stardust.util.UiHandler
+import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.RhinoException
 import java.io.BufferedReader
@@ -101,6 +102,17 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
         } catch (e: IOException) {
             throw UncheckedIOException(e)
         }
+    }
+
+    fun evalInContext(script: String, context: Any): Any? {
+        val currentContext = Context.getCurrentContext()
+        return currentContext.evaluateString(
+            Context.toObject(context, topLevelScope),
+            script,
+            "eval",
+            1,
+            null
+        )
     }
 
     override fun onExit() {

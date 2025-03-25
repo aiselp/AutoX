@@ -31,6 +31,7 @@ namespace Autox {
         cwd(): string
         readAssets(path: string, encoding?: string): string
         join(parent: string, ...child: string[]): string
+        read(path: string): string
     }
 
     interface Media {
@@ -44,10 +45,18 @@ namespace Autox {
         getMusicCurrentPosition(): number
         stopMusic(): void
     }
+    interface Ui {
+        readonly layoutInflater: any
+        bindingContext: any
+        __proxy__: any
+    }
     interface Runtime {
         shizuku: Shizuku
         shell: Shell
         files: Files
         media: Media
+        ui: Ui
+        evalInContext(script: string, context: Object): any
+        getUiHandler: () => any
     }
 }

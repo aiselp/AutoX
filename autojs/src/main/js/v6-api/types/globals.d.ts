@@ -2,7 +2,7 @@
 
 declare var global = globalThis
 
-declare var android, java, com, Packages
+declare var android, java, com, Packages, org
 /**
  * @param message 要显示的信息
  */
@@ -18,3 +18,5 @@ declare function toastLog(message: string): void
 declare var context: android.Context
 
 declare var runtime: Autox.Runtime
+
+declare var exit: (err?) => void

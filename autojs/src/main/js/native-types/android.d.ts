@@ -18,6 +18,7 @@ namespace android {
 
         createChooser: (intent: Intent, title: string) => Intent
     }
+    interface View { }
     interface Uri extends java.javaObject { }
     interface Intent extends java.javaObject {
         package: string?;
