@@ -39,9 +39,6 @@ allprojects {
         mavenCentral { url = uri("https://maven.aliyun.com/repository/public") }
     }
 
-    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
-        kotlinOptions.jvmTarget = versions.javaVersion.toString()
-    }
 }
 
 tasks.register<Delete>("clean").configure {

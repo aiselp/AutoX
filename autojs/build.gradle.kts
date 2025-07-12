@@ -75,8 +75,6 @@ dependencies {
     api("com.makeramen:roundedimageview:2.3.0")
     // OkHttp
     api(libs.okhttp)
-    // RootShell
-    api("com.github.Stericson:RootShell:1.6")
     // Gson
     api(libs.google.gson)
     api(project(path = ":common"))
