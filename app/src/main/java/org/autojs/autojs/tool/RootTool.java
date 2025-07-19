@@ -10,11 +10,14 @@ import com.stardust.autojs.core.util.ProcessShell;
 public class RootTool {
 
     public static boolean isRootAvailable() {
+        Shell shell = new Shell("sh");
         try {
-            new Shell("su").shutdown();
-            return true;
+            Shell.Command.Result result = shell.run("command -v su");
+            return result.isSuccess();
         } catch (Exception e) {
             return false;
+        } finally {
+            shell.shutdown();
         }
     }
 

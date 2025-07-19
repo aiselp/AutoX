@@ -35,6 +35,7 @@ import com.aiselp.autox.ui.material3.DrawerPage
 import com.aiselp.autox.ui.material3.MainTopAppBar
 import com.aiselp.autox.ui.material3.theme.AppTheme
 import com.stardust.autojs.IndependentScriptService
+import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.autojs.util.PermissionUtil
 import com.stardust.autojs.util.StoragePermissionResultContract
 import com.stardust.toast
@@ -66,6 +67,7 @@ class MainActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         Log.i("MainActivity", "Pid: ${Process.myPid()}")
+        ScriptServiceConnection.GlobalConnection.bind(application)
 
         if (Pref.isForegroundServiceEnabled()) {
             IndependentScriptService.startForeground(this)

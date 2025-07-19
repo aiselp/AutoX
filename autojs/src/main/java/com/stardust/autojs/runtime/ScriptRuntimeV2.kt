@@ -71,7 +71,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
         threads = Threads(this)
         timers = Timers(this)
         loopers = Loopers(this)
-        consoleExtension = ConsoleExtension(console as ConsoleImpl, loopers!!.servantLooper)
+        consoleExtension = ConsoleExtension(console as ConsoleImpl)
         events = Events(uiHandler.context, accessibilityBridge, this)
         mThread = Thread.currentThread()
         sensors = Sensors(uiHandler.context, this)

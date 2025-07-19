@@ -1,18 +1,17 @@
 package com.stardust.autojs.runtime.api
 
-import android.os.Looper
 import android.util.Log
 import com.stardust.autojs.annotation.ScriptInterface
 import com.stardust.autojs.core.console.ConsoleImpl
-import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.core.Scheduler
 import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.schedulers.Schedulers
 import java.io.Closeable
 
 class ConsoleExtension(
-    val console: ConsoleImpl, looper: Looper
+    val console: ConsoleImpl
 ) : Console by console, Closeable {
-    private val scheduler: Scheduler = AndroidSchedulers.from(looper)
+    private val scheduler: Scheduler = Schedulers.newThread()
     private val disposables = mutableSetOf<Disposable>()
 
     @ScriptInterface
@@ -38,6 +37,7 @@ class ConsoleExtension(
     override fun close() {
         disposables.forEach { it.dispose() }
         disposables.clear()
+        scheduler.shutdown()
     }
 
     fun interface ConsoleListener {

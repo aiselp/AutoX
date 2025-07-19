@@ -42,7 +42,9 @@ open class Drawables {
 
     private fun loadDrawableResources(context: Context, value: String): Drawable? {
         val resId = try {
-            val field = drawableClass.getField(value.substring(10))
+            val field = if (value.startsWith("@drawable/"))
+                drawableClass.getField(value.substring(10))
+            else drawableClass.getField(value)
             field.get(null) as Int
         } catch (e: Exception) {
             0

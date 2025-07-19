@@ -325,5 +325,6 @@ tasks.register("buildDocs") {
             from(File(v2DocDir, "build"))
             into(File(projectDir, "src/main/assets/docs/v2"))
         }
+        buildFile.delete()
     }
 }
