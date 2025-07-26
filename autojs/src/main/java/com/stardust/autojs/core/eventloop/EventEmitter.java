@@ -18,7 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Created by Stardust on 2017/7/19.
  */
 
-public class EventEmitter {
+public class EventEmitter implements IEventEmitter {
 
     private static class ListenerWrapper {
         Object listener;

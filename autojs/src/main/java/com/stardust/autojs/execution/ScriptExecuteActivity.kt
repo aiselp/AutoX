@@ -191,7 +191,7 @@ class ScriptExecuteActivity : AppCompatActivity() {
         return e.consumed || super.onOptionsItemSelected(item)
     }
 
-    fun emit(event: String?, vararg args: Any?) {
+    fun emit(event: String, vararg args: Any?) {
         try {
             eventEmitter.emit(event, *args)
         } catch (e: Exception) {

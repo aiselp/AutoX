@@ -2,6 +2,9 @@
 autoxjs 整个项目的一些更新日志,双版本号为稳定版（内容以修复的bug为主），单版本号为激进版本、发布新内容。
 
 ## [Unreleased](https://github.com/kkevsekk1/AutoX/compare/7.0.5...HEAD) 未发布
+* <font color="#ec5315">**api变更**: canvas事件'draw'仅会在可用时触发一次</font>
+* 画布示例更新
+* 新增canvas.updateCanvas()函数触发'draw'事件
 
 ## [7.1.5] - 2025-7-13
 * 新增打包应用特殊权限配置
