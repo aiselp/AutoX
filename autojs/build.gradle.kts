@@ -95,6 +95,7 @@ dependencies {
 }
 
 tasks.register("buildJsModule") {
+    group = "build"
     val v7ApiDir = File(projectDir, "src/main/js/v7-api")
     val v7ModuleDir = File(projectDir, "src/main/assets/v7modules")
 
@@ -103,11 +104,11 @@ tasks.register("buildJsModule") {
     doFirst {
         exec {
             workingDir = v7ApiDir
-            commandLine("node", "build.mjs")
+            execCommand("node build.mjs")
         }
         exec {
             workingDir = v6ApiDir
-            commandLine("node", "build.mjs")
+            execCommand("node build.mjs")
         }
         copy {
             delete(v7ModuleDir)

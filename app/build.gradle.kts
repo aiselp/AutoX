@@ -266,12 +266,14 @@ if (!File(assetsDir, "template.apk").isFile) {
 }
 
 tasks.register("buildTemplateApp") {
+    group = "build"
     dependsOn(":inrt:assembleTemplateRelease")
     doFirst {
         copyTemplateToAPP(false, assetsDir)
     }
 }
 tasks.register("buildDebugTemplateApp") {
+    group = "build"
     dependsOn(":inrt:assembleTemplateDebug")
     doFirst {
         copyTemplateToAPP(true, assetsDir)
@@ -283,6 +285,7 @@ tasks.named("clean").configure {
     }
 }
 tasks.register("buildDocs") {
+    group = "build"
     doLast {
         val v2DocDir = File(rootProject.projectDir, "docs/v2")
         val jsApiDir = File(rootProject.projectDir, "autojs/src/main/js/v7-api")
@@ -300,7 +303,7 @@ tasks.register("buildDocs") {
                 execSync('npm run docs', { stdio: 'inherit' })
             """.trimIndent()
             )
-            commandLine("node", buildFile.path)
+            execCommand("node " + buildFile.path)
         }
         copy {
             from(File(jsApiDir, "docs"))
@@ -316,12 +319,11 @@ tasks.register("buildDocs") {
                 execSync('npm run build', { stdio: 'inherit' })
             """.trimIndent()
             )
-            commandLine("node", buildFile.path)
+            execCommand("node " + buildFile.path)
         }
         copy {
             from(File(v2DocDir, "build"))
             into(File(projectDir, "src/main/assets/docs/v2"))
         }
-        buildFile.delete()
     }
 }
