@@ -6,18 +6,12 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.util.Log
 import androidx.core.app.NotificationCompat
-import androidx.preference.PreferenceManager
 import com.aiselp.autox.ui.material3.activity.ErrorReportActivity
-import com.fanjun.keeplive.KeepLive
-import com.fanjun.keeplive.config.ForegroundNotification
 import com.linsh.utilseverywhere.Utils
 import com.stardust.app.GlobalAppContext
 import com.stardust.auojs.inrt.autojs.AutoJs
 import com.stardust.auojs.inrt.autojs.GlobalKeyObserver
-import com.stardust.auojs.inrt.pluginclient.AutoXKeepLiveService
-import com.stardust.autojs.execution.ScriptExecuteActivity
 import org.autojs.autoxjs.inrt.BuildConfig
 import org.autojs.autoxjs.inrt.R
 
@@ -38,34 +32,6 @@ class App : Application() {
         GlobalKeyObserver.init()
 
         ErrorReportActivity.install(this, SplashActivity::class.java)
-        //启动保活服务
-        KeepLive.useSilenceMusice = false;
-        val sharedPreferences =
-            PreferenceManager.getDefaultSharedPreferences(this)
-        val keepRunningWithForegroundService = sharedPreferences.getBoolean(
-            getString(R.string.key_keep_running_with_foreground_service),
-            false
-        )
-        if (keepRunningWithForegroundService) {
-            val foregroundNotification = ForegroundNotification(
-                GlobalAppContext.appName + "正在运行中",
-                "点击打开【" + GlobalAppContext.appName + "】",
-                R.mipmap.ic_launcher
-            )  //定义前台服务的通知点击事件
-            { context, intent ->
-                Log.d(TAG, "foregroundNotificationClick: ");
-                val splashActivityintent = Intent(context, ScriptExecuteActivity::class.java)
-                splashActivityintent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                context!!.startActivity(splashActivityintent)
-            }
-            KeepLive.startWork(
-                this,
-                KeepLive.RunMode.ENERGY,
-                foregroundNotification,
-                AutoXKeepLiveService()
-            );
-        }
-
         if (BuildConfig.isMarket) {
             showNotification(this);
         }

@@ -142,7 +142,6 @@ dependencies {
     implementation(libs.lifecycle.livedata.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
     androidTestImplementation(libs.espresso.core)
-    implementation("com.fanjun:keeplive:1.1.22")
     implementation("com.dhh:websocket2:2.1.4")
     implementation("com.github.SenhLinsh:Utils-Everywhere:3.0.0")
     testImplementation(libs.junit)

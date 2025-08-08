@@ -1,14 +1,15 @@
 package com.stardust.autojs.core.console
 
 import android.content.Intent
-import android.graphics.Color
 import android.text.TextUtils
 import android.util.Log
+import androidx.core.graphics.toColorInt
 import com.stardust.autojs.R
 import com.stardust.autojs.annotation.ScriptInterface
 import com.stardust.autojs.runtime.ScriptRuntimeV2.Companion.getStackTrace
 import com.stardust.autojs.runtime.api.AbstractConsole
 import com.stardust.autojs.runtime.api.Console
+import com.stardust.autojs.runtime.exception.ScriptException
 import com.stardust.autojs.util.FloatingPermission
 import com.stardust.autojs.util.isUiThread
 import com.stardust.enhancedfloaty.FloatyService
@@ -41,6 +42,7 @@ open class ConsoleImpl @JvmOverloads constructor(
     val allLogs: ArrayList<LogEntry> = ArrayList()
     private val mIdCounter = AtomicInteger(0)
     private val mConsoleFloaty = ConsoleFloaty(this)
+
     @get:ScriptInterface
     val floatyWindow = ConsoleFloatyWindow(mConsoleFloaty)
 
@@ -87,7 +89,7 @@ open class ConsoleImpl @JvmOverloads constructor(
         if (TextUtils.isEmpty(color)) {
             color = "#fe14efb1"
         }
-        mConsoleFloaty.setTitle(title, Color.parseColor(color), size)
+        mConsoleFloaty.setTitle(title, color!!.toColorInt(), size)
     }
 
     fun setTitle(title: CharSequence?) {
@@ -99,30 +101,29 @@ open class ConsoleImpl @JvmOverloads constructor(
         if (TextUtils.isEmpty(color)) {
             color = "#fe14efb1"
         }
-        mConsoleFloaty.setTitle(title, Color.parseColor(color), -1)
+        mConsoleFloaty.setTitle(title, color!!.toColorInt(), -1)
     }
 
     override fun setBackground(color: String?) {
-        if (mConsoleView!!.get() == null) {
-            Log.e(ConsoleImpl::class.java.name, "设置不生效，console没创建创建 ")
-            return
-        }
-        mConsoleView!!.get()!!.setBackgroundColor(Color.parseColor(color))
+        val view = mConsoleView?.get()
+        check(view != null) { ScriptException("consoleView is null") }
+        view.setBackgroundColor(color!!.toColorInt())
     }
 
     override fun setLogSize(size: Int) {
-        mConsoleView!!.get()!!.setLogSize(size)
+        mConsoleView?.get().let {
+            check(it != null) { ScriptException("consoleView is null") }
+            it.setLogSize(size)
+        }
     }
 
     override fun setCanInput(can: Boolean) {
-        if (mConsoleView!!.get() == null) {
-            Log.e(ConsoleImpl::class.java.name, "设置不生效，console没创建创建 ")
-            return
-        }
+        val view = mConsoleView?.get()
+        check(view != null) { ScriptException("consoleView is null") }
         if (can) {
-            mConsoleView!!.get()!!.showEditText()
+            view.showEditText()
         } else {
-            mConsoleView!!.get()!!.hideEditText()
+            view.hideEditText()
         }
     }
 
