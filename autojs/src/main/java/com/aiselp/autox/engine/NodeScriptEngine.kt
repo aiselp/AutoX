@@ -38,7 +38,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import java.io.File
 import java.util.concurrent.locks.ReentrantLock
 
@@ -143,24 +142,22 @@ class NodeScriptEngine(val context: Context) :
                 if (it is V8ValuePromise)
                     it.register(resultListener)
                 else resultListener.onFulfilled(it)
-                while (scope.isActive) {
-//                    Log.d(TAG,"loop ing...")
-                    if (runtime.await(V8AwaitMode.RunNoWait) or
-                        eventLoopQueue.executeQueue() ||
-                        resultListener.result.isActive
-                    ) {
-                        Thread.sleep(1)
-                        continue
-                    } else break
-                }
             }
-            if (resultListener.result.isActive) return@runBlocking null
-            return@runBlocking withTimeout(10) {
-                val result = resultListener.await()
-                if (resultListener.isRejectedCalled) {
-                    exceptionHandling(result)
-                }
-                result
+            while (scope.isActive) {
+//                    Log.d(TAG,"loop ing...")
+                if (runtime.await(V8AwaitMode.RunNoWait) or
+                    eventLoopQueue.executeQueue()
+                ) {
+                    Thread.sleep(1)
+                    continue
+                } else break
+            }
+            if (resultListener.isFulfilledCalled) {
+                return@runBlocking resultListener.await()
+            } else if (resultListener.isRejectedCalled) {
+                exceptionHandling(resultListener.await())
+            } else {
+                return@runBlocking null
             }
         } catch (e: Throwable) {
             exceptionHandling(e)
