@@ -236,8 +236,8 @@ class NodeScriptEngine(val context: Context) :
         } catch (e: Throwable) {
             Log.w(TAG, e.stackTraceToString())
         }
-        eventLoopQueue.recycle()
         nativeApiManager.recycle(runtime, runtime.globalObject)
+        eventLoopQueue.recycle()
         if (!runtime.isClosed) {
             runtime.lowMemoryNotification()
             runtime.close()

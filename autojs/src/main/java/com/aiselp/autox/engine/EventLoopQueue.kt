@@ -9,16 +9,17 @@ import com.caoccao.javet.values.reference.V8ValueObject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
+import java.util.WeakHashMap
 
 class EventLoopQueue(val runtime: NodeRuntime) {
     private val queue = ArrayDeque<Runnable>()
     private val queueX = ArrayDeque<Runnable>()
     private var currentQueue = queue
+    private val persistentTasks = WeakHashMap<Any, Boolean>()
     private val util = runtime.getExecutor(
         """
         (()=>{
             let id = 0n;
-            let keepId
             const callbacks = new Map();
             return {
                 addCallback: function(fn){
@@ -37,35 +38,11 @@ class EventLoopQueue(val runtime: NodeRuntime) {
                     callbacks.delete(callbacks.get(id));
                     callbacks.delete(id);
                 },
-                keepRunning: function(){
-                    if (keepId)  return;
-                    keepId = setInterval(()=>{}, 1000)
-                },
-                cancelKeepRunning: function(){
-                    clearInterval(keepId)
-                }
             }
         })()
     """.trimIndent()
     ).execute<V8ValueObject>()
-
-    @Volatile
-    var isKeepRunning = false
     private val job = Job()
-
-    fun keepRunning() {
-        if (!isKeepRunning) {
-            isKeepRunning = true
-            addTask { util.invokeVoid("keepRunning", null) }
-        }
-    }
-
-    fun cancelKeepRunning() {
-        if (isKeepRunning) {
-            isKeepRunning = false
-            addTask { util.invokeVoid("cancelKeepRunning", null) }
-        }
-    }
 
     fun createV8Callback(fn: V8ValueFunction): V8Callback {
 
@@ -83,12 +60,11 @@ class EventLoopQueue(val runtime: NodeRuntime) {
         val executeQueue: ArrayDeque<Runnable>
         synchronized(this) {
             executeQueue = currentQueue
-            if (executeQueue.isEmpty()) {
-                return false
-            }
             currentQueue = if (currentQueue === queue) {
                 queueX
             } else queue
+            val isRun = executeQueue.isNotEmpty() || persistentTasks.isNotEmpty()
+            if (!isRun) return false
         }
         executeQueue.forEach { it.run() }
         executeQueue.clear()
@@ -96,12 +72,28 @@ class EventLoopQueue(val runtime: NodeRuntime) {
     }
 
     fun addTask(task: Runnable) = synchronized(this) {
-        currentQueue.add(task)
+        if (!job.isCancelled) {
+            currentQueue.add(task)
+        } else {
+            Log.w(TAG, "$this has been closed")
+        }
+    }
+
+    fun createPersistentTask(task: Any = Any()) = synchronized(this) {
+        if (!job.isCancelled) {
+            persistentTasks[task] = true
+        } else {
+            Log.w(TAG, "$this has been closed")
+        }
+        return@synchronized task
+    }
+
+    fun cancelPersistentTask(task: Any) = synchronized(this) {
+        persistentTasks.remove(task)
     }
 
     fun recycle() {
         job.cancel()
-        cancelKeepRunning()
         util.close()
     }
 

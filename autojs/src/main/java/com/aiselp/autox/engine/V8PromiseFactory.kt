@@ -5,21 +5,15 @@ import com.caoccao.javet.values.reference.V8ValueFunction
 import com.caoccao.javet.values.reference.V8ValueObject
 import com.caoccao.javet.values.reference.V8ValuePromise
 
-class V8PromiseFactory(val runtime: V8Runtime,  val eventLoopQueue: EventLoopQueue) {
+class V8PromiseFactory(val runtime: V8Runtime, val eventLoopQueue: EventLoopQueue) {
     private val executor = runtime.getExecutor(
         """
         (()=>{
             const adapter = {};
          
             adapter.promise = new Promise(function(resolve, reject) {
-                adapter.resolve = (r)=>{
-                    resolve(r)
-                    
-                }
-                adapter.reject = (r)=>{
-                    reject(r)
-                    
-                }
+                adapter.resolve = resolve          
+                adapter.reject = reject
             })
             return adapter
         })()
@@ -30,29 +24,53 @@ class V8PromiseFactory(val runtime: V8Runtime,  val eventLoopQueue: EventLoopQue
         return PromiseAdapter(executor.execute(), eventLoopQueue)
     }
 
-    class PromiseAdapter(
+    fun newKeepRunningPromiseAdapter(): KeepRunningPromiseAdapter {
+        return KeepRunningPromiseAdapter(executor.execute(), eventLoopQueue)
+    }
+
+    class KeepRunningPromiseAdapter(
+        adapter: V8ValueObject,
+        val eventLoopQueue: EventLoopQueue
+    ) : PromiseAdapter(adapter, eventLoopQueue) {
+        val task = Any()
+
+        init {
+            eventLoopQueue.createPersistentTask(task)
+        }
+
+        override fun resolve(arg: Any?) {
+            super.resolve(arg)
+            eventLoopQueue.cancelPersistentTask(task)
+        }
+        override fun reject(arg: Any?) {
+            super.reject(arg)
+            eventLoopQueue.cancelPersistentTask(task)
+        }
+    }
+
+    open class PromiseAdapter(
         private val adapter: V8ValueObject,
         private val eventLoopQueue: EventLoopQueue
-    ):AutoCloseable {
-        @Volatile
-        private var promiseStatus = PENDING
+    ) : AutoCloseable {
         val promise: V8ValuePromise
             get() = adapter.get("promise")
-        fun resolve(arg: Any?) {
+
+        @Volatile
+        private var promiseStatus = PENDING
+
+        open fun resolve(arg: Any?) {
             if (promiseStatus != PENDING) {
                 return
             }
-
             eventLoopQueue.addTask {
                 val resolve = adapter.get<V8ValueFunction>("resolve")
                 resolve.use { it.callVoid(null, arg) }
                 close()
             }
             promiseStatus = FULFILLED
-
         }
 
-        fun reject(arg: Any?) {
+        open fun reject(arg: Any?) {
             if (promiseStatus != PENDING) {
                 return
             }
@@ -71,7 +89,7 @@ class V8PromiseFactory(val runtime: V8Runtime,  val eventLoopQueue: EventLoopQue
         }
 
         override fun close() {
-            adapter.close()
+            promise.close()
         }
     }
 }

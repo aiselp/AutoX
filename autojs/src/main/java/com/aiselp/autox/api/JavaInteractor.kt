@@ -2,6 +2,7 @@ package com.aiselp.autox.api
 
 import android.util.Log
 import com.aiselp.autox.engine.V8PromiseFactory
+import com.aiselp.autox.utils.Members
 import com.caoccao.javet.annotations.V8Function
 import com.caoccao.javet.interop.V8Runtime
 import com.caoccao.javet.interop.converters.JavetObjectConverter
@@ -15,8 +16,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlin.reflect.full.createType
-import kotlin.reflect.full.isSupertypeOf
 
 
 class JavaInteractor(
@@ -38,7 +37,7 @@ class JavaInteractor(
         con: CoroutineDispatcher,
         func: () -> Any?,
     ): V8ValuePromise {
-        val promiseAdapter = promiseFactory.newPromiseAdapter()
+        val promiseAdapter = promiseFactory.newKeepRunningPromiseAdapter()
         val promise = promiseAdapter.promise
         scope.launch(con) {
             try {
@@ -97,33 +96,16 @@ class JavaInteractor(
     private fun findMethod(args: List<V8Value?>): () -> Any? {
         val argList = args.map { converter.toObject<Any?>(it) }
         Log.i(TAG, "invoke  $args")
-        check(argList.size >= 3) { ScriptException("invoke args size must >= 3") }
-        val javaObj = argList[0] as Any
-        val methodName = argList[1] as String
-        val javaArgs = (argList[2] as List<*>)
-        val argTpyes = javaArgs.map { it?.let { it::class.createType() } }
-        val method = javaObj::class.members.find {
-            if (it.name == methodName) {
-                val parameterTypes = it.parameters
-                if (parameterTypes.size - 1 != argTpyes.size) return@find false
-                if (parameterTypes.size == 1) return@find true
-
-                for ((i, param) in parameterTypes.withIndex()) {
-                    if (i == 0) {
-                        //检查是否实例方法
-                        if (!param.type.isSupertypeOf(javaObj::class.createType()))
-                            return@find false
-                        continue
-                    }
-
-                    val argType = argTpyes[i - 1] ?: if (param.type.isMarkedNullable) continue
-                    else return@find false
-                    if (!param.type.isSupertypeOf(argType)) return@find false
-                }
-                true
-            } else false
-        }
-        checkNotNull(method) { ScriptException("method not found ${javaObj.javaClass.name}$${methodName} args: $argTpyes") }
+        val javaObj = argList.getOrNull(0)
+        check(javaObj != null) { ScriptException("javaObj is null") }
+        check(javaObj !is V8Value) { ScriptException("javaObj must not be a V8Value, but was ${javaObj.javaClass.name}") }
+        val methodName = argList.getOrNull(1)
+        check(methodName is String) { ScriptException("methodName must be a String, but was ${methodName?.javaClass?.name ?: "null"}") }
+        val javaArgs = argList.getOrNull(2)
+        check(javaArgs is List<*>) { ScriptException("javaArgs must be a List, but was ${javaArgs?.javaClass?.name ?: "null"}") }
+        val argTpyes = javaArgs.map { it?.let { it::class } }
+        val method = Members.findMethod(javaObj::class, methodName, argTpyes)
+        checkNotNull(method) { ScriptException("method not found ${javaObj::class.qualifiedName}$${methodName} (${argTpyes.joinToString()})") }
         return { method.call(javaObj, *(javaArgs.toTypedArray())) }
     }
 
