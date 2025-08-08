@@ -17,14 +17,12 @@ import com.stardust.autojs.core.image.capture.ScreenCaptureManager
 import com.stardust.autojs.core.image.capture.ScreenCaptureRequester
 import com.stardust.autojs.core.record.accessibility.AccessibilityActionRecorder
 import com.stardust.autojs.core.shizuku.ShizukuClient
-import com.stardust.autojs.core.util.Shell
 import com.stardust.autojs.engine.LoopBasedJavaScriptEngine
 import com.stardust.autojs.engine.RootAutomatorEngine
 import com.stardust.autojs.engine.ScriptEngineManager
 import com.stardust.autojs.rhino.AndroidContextFactory
 import com.stardust.autojs.runtime.ScriptRuntimeV2
 import com.stardust.autojs.runtime.accessibility.AccessibilityConfig
-import com.stardust.autojs.runtime.api.AbstractShell
 import com.stardust.autojs.runtime.api.AppUtils
 import com.stardust.autojs.script.AutoFileSource
 import com.stardust.autojs.script.JavaScriptSource
@@ -33,7 +31,6 @@ import com.stardust.util.ResourceMonitor
 import com.stardust.util.ResourceMonitor.UnclosedResourceDetectedException
 import com.stardust.util.ResourceMonitor.UnclosedResourceException
 import com.stardust.util.ScreenMetrics
-import com.stardust.util.Supplier
 import com.stardust.util.UiHandler
 import com.stardust.view.accessibility.AccessibilityNotificationObserver
 import com.stardust.view.accessibility.AccessibilityService
@@ -140,7 +137,6 @@ abstract class AutoJs protected constructor(protected val application: Applicati
             it.uiHandler = uiHandler
             it.appUtils = appUtils
             it.engineService = scriptEngineService
-            it.shellSupplier = Supplier<AbstractShell> { Shell(mContext, true) }
         }
     }
 

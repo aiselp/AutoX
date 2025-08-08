@@ -3,14 +3,12 @@ package com.stardust.autojs.core.activity
 import android.accessibilityservice.AccessibilityService
 import android.app.AppOpsManager
 import android.app.usage.UsageStatsManager
-import android.content.ComponentName
 import android.content.Context
 import android.content.pm.PackageManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityWindowInfo
 import com.stardust.app.isOpPermissionGranted
-import com.stardust.autojs.core.util.Shell
 import com.stardust.view.accessibility.AccessibilityDelegate
 import java.util.regex.Pattern
 
@@ -27,16 +25,9 @@ class ActivityInfoProvider(private val context: Context) : AccessibilityDelegate
 
     @Volatile
     private var mLatestActivity: String = ""
-    private var mLatestComponentFromShell: ComponentName? = null
-
-    private var mShell: Shell? = null
 
     val latestPackage: String
         get() {
-            val compFromShell = mLatestComponentFromShell
-            if (useShell && compFromShell != null) {
-                return compFromShell.packageName
-            }
             if (useUsageStats) {
                 mLatestPackage = getLatestPackageByUsageStats()
             }
@@ -45,25 +36,13 @@ class ActivityInfoProvider(private val context: Context) : AccessibilityDelegate
 
     val latestActivity: String
         get() {
-            val compFromShell = mLatestComponentFromShell
-            if (useShell && compFromShell != null) {
-                return compFromShell.className
-            }
             return mLatestActivity
         }
 
     var useUsageStats: Boolean = false
 
+    @Deprecated("shell相关命令不存在")
     var useShell: Boolean = false
-        set(value) {
-            if (value) {
-                if (mShell == null) mShell = createShell(200)
-            } else {
-                mShell?.exit()
-                mShell = null
-            }
-            field = value
-        }
 
     override val eventTypes: Set<Int>? = AccessibilityDelegate.ALL_EVENT_TYPES
 
@@ -85,50 +64,6 @@ class ActivityInfoProvider(private val context: Context) : AccessibilityDelegate
             return getLatestPackageByUsageStats()
         }
         return mLatestPackage
-    }
-
-    private fun setLatestComponentFromShellOutput(output: String) {
-        val matcher = WINDOW_PATTERN.matcher(output)
-        if (!matcher.find() || matcher.groupCount() < 1) {
-            Log.w(LOG_TAG, "invalid format: $output")
-            return
-        }
-        val latestPackage = matcher.group(1)
-        if (latestPackage.contains(":")) {
-            return
-        }
-        val latestActivity = if (matcher.groupCount() >= 2) {
-            matcher.group(2).orEmpty()
-        } else {
-            ""
-        }
-        Log.d(
-            LOG_TAG,
-            "setLatestComponent: output = $output, comp = $latestPackage/$latestActivity"
-        )
-        mLatestComponentFromShell = ComponentName(latestPackage, latestActivity)
-    }
-
-    private fun createShell(dumpInterval: Int): Shell {
-        val shell = Shell(true)
-        shell.setCallback(object : Shell.Callback {
-            override fun onOutput(str: String) {
-
-            }
-
-            override fun onNewLine(line: String) {
-                setLatestComponentFromShellOutput(line)
-            }
-
-            override fun onInitialized() {
-            }
-
-            override fun onInterrupted(e: InterruptedException) {
-
-            }
-        })
-        shell.exec(DUMP_WINDOW_COMMAND.format(dumpInterval))
-        return shell
     }
 
     fun getLatestPackageByUsageStats(): String {
@@ -178,18 +113,6 @@ class ActivityInfoProvider(private val context: Context) : AccessibilityDelegate
     companion object {
         private val WINDOW_PATTERN =
             Pattern.compile("Window\\{\\S+\\s\\S+\\s([^\\/]+)\\/?([^}]+)?\\}")
-        private val DUMP_WINDOW_COMMAND = """
-            oldActivity=""
-            currentActivity=`dumpsys window windows | grep -E 'mCurrentFocus'`
-            while true
-            do
-                if [[ ${'$'}oldActivity != ${'$'}currentActivity && ${'$'}currentActivity != *"=null"* ]]; then
-                    echo ${'$'}currentActivity
-                    oldActivity=${'$'}currentActivity
-                fi
-                currentActivity=`dumpsys window windows | grep -E 'mCurrentFocus'`
-            done
-        """.trimIndent()
 
         private const val LOG_TAG = "ActivityInfoProvider"
     }

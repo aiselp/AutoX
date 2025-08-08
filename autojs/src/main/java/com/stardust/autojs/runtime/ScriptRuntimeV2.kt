@@ -11,7 +11,6 @@ import com.stardust.autojs.core.image.capture.ScreenCaptureRequester
 import com.stardust.autojs.core.looper.Loopers
 import com.stardust.autojs.rhino.AndroidClassLoader
 import com.stardust.autojs.rhino.TopLevelScope
-import com.stardust.autojs.runtime.api.AbstractShell
 import com.stardust.autojs.runtime.api.AppUtils
 import com.stardust.autojs.runtime.api.Console
 import com.stardust.autojs.runtime.api.ConsoleExtension
@@ -30,7 +29,6 @@ import com.stardust.autojs.util.ObjectWatcher
 import com.stardust.autojs.util.runOnUiThread
 import com.stardust.pio.UncheckedIOException
 import com.stardust.util.ClipboardUtil
-import com.stardust.util.Supplier
 import com.stardust.util.UiHandler
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
@@ -142,7 +140,6 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
         var uiHandler: UiHandler? = null
         var console: Console? = null
         var accessibilityBridge: AccessibilityBridge? = null
-        var shellSupplier: Supplier<AbstractShell>? = null
         var screenCaptureRequester: ScreenCaptureRequester? = null
         var appUtils: AppUtils? = null
         var engineService: ScriptEngineService? = null

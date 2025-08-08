@@ -35,7 +35,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         return performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.LOLLIPOP)
     fun powerDialog(): Boolean {
         return performGlobalAction(AccessibilityService.GLOBAL_ACTION_POWER_DIALOG)
     }
@@ -125,7 +124,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
     /**
      * Action to trigger dpad up keyevent.
      */
-//    @RequiresApi(Build.VERSION_CODES.Tiramisu)
     fun dpadUp(): Boolean {
 //        return performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_UP)
         // TODO: 待适配Api Tiramisu
@@ -135,7 +133,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
     /**
      * Action to trigger dpad down keyevent.
      */
-//    @RequiresApi(Build.VERSION_CODES.Tiramisu)
     fun dpadDown(): Boolean {
 //        return performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_DOWN)
         // TODO: 待适配Api Tiramisu
@@ -145,7 +142,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
     /**
      * Action to trigger dpad right keyevent.
      */
-//    @RequiresApi(Build.VERSION_CODES.Tiramisu)
     fun dpadRight(): Boolean {
 //        return performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_RIGHT)
         // TODO: 待适配Api Tiramisu
@@ -155,7 +151,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
     /**
      * Action to trigger dpad left keyevent.
      */
-//    @RequiresApi(Build.VERSION_CODES.Tiramisu)
     fun dpadLeft(): Boolean {
 //        return performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_LEFT)
         // TODO: 待适配Api Tiramisu
@@ -165,19 +160,16 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
     /**
      * Action to trigger dpad center keyevent.
      */
-//    @RequiresApi(Build.VERSION_CODES.Tiramisu)
     fun dpadCenter(): Boolean {
 //        return performGlobalAction(AccessibilityService.GLOBAL_ACTION_DPAD_CENTER)
         // TODO: 待适配Api Tiramisu
         return false
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun splitScreen(): Boolean {
         return performGlobalAction(AccessibilityService.GLOBAL_ACTION_TOGGLE_SPLIT_SCREEN)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun gesture(start: Long, duration: Long, vararg points: IntArray): Boolean {
         val path = pointsToPath(points)
         return gestures(GestureDescription.StrokeDescription(path, start, duration))
@@ -193,13 +185,11 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         return path
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun gestureAsync(start: Long, duration: Long, vararg points: IntArray) {
         val path = pointsToPath(points)
         gesturesAsync(GestureDescription.StrokeDescription(path, start, duration))
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun gestures(vararg strokes: GestureDescription.StrokeDescription): Boolean {
         val builder = GestureDescription.Builder()
         for (stroke in strokes) {
@@ -213,7 +203,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private fun gesturesWithHandler(handler: Handler, description: GestureDescription): Boolean {
         val result = VolatileDispose<Boolean>()
         service.dispatchGesture(description, object : AccessibilityService.GestureResultCallback() {
@@ -228,7 +217,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         return result.blockedGet()
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     private fun gesturesWithoutHandler(description: GestureDescription): Boolean {
         prepareLooperIfNeeded()
         val result = VolatileBox(false)
@@ -248,7 +236,6 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         return result.get()
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun gesturesAsync(vararg strokes: GestureDescription.StrokeDescription) {
         val builder = GestureDescription.Builder()
         for (stroke in strokes) {
@@ -268,30 +255,26 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun click(x: Int, y: Int): Boolean {
         return press(x, y, ViewConfiguration.getTapTimeout() + 50)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun press(x: Int, y: Int, delay: Int): Boolean {
         return gesture(0, delay.toLong(), intArrayOf(x, y))
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun longClick(x: Int, y: Int): Boolean {
         return gesture(0, (ViewConfiguration.getLongPressTimeout() + 200).toLong(), intArrayOf(x, y))
     }
 
     private fun scaleX(x: Int): Int {
-        return ScreenMetrics.scaleX(x) ?: x
+        return ScreenMetrics.scaleX(x)
     }
 
     private fun scaleY(y: Int): Int {
-        return ScreenMetrics.scaleX(y) ?: y
+        return ScreenMetrics.scaleX(y)
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.N)
     fun swipe(x1: Int, y1: Int, x2: Int, y2: Int, delay: Long): Boolean {
         return gesture(0, delay, intArrayOf(x1, y1), intArrayOf(x2, y2))
     }
