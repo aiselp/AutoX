@@ -147,6 +147,16 @@ class V6ScriptTest {
         resultViewer.waitForSuccess()
     }
 
+    @Test
+    fun java_type(): Unit = runBlocking {
+        val resultViewer = ScriptResultViewer()
+        getScriptEngineService().execute(
+            openScriptSource("java_type.js"),
+            resultViewer,
+        )
+        resultViewer.waitForSuccess()
+    }
+
     companion object {
         const val v6AccessDir = "v6_test_script"
 

@@ -1,6 +1,6 @@
 
 import { EventEmitter } from 'node:events'
-import { xml, Component, ModifierExtension, defineComponent, createApp, ref, reactive } from '@/vue-ui'
+import { xml, Component, defineComponent, createApp, ref, reactive } from '@/vue-ui'
 import { nodeOps } from '@/vue-ui/nodeOps'
 import {
     createDialogContent, DialogBuilderOptions,
@@ -12,7 +12,7 @@ import DialogFactory from './DialogFactory'
 const dialogs = Autox.dialogs
 type DialogOps = dialogs.DialogOps
 export type DialogType = 'app' | 'overlay' | DialogFactory
-export const defaultDialogType: DialogType = 'app'
+export let defaultDialogType: DialogType = 'app'
 
 
 export function showAppDialog(comp: Component, ops?: DialogOps) {

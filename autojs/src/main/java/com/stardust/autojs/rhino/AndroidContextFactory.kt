@@ -87,10 +87,13 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
     }
 
     open class WrapFactory : org.mozilla.javascript.WrapFactory() {
+        init {
+            isJavaPrimitiveWrap = false
+        }
+
         override fun wrap(cx: Context, scope: Scriptable, obj: Any?, staticType: Class<*>?): Any? {
             return when (obj) {
                 is UiObject -> UiObjectProxy(obj)
-                is String -> bridges.toString(obj)
                 is UiObjectCollection -> bridges.asArray(obj)
                 else -> super.wrap(cx, scope, obj, staticType)
             }

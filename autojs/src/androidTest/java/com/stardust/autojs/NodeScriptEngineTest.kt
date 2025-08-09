@@ -1,7 +1,7 @@
 package com.stardust.autojs
 
 import androidx.test.core.app.ApplicationProvider
-import androidx.test.runner.AndroidJUnit4
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.aiselp.autox.engine.NodeScriptSource
 import org.junit.Test
 import org.junit.runner.RunWith
