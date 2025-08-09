@@ -16,13 +16,13 @@ internal object Slider : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val enabled = element.props["enabled"] as? Boolean
-        val value = parseFloat(element.props["value"])
-        val steps = parseFloat(element.props["steps"])?.toInt()
+        val enabled: Boolean? = element.getProp("enabled")
+        val value = parseFloat(element.getProp("value"))
+        val steps = parseFloat(element.getProp("steps"))?.toInt()
         val onValueChangeFinished = element.getEvent("onValueChangeFinished")
         val onValueChange = element.getEvent("onValueChange")
-        val min = parseFloat(element.props["min"])
-        val max = parseFloat(element.props["max"])
+        val min = parseFloat(element.getProp("min"))
+        val max = parseFloat(element.getProp("max"))
         val valueRange = if (max != null && min != null) min..max else 0f..1f
 
         Slider(

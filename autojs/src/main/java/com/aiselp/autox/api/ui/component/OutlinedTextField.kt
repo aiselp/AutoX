@@ -16,7 +16,7 @@ import com.aiselp.autox.api.ui.component.TextField.parseKeyboardOptions
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.yield
 
-internal object OutlinedTextField:VueNativeComponent {
+internal object OutlinedTextField : VueNativeComponent {
     override val tag: String = "OutlinedTextField"
 
     @Composable
@@ -26,74 +26,74 @@ internal object OutlinedTextField:VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val value = remember { mutableStateOf("") }
-        LaunchedEffect(element.props["value"]) {
+        LaunchedEffect(element.getProp("value")) {
             delay(100)
             yield()
-            value.value = element.props["value"] as? String ?: ""
+            value.value = element.getProp("value") ?: ""
         }
         val onValueChange = element.getEvent("onValueChange")
-        val enabled = element.props["enabled"] as? Boolean
-        val readOnly = element.props["readOnly"] as? Boolean
+        val enabled: Boolean? = element.getProp("enabled")
+        val readOnly: Boolean? = element.getProp("readOnly")
         val label = element.findTemplate("label") ?: run {
-            element.props["label"]?.let {
+            element.getProp<Any>("label")?.let {
                 ComposeElement("text").apply {
-                    props["text"] = it
+                    setProp("text", it)
                 }
             }
         }
         val keyboardOptions = parseKeyboardOptions(element)
-        val isError = element.props["isError"] as? Boolean
-        val singleLine = element.props["singleLine"] as? Boolean
+        val isError: Boolean? = element.getProp("isError")
+        val singleLine: Boolean? = element.getProp("singleLine")
         val placeholder = element.findTemplate("placeholder") ?: run {
-            element.props["placeholder"]?.let {
+            element.getProp<Any>("placeholder")?.let {
                 ComposeElement("text").apply {
-                    props["text"] = it
+                    setProp("text", it)
                 }
             }
         }
         val supportingText = element.findTemplate("supportingText") ?: run {
-            element.props["supportingText"]?.let {
+            element.getProp<Any>("supportingText")?.let {
                 ComposeElement("text").apply {
-                    props["text"] = it
+                    setProp("text", it)
                 }
             }
         }
         val leadingIcon = element.findTemplate("leadingIcon") ?: run {
-            element.props["leadingIcon"]?.let {
+            element.getProp<Any>("leadingIcon")?.let {
                 ComposeElement("Icon").apply {
-                    props["src"] = it
-                    props["tint"] = MaterialTheme.colorScheme.primary
+                    setProp("src", it)
+                    setProp("tint", MaterialTheme.colorScheme.primary)
                 }
             }
         }
         KeyboardOptions()
         val trailingIcon = element.findTemplate("trailingIcon") ?: run {
-            element.props["trailingIcon"]?.let {
+            element.getProp<Any>("trailingIcon")?.let {
                 ComposeElement("Icon").apply {
-                    props["src"] = it
-                    props["tint"] = MaterialTheme.colorScheme.primary
+                    setProp("src", it)
+                    setProp("tint", MaterialTheme.colorScheme.primary)
                 }
             }
         }
         val prefix = element.findTemplate("prefix") ?: run {
-            element.props["prefix"]?.let {
+            element.getProp<Any>("prefix")?.let {
                 ComposeElement("text").apply {
-                    props["text"] = it
+                    setProp("text", it)
                 }
             }
         }
         val suffix = element.findTemplate("suffix") ?: run {
-            element.props["suffix"]?.let {
+            element.getProp<Any>("suffix")?.let {
                 ComposeElement("text").apply {
-                    props["text"] = it
+                    setProp("text", it)
                 }
             }
         }
-        val visualTransformation = if (element.props["keyboardType"] == "password") {
+        val visualTransformation = if (element.getProp<Any>("keyboardType") == "password") {
             PasswordVisualTransformation()
         } else VisualTransformation.None
-        val maxLines = element.props["maxLines"] as? Int
-        val minLines = element.props["minLines"] as? Int
+        val maxLines: Int? = element.getProp("maxLines")
+        val minLines: Int? = element.getProp("minLines")
         OutlinedTextField(
             value = value.value,
             onValueChange = { value.value = it;onValueChange?.invoke(it) },

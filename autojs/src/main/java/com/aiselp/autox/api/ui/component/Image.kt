@@ -20,10 +20,10 @@ internal object Image : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val src = element.props["src"]
-        val alpha = parseFloat(element.props["alpha"]) ?: DefaultAlpha
-        val alignment = parseAlignment(element.props["alignment"] as? String) ?: Alignment.Center
-        val contentDescription = element.props["contentDescription"] as? String
+        val src = element.getProp<Any>("src")
+        val alpha = parseFloat(element.getProp("alpha")) ?: DefaultAlpha
+        val alignment = parseAlignment(element.getProp("alignment")) ?: Alignment.Center
+        val contentDescription: String? = element.getProp("contentDescription")
         val model = if (src is String) {
             parseDrawable(src)?.let {
                 painterResource(it)
@@ -50,7 +50,7 @@ internal object Image : VueNativeComponent {
                 model = model,
                 contentDescription = contentDescription,
                 modifier = modifier,
-                contentScale = parseContentScale(element.props["contentScale"] as? String),
+                contentScale = parseContentScale(element.getProp("contentScale")),
                 alpha = alpha,
                 alignment = alignment,
             )

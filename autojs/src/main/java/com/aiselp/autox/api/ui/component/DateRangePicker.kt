@@ -20,7 +20,7 @@ internal object DateRangePicker : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val yearRange = element.props["yearRange"]?.let {
+        val yearRange = element.getProp<Any>("yearRange")?.let {
             if (it is List<*>) {
                 val min = it.getOrNull(0) as? Int
                 val max = it.getOrNull(1) as? Int
@@ -36,13 +36,13 @@ internal object DateRangePicker : VueNativeComponent {
         LaunchedEffect(Unit) {
             element.getEvent("onRender")?.invoke(state)
         }
-        val showModeToggle = element.props["showModeToggle"] as? Boolean ?: true
+        val showModeToggle = element.getProp("showModeToggle") ?: true
 
         val title = element.findTemplate("title") ?: run {
-            element.props["title"]?.let {
-                val el = ComposeElement("text")
-                el.props["text"] = element.props["title"]
-                el
+            element.getProp<Any>("title")?.let {
+                ComposeElement("text").apply {
+                    setProp("text", element.getProp("title"))
+                }
             }
         }
         if (title != null) {

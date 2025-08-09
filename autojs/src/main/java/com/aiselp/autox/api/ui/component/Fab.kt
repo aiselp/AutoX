@@ -17,7 +17,7 @@ internal object Fab : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val onClick = element.getEvent("onClick")
-        val size = element.props["size"] as? String
+        val size: String? = element.getProp("size")
         when (size) {
             "small" -> SmallFloatingActionButton(
                 modifier = modifier,

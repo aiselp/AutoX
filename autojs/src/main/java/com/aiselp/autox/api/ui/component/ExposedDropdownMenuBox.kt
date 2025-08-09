@@ -18,7 +18,7 @@ internal object ExposedDropdownMenuBox : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val expanded = element.props["expanded"] as? Boolean ?: false
+        val expanded: Boolean = element.getProp("expanded") ?: false
         ExposedDropdownMenuBox(
             expanded = expanded,
             onExpandedChange = { element.getEvent("onExpandedChange")?.invoke(it) },

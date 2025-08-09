@@ -17,11 +17,11 @@ internal object FlowRow : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val maxItemsInEachRow = element.props["maxItemsInEachRow"] as? Int
+        val maxItemsInEachRow: Int? = element.getProp("maxItemsInEachRow")
         FlowRow(
             modifier = modifier,
-            verticalArrangement = parseVerticalArrangement(element.props["verticalArrangement"] as? String),
-            horizontalArrangement = parseHorizontalArrangement(element.props["horizontalArrangement"] as? String),
+            verticalArrangement = parseVerticalArrangement(element.getProp("verticalArrangement")),
+            horizontalArrangement = parseHorizontalArrangement(element.getProp("horizontalArrangement")),
             maxItemsInEachRow = maxItemsInEachRow ?: Int.MAX_VALUE
         ) {
             element.children.forEach {

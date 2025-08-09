@@ -25,10 +25,10 @@ internal object MaterialTheme : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val lightColorScheme = element.props["lightColorScheme"] as? ColorScheme
-        val darkColorScheme = element.props["darkColorScheme"] as? ColorScheme
-        val dynamicColor = element.props["dynamicColor"] as? Boolean ?: false
-        val dark = when (element.props["dark"]) {
+        val lightColorScheme: ColorScheme? = element.getProp("lightColorScheme")
+        val darkColorScheme: ColorScheme? = element.getProp("darkColorScheme")
+        val dynamicColor = element.getProp("dynamicColor") ?: false
+        val dark = when (element.getProp<Any>("dark")) {
             true -> true
             false -> false
             else -> isSystemInDarkTheme()
@@ -40,7 +40,7 @@ internal object MaterialTheme : VueNativeComponent {
             if (dark) darkColorScheme else lightColorScheme
         } ?: MaterialTheme.colorScheme
 
-        val statusBarColor = parseColor(element.props["statusBarColor"])
+        val statusBarColor = parseColor(element.getProp("statusBarColor"))
         val view = LocalView.current
         if (!view.isInEditMode) {
             SideEffect {

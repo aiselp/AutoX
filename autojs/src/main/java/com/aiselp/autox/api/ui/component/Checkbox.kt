@@ -16,17 +16,17 @@ internal object Checkbox : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val status = when (element.props["status"] as? String) {
+        val status = when (element.getProp<String>("status")) {
             null -> null
             "on" -> ToggleableState.On
             "off" -> ToggleableState.Off
             "indeterminate" -> ToggleableState.Indeterminate
             else -> null
         }
-        val checked = element.props["checked"] as? Boolean
+        val checked: Boolean? = element.getProp("checked")
         val onCheckedChange = element.getEvent("onCheckedChange")
         val onClick = element.getEvent("onClick")
-        val enabled = element.props["enabled"] as? Boolean
+        val enabled: Boolean? = element.getProp("enabled")
         if (status != null) {
             TriStateCheckbox(
                 state = status,

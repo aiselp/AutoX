@@ -20,9 +20,9 @@ internal object Icon : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val contentDescription = element.props["contentDescription"] as? String
-        val src = element.props["src"]
-        val tint = parseColor(element.props["tint"]) ?: LocalContentColor.current
+        val contentDescription: String? = element.getProp("contentDescription")
+        val src = element.getProp<Any>("src")
+        val tint = parseColor(element.getProp("tint")) ?: LocalContentColor.current
         when (src) {
             is ImageVector -> Icon(
                 modifier = modifier,

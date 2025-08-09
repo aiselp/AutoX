@@ -22,32 +22,32 @@ internal object Chip : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val type = element.props["type"] as? String
-        val style = element.props["style"] as? String
-        val enabled = (element.props["enabled"] as? Boolean) ?: true
-        val selected = (element.props["selected"] as? Boolean) ?: false
+        val type: String? = element.getProp("type")
+        val style: String? = element.getProp("style")
+        val enabled: Boolean = element.getProp("enabled") ?: true
+        val selected: Boolean = element.getProp("selected") ?: false
         val onClick = element.getEvent("onClick")
         val label = element.findTemplate("label") ?: run {
-            ComposeTextNode((element.props["label"] as? String) ?: "")
+            ComposeTextNode(element.getProp("label") ?: "")
         }
         val leadingIcon = element.findTemplate("leadingIcon") ?: run {
-            if (element.props["leadingIcon"] != null) {
+            if (element.getProp<Any>("leadingIcon") != null) {
                 ComposeElement(Icon.tag).apply {
-                    props["src"] = element.props["leadingIcon"]
+                    setProp("src", element.getProp("leadingIcon"))
                 }
             } else null
         }
         val trailingIcon = element.findTemplate("trailingIcon") ?: run {
-            if (element.props["trailingIcon"] != null) {
+            if (element.getProp<Any>("trailingIcon") != null) {
                 ComposeElement(Icon.tag).apply {
-                    props["src"] = element.props["trailingIcon"]
+                    setProp("src", element.getProp("trailingIcon"))
                 }
             } else null
         }
         val icon = element.findTemplate("'icon'") ?: run {
-            if (element.props["icon"] != null) {
+            if (element.getProp<Any>("icon") != null) {
                 ComposeElement(Icon.tag).apply {
-                    props["src"] = element.props["icon"]
+                    setProp("src", element.getProp("icon"))
                 }
             } else null
         }
@@ -104,9 +104,9 @@ internal object Chip : VueNativeComponent {
 
             "input" -> kotlin.run {
                 val avatar = element.findTemplate("avatar") ?: run {
-                    if (element.props["avatar"] != null) {
+                    if (element.getProp<Any>("avatar") != null) {
                         ComposeElement(Icon.tag).apply {
-                            props["src"] = element.props["avatar"]
+                            setProp("src", element.getProp("avatar"))
                         }
                     } else null
                 }

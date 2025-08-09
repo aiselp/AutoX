@@ -15,7 +15,7 @@ internal object IconButton : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val onClick = element.getEvent("onClick")
-        val enabled = element.props["enabled"] as? Boolean
+        val enabled: Boolean? = element.getProp("enabled")
         IconButton(
             onClick = { onClick?.invoke() },
             modifier = modifier,

@@ -15,7 +15,7 @@ internal object View : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val view = element.props["view"] as? View
+        val view = element.getProp("view") as? View
         val update = element.getEvent("update")
         if (update != null) {
             AndroidView(modifier = modifier, factory = {

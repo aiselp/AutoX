@@ -17,8 +17,8 @@ internal object Column : VueNativeComponent {
     ) {
         Column(
             modifier = modifier,
-            verticalArrangement = parseVerticalArrangement(element.props["verticalArrangement"] as? String),
-            horizontalAlignment = parseHorizontalAlignment(element.props["horizontalAlignment"] as? String)
+            verticalArrangement = parseVerticalArrangement(element.getProp("verticalArrangement")),
+            horizontalAlignment = parseHorizontalAlignment(element.getProp("horizontalAlignment"))
         ) {
             element.children.forEach {
                 RenderColumn(element = it)

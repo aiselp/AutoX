@@ -19,23 +19,23 @@ internal object Tab : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val type = element.props["type"] as? String
-        val enabled = element.props["enabled"] as? Boolean ?: true
-        val selected = element.props["selected"] as? Boolean ?: false
+        val type: String? = element.getProp("type")
+        val enabled: Boolean = element.getProp("enabled") ?: true
+        val selected: Boolean = element.getProp("selected") ?: false
         val onClick = element.getEvent("onClick")
-        val selectedContentColor = parseColor(element.props["selectedContentColor"])
+        val selectedContentColor = parseColor(element.getProp("selectedContentColor"))
             ?: LocalContentColor.current
         val unselectedContentColor =
-            parseColor(element.props["unselectedContentColor"]) ?: selectedContentColor
+            parseColor(element.getProp("unselectedContentColor")) ?: selectedContentColor
         val text = element.findTemplate("text") ?: kotlin.run {
-            if (element.props["text"] != null) {
-                ComposeTextNode(element.props["text"] as? String ?: "")
+            if (element.getProp<String>("text") != null) {
+                ComposeTextNode(element.getProp("text") ?: "")
             } else null
         }
         val icon = element.findTemplate("icon") ?: kotlin.run {
-            if (element.props["icon"] != null) {
+            if (element.getProp<Any>("icon") != null) {
                 ComposeElement(Icon.tag).apply {
-                    props["src"] = element.props["icon"]
+                    setProp("src", element.getProp("icon"))
                 }
             } else null
         }

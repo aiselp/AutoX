@@ -63,9 +63,9 @@ export function myEngine(): ScriptEngineProxy {
  * @param ops 
  * @returns 
  */
-export function execScriptFile(path: string, ops: ExecutionConfigOptions) {
+export function execScriptFile(path: string, ops?: ExecutionConfigOptions) {
+    const executionConfig = engines.createExecutionConfig()
     if (ops) {
-        const executionConfig = engines.createExecutionConfig()
         if (ops.workingDirectory) {
             executionConfig.workingDirectory = ops.workingDirectory
         }
@@ -83,8 +83,10 @@ export function execScriptFile(path: string, ops: ExecutionConfigOptions) {
                 ops.onException?.(args[0] as ScriptExecution, args[1])
             }
         })
+    } else {
+        executionConfig.workingDirectory = process.cwd()
+        return engines.execScriptFile(path, executionConfig, null)
     }
-    return engines.execScriptFile(path, null, null)
 }
 /**
  * 停止所有运行中的脚本，包括自身

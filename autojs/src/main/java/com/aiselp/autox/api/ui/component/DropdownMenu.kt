@@ -15,7 +15,7 @@ internal object DropdownMenu : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val expanded = element.props["expanded"] as? Boolean
+        val expanded: Boolean? = element.getProp("expanded")
         val onDismissRequest = element.getEvent("onDismissRequest")
         DropdownMenu(
             modifier = modifier,

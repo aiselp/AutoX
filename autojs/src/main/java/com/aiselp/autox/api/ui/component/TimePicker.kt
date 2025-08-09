@@ -21,8 +21,8 @@ internal object TimePicker : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val initialTime = (element.props["initialTime"] as? String)?.split(":")
-        val is24Hour = element.props["is24Hour"] as? Boolean
+        val initialTime = (element.getProp<String>("initialTime"))?.split(":")
+        val is24Hour: Boolean? = element.getProp("is24Hour")
         val state = rememberTimePickerState(
             initialHour = initialTime?.getOrNull(0)?.toInt() ?: 0,
             initialMinute = initialTime?.getOrNull(1)?.toInt() ?: 0,

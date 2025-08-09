@@ -20,13 +20,13 @@ internal object Button : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val onClick = element.getEvent("onClick")
-        val enabled = element.props["enabled"] as? Boolean
-        val type = element.props["type"] as? String
+        val enabled = element.getProp<Boolean>("enabled")
+        val type: String? = element.getProp("type")
         when (type) {
             "text" -> TextButton(
                 onClick = { onClick?.invoke() },
                 modifier = modifier,
-                enabled = element.props["enabled"] as? Boolean ?: true
+                enabled = enabled ?: true
             ) {
                 element.children.forEach {
                     RenderRow(element = it)

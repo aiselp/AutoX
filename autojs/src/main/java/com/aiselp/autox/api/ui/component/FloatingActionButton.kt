@@ -20,8 +20,8 @@ internal object FloatingActionButton : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val onClick = element.getEvent("onClick")
-        val size = element.props["size"] as? String
-        val icon = element.findTemplate("icon")?: element.props["icon"]
+        val size: String? = element.getProp("size")
+        val icon: Any? = element.findTemplate("icon") ?: element.getProp("icon")
 
         when (size) {
             "large" -> LargeFloatingActionButton(
@@ -30,7 +30,7 @@ internal object FloatingActionButton : VueNativeComponent {
             ) {
                 if (icon != null) {
                     ComposeElement(Icon.tag).apply {
-                        props["src"] = icon
+                        setProp("src", icon)
                         this.modifier =
                             this.modifier.size(FloatingActionButtonDefaults.LargeIconSize)
                     }.Render()
@@ -43,7 +43,7 @@ internal object FloatingActionButton : VueNativeComponent {
             ) {
                 if (icon != null) {
                     ComposeElement(Icon.tag).apply {
-                        props["src"] = icon
+                        setProp("src", icon)
                     }.Render()
                 } else content()
             }
@@ -54,7 +54,7 @@ internal object FloatingActionButton : VueNativeComponent {
             ) {
                 if (icon != null) {
                     ComposeElement(Icon.tag).apply {
-                        props["src"] = icon
+                        setProp("src", icon)
                     }.Render()
                 } else content()
             }

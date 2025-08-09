@@ -17,11 +17,11 @@ internal object FlowColumn : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val maxItemsInEachColumn = element.props["maxItemsInEachColumn"] as? Int
+        val maxItemsInEachColumn: Int? = element.getProp("maxItemsInEachColumn")
         FlowColumn(
             modifier = modifier,
-            verticalArrangement = parseVerticalArrangement(element.props["verticalArrangement"] as? String),
-            horizontalArrangement = parseHorizontalArrangement(element.props["horizontalArrangement"] as? String),
+            verticalArrangement = parseVerticalArrangement(element.getProp("verticalArrangement")),
+            horizontalArrangement = parseHorizontalArrangement(element.getProp("horizontalArrangement")),
             maxItemsInEachColumn = maxItemsInEachColumn ?: Int.MAX_VALUE
         ) {
             element.children.forEach {

@@ -14,11 +14,11 @@ internal object RangeSlider : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val min = parseFloat(element.props["min"])
-        val max = parseFloat(element.props["max"])
+        val min = parseFloat(element.getProp("min"))
+        val max = parseFloat(element.getProp("max"))
         val valueRange = if (max != null && min != null) min..max else 0f..1f
-        val minValue = parseFloat(element.props["minValue"]) ?: min ?: 0f
-        val maxValue = parseFloat(element.props["maxValue"]) ?: max ?: 1f
+        val minValue = parseFloat(element.getProp("minValue")) ?: min ?: 0f
+        val maxValue = parseFloat(element.getProp("maxValue")) ?: max ?: 1f
         RangeSlider(
             modifier = modifier,
             value = minValue..maxValue,

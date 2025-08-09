@@ -17,10 +17,10 @@ internal object Dialog : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val properties = DialogProperties(
-            dismissOnBackPress = element.props["dismissOnBackPress"] as? Boolean ?: true,
-            dismissOnClickOutside = element.props["dismissOnClickOutside"] as? Boolean ?: true,
-            usePlatformDefaultWidth = element.props["usePlatformDefaultWidth"] as? Boolean ?: true,
-            decorFitsSystemWindows = element.props["decorFitsSystemWindows"] as? Boolean ?: true
+            dismissOnBackPress = element.getProp("dismissOnBackPress") ?: true,
+            dismissOnClickOutside = element.getProp("dismissOnClickOutside") ?: true,
+            usePlatformDefaultWidth = element.getProp("usePlatformDefaultWidth") ?: true,
+            decorFitsSystemWindows = element.getProp("decorFitsSystemWindows") ?: true
         )
         Dialog(
             onDismissRequest = { element.getEvent("onDismissRequest")?.invoke() },

@@ -14,8 +14,8 @@ internal object RadioButton : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val selected = element.props["selected"] as? Boolean
-        val enabled = element.props["enabled"] as? Boolean
+        val selected: Boolean? = element.getProp("selected")
+        val enabled: Boolean? = element.getProp("enabled")
         RadioButton(
             selected = selected ?: false,
             onClick = { element.getEvent("onClick")?.invoke() },

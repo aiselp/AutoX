@@ -16,23 +16,23 @@ internal object NavigationDrawerItem : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val selected = element.props["selected"] as? Boolean
+        val selected: Boolean? = element.getProp("selected")
         NavigationDrawerItem(
             modifier = modifier,
             selected = selected ?: false,
             onClick = { element.getEvent("onClick")?.invoke() },
             icon = {
                 element.findTemplate("icon")?.Render() ?: run {
-                    element.props["icon"]?.let {
-                        val el = ComposeElement("Icon")
-                        el.props["src"] = it
-                        el.Render()
+                    element.getProp<Any>("icon")?.let {
+                        ComposeElement("Icon").apply {
+                            setProp("src", it)
+                        }.Render()
                     }
                 }
             },
             label = {
                 element.findTemplate("label")?.Render() ?: run {
-                    (element.props["label"] as? String)?.let {
+                    element.getProp<String>("label")?.let {
                         ComposeTextNode(it).Render()
                     }
                 }

@@ -20,8 +20,8 @@ internal object ModalBottomSheet : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val onDismissRequest = element.getEvent("onDismissRequest")
-        val tonalElevation = parseFloat(element.props["tonalElevation"])
-        val sheetMaxWidth = parseFloat(element.props["sheetMaxWidth"])
+        val tonalElevation = parseFloat(element.getProp("tonalElevation"))
+        val sheetMaxWidth = parseFloat(element.getProp("sheetMaxWidth"))
         ModalBottomSheet(
             onDismissRequest = { onDismissRequest?.invoke() },
             modifier = modifier,

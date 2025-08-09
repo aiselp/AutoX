@@ -17,8 +17,8 @@ internal object Row : VueNativeComponent {
     ) {
         Row(
             modifier = modifier,
-            verticalAlignment = parseVerticalAlignment(element.props["verticalAlignment"] as? String),
-            horizontalArrangement = parseHorizontalArrangement(element.props["horizontalArrangement"] as? String)
+            verticalAlignment = parseVerticalAlignment(element.getProp("verticalAlignment")),
+            horizontalArrangement = parseHorizontalArrangement(element.getProp("horizontalArrangement"))
         ) {
             element.children.forEach {
                 RenderRow(it)

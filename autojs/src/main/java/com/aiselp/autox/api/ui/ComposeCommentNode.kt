@@ -6,5 +6,5 @@ class ComposeCommentNode : ComposeNode {
     override var id: Int = 0
     override var modifier: Modifier = Modifier
     override var parentNode: ComposeElement? = null
-    override val props = mutableMapOf<String, Any?>()
+    val props = mutableMapOf<String, Any?>()
 }

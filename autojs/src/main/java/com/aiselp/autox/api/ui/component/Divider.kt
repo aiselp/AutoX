@@ -17,9 +17,9 @@ internal object Divider : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val thickness = parseFloat(element.props["thickness"])
-        val color = parseColor(element.props["color"])
-        val type = element.props["type"] as? String
+        val thickness = parseFloat(element.getProp("thickness"))
+        val color = parseColor(element.getProp("color"))
+        val type: String? = element.getProp("type")
         when (type) {
             "horizontal" -> HorizontalDivider(
                 modifier = modifier,

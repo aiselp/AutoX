@@ -136,7 +136,7 @@ class ModifierExtFactory(private val eventLoopQueue: EventLoopQueue) {
                 override val Ext: @Composable (modifier: Modifier) -> Modifier =
                     { this@ModifierExtBuilder.Ext?.invoke(it, args) ?: it }
                 override val RowExt: @Composable (RowScope.(modifier: Modifier) -> Modifier) =
-                    { this@ModifierExtBuilder.Ext?.invoke(it, args) ?: Ext.invoke(it) }
+                    { this@ModifierExtBuilder.RowExt?.invoke(this, it, args) ?: Ext.invoke(it) }
                 override val ColumnExt: @Composable (ColumnScope.(modifier: Modifier) -> Modifier) =
                     { this@ModifierExtBuilder.ColumnExt?.invoke(this, it, args) ?: Ext.invoke(it) }
 

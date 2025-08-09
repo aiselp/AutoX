@@ -25,13 +25,13 @@ internal object BottomSheetScaffold : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val scaffoldState = rememberBottomSheetScaffoldState()
-        val sheetPeekHeight = parseFloat(element.props["sheetPeekHeight"])
-        val sheetMaxWidth = parseFloat(element.props["sheetMaxWidth"])
-        val sheetContainerColor = parseColor(element.props["sheetContainerColor"])
-        val sheetSwipeEnabled = element.props["sheetSwipeEnabled"] as? Boolean
+        val sheetPeekHeight = parseFloat(element.getProp("sheetPeekHeight"))
+        val sheetMaxWidth = parseFloat(element.getProp("sheetMaxWidth"))
+        val sheetContainerColor = parseColor(element.getProp("sheetContainerColor"))
+        val sheetSwipeEnabled = element.getProp<Boolean>("sheetSwipeEnabled")
         val topBar = element.findTemplate("topBar")
-        val sheetTonalElevation = parseFloat(element.props["sheetTonalElevation"])
-        val sheetShadowElevation = parseFloat(element.props["sheetShadowElevation"])
+        val sheetTonalElevation = parseFloat(element.getProp("sheetTonalElevation"))
+        val sheetShadowElevation = parseFloat(element.getProp("sheetShadowElevation"))
         LaunchedEffect(Unit) {
             element.getEvent("onRender")?.invoke(scaffoldState)
         }

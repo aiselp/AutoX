@@ -17,12 +17,12 @@ internal object ExtendedFloatingActionButton : VueNativeComponent {
         content: @Composable () -> Unit
     ) {
         val text = element.findTemplate("text") ?: (ComposeTextNode(
-            (element.props["text"] as? String) ?: ""
+            element.getProp("text") ?: ""
         ))
         val icon = element.findTemplate("icon") ?: (ComposeElement(Icon.tag).apply {
-            props["src"] = element.props["icon"]
+            setProp("src", element.getProp("icon"))
         })
-        val expanded = element.props["expanded"] as? Boolean
+        val expanded: Boolean? = element.getProp("expanded")
         ExtendedFloatingActionButton(
             expanded = expanded ?: true,
             text = { text.Render() },

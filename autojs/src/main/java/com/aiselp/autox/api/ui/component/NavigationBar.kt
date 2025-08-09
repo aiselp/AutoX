@@ -20,13 +20,14 @@ internal object NavigationBar : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val tonalElevation = parseFloat(element.props["tonalElevation"])
+        val tonalElevation = parseFloat(element.getProp("tonalElevation"))
         val containerColor =
-            parseColor(element.props["containerColor"]) ?: NavigationBarDefaults.containerColor
+            parseColor(element.getProp("containerColor")) ?: NavigationBarDefaults.containerColor
         val contentColor =
-            parseColor(element.props["contentColor"]) ?: MaterialTheme.colorScheme.contentColorFor(
-                containerColor
-            )
+            parseColor(element.getProp("contentColor"))
+                ?: MaterialTheme.colorScheme.contentColorFor(
+                    containerColor
+                )
         NavigationBar(
             modifier = modifier,
             contentColor = contentColor,
@@ -35,13 +36,13 @@ internal object NavigationBar : VueNativeComponent {
         ) {
             element.children.forEach {
                 it.update
-                val selected = it.props["selected"] as? Boolean
+                val selected: Boolean? = it.getProp("selected")
                 val label = it.findTemplate("label")
-                val icon2 = it.props["icon"]
+                val icon2 = it.getProp<Any>("icon")
                 val icon = it.findTemplate("icon")
                 val onClick = it.getEvent("onClick")
                 NavigationBarItem(
-                    enabled = it.props["enabled"] as? Boolean ?: true,
+                    enabled = it.getProp("enabled") ?: true,
                     modifier = it.modifier,
                     selected = selected ?: false,
                     onClick = { onClick?.invoke() },
@@ -50,7 +51,7 @@ internal object NavigationBar : VueNativeComponent {
                             icon.Render()
                         } else if (icon2 != null) {
                             val composeElement = ComposeElement("Icon")
-                            composeElement.props["src"] = icon2
+                            composeElement.setProp("src", icon2)
                             composeElement.Render()
                         }
                     },

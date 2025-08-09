@@ -24,27 +24,27 @@ internal object Text : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        var text = element.props["text"] as? String
-        val color = parseColor(element.props["color"])
-        val maxLines = element.props["maxLines"] as? Int
-        val minLines = element.props["minLines"] as? Int
-        val fontSize = parseFloat(element.props["fontSize"])
-        val fontStyle = when (element.props["fontStyle"] as? String) {
+        var text: String? = element.getProp("text")
+        val color = parseColor(element.getProp("color"))
+        val maxLines: Int? = element.getProp("maxLines")
+        val minLines: Int? = element.getProp("minLines")
+        val fontSize = parseFloat(element.getProp("fontSize"))
+        val fontStyle = when (element.getProp<String>("fontStyle")) {
             "italic" -> FontStyle.Italic
             "normal" -> FontStyle.Normal
             else -> null
         }
-        val textDecoration = when (element.props["textDecoration"] as? String) {
+        val textDecoration = when (element.getProp<String>("textDecoration")) {
             "underline" -> TextDecoration.Underline
             "lineThrough" -> TextDecoration.LineThrough
             "none" -> TextDecoration.None
             else -> null
         }
-        val fontWeight = parseFloat(element.props["fontWeight"])
+        val fontWeight = parseFloat(element.getProp("fontWeight"))
         if (element is ComposeTextNode) {
             if (element.text.isNotEmpty()) text = element.text
         }
-        val textAlign = parseTextAlign(element.props["textAlign"] as? String)
+        val textAlign = parseTextAlign(element.getProp("textAlign") as? String)
         Text(
             modifier = if (text.isNullOrEmpty()) modifier.size(0.dp) else modifier,
             fontSize = fontSize?.sp ?: TextUnit.Unspecified,

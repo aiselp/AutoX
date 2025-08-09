@@ -24,14 +24,15 @@ internal object TabRow : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val selectedTabIndex = element.props["selectedTabIndex"] as? Int ?: 0
-        val contentColor = parseColor(element.props["contentColor"])
-        val containerColor = parseColor(element.props["containerColor"])
+        val selectedTabIndex = element.getProp("selectedTabIndex") ?: 0
+        val contentColor = parseColor(element.getProp("contentColor"))
+        val containerColor = parseColor(element.getProp("containerColor"))
         val divider = element.findTemplate("divider")
-        val type = element.props["type"] as? String
+        val type: String? = element.getProp("type")
 
         when (type) {
-            "scrollable" -> ScrollableTabRow(selectedTabIndex = selectedTabIndex,
+            "scrollable" -> ScrollableTabRow(
+                selectedTabIndex = selectedTabIndex,
                 modifier = modifier,
                 containerColor = containerColor ?: TabRowDefaults.primaryContainerColor,
                 contentColor = contentColor ?: TabRowDefaults.primaryContentColor,
@@ -39,7 +40,8 @@ internal object TabRow : VueNativeComponent {
                 content()
             }
 
-            "primary" -> PrimaryTabRow(selectedTabIndex = selectedTabIndex,
+            "primary" -> PrimaryTabRow(
+                selectedTabIndex = selectedTabIndex,
                 modifier = modifier,
                 containerColor = containerColor ?: TabRowDefaults.primaryContainerColor,
                 contentColor = contentColor ?: TabRowDefaults.primaryContentColor,
@@ -47,7 +49,8 @@ internal object TabRow : VueNativeComponent {
                 content()
             }
 
-            "primaryScrollable" -> PrimaryScrollableTabRow(selectedTabIndex = selectedTabIndex,
+            "primaryScrollable" -> PrimaryScrollableTabRow(
+                selectedTabIndex = selectedTabIndex,
                 modifier = modifier,
                 containerColor = containerColor ?: TabRowDefaults.primaryContainerColor,
                 contentColor = contentColor ?: TabRowDefaults.primaryContentColor,
@@ -55,7 +58,8 @@ internal object TabRow : VueNativeComponent {
                 content()
             }
 
-            "secondary" -> SecondaryTabRow(selectedTabIndex = selectedTabIndex,
+            "secondary" -> SecondaryTabRow(
+                selectedTabIndex = selectedTabIndex,
                 modifier = modifier,
                 containerColor = containerColor ?: TabRowDefaults.primaryContainerColor,
                 contentColor = contentColor ?: TabRowDefaults.primaryContentColor,
@@ -63,7 +67,8 @@ internal object TabRow : VueNativeComponent {
                 content()
             }
 
-            "secondaryScrollable" -> SecondaryScrollableTabRow(selectedTabIndex = selectedTabIndex,
+            "secondaryScrollable" -> SecondaryScrollableTabRow(
+                selectedTabIndex = selectedTabIndex,
                 modifier = modifier,
                 containerColor = containerColor ?: TabRowDefaults.primaryContainerColor,
                 contentColor = contentColor ?: TabRowDefaults.primaryContentColor,

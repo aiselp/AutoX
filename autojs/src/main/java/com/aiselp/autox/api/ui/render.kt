@@ -51,6 +51,7 @@ fun ComposeElement.Render(@SuppressLint("ModifierParameter") modifier: Modifier?
 @Composable
 fun RowScope.RenderRow(element: ComposeElement) {
     var modifier = element.modifier
+    Log.i("RenderRow", "Rendering Row: ${element.tag} with modifier: ${element.modifierExts}")
     element.modifierExts.forEach {
         modifier = it.RowExt.invoke(this, modifier)
     }

@@ -15,10 +15,10 @@ internal object DropdownMenuItem : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val title = element.props["title"] as? String
+        val title: String? = element.getProp("title")
         val text = element.findTemplate("text")
         val onClick = element.getEvent("onClick")
-        val enabled = element.props["enabled"] as? Boolean
+        val enabled: Boolean? = element.getProp("enabled")
         val leadingIcon = element.findTemplate("leadingIcon")
         val trailingIcon = element.findTemplate("trailingIcon")
         DropdownMenuItem(
@@ -26,9 +26,9 @@ internal object DropdownMenuItem : VueNativeComponent {
             text = {
                 if (text != null) {
                     text.Render()
-                } else if (title!=null) {
+                } else if (title != null) {
                     androidx.compose.material3.Text(text = title)
-                }else content()
+                } else content()
             },
             onClick = { onClick?.invoke() },
             enabled = enabled ?: true,

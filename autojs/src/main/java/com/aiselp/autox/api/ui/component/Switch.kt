@@ -14,9 +14,9 @@ internal object Switch : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val checked = element.props["checked"] as? Boolean
+        val checked: Boolean? = element.getProp("checked")
         val onCheckedChange = element.getEvent("onCheckedChange")
-        val enabled = element.props["enabled"] as? Boolean
+        val enabled: Boolean? = element.getProp("enabled")
         Switch(
             modifier = modifier,
             checked = checked ?: true,

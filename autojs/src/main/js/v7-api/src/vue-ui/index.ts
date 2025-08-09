@@ -1,6 +1,6 @@
 /**
- * 入门
- * @document README.md
+ * 本模块提供了使用vue编写ui界面的能力，
+ * @document 入门教程.md
  * @packageDocumentation
  */
 import {

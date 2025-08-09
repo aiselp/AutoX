@@ -17,18 +17,18 @@ internal object ProgressIndicator : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val type = element.props["type"] as? String
-        val color = parseColor(element.props["color"])
-        val strokeWidth = parseFloat(element.props["strokeWidth"])?.dp
-        val trackColor = parseColor(element.props["trackColor"])
-        val progress = parseFloat(element.props["progress"])
-        val indeterminate = element.props["indeterminate"] as? Boolean
+        val type: String? = element.getProp("type")
+        val color = parseColor(element.getProp("color"))
+        val strokeWidth = parseFloat(element.getProp("strokeWidth"))?.dp
+        val trackColor = parseColor(element.getProp("trackColor"))
+        val progress = parseFloat(element.getProp("progress"))
+        val indeterminate: Boolean? = element.getProp("indeterminate")
         if (type == "circular") {
             if (indeterminate == true) {
                 CircularProgressIndicator(
                     modifier = modifier,
                     color ?: ProgressIndicatorDefaults.circularColor,
-                    trackColor = trackColor ?: ProgressIndicatorDefaults.circularTrackColor,
+                    trackColor = trackColor ?: ProgressIndicatorDefaults.circularIndeterminateTrackColor,
                     strokeWidth = strokeWidth ?: ProgressIndicatorDefaults.CircularStrokeWidth,
                 )
             } else {
@@ -36,7 +36,7 @@ internal object ProgressIndicator : VueNativeComponent {
                     progress = { progress ?: 0f },
                     modifier = modifier,
                     color ?: ProgressIndicatorDefaults.circularColor,
-                    trackColor = trackColor ?: ProgressIndicatorDefaults.circularTrackColor,
+                    trackColor = trackColor ?: ProgressIndicatorDefaults.circularIndeterminateTrackColor,
                     strokeWidth = strokeWidth ?: ProgressIndicatorDefaults.CircularStrokeWidth,
                 )
             }

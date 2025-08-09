@@ -19,14 +19,14 @@ internal object Card : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val onClick = element.props["onClick"] as? EventLoopQueue.V8Callback
-        val enabled = element.props["enabled"] as? Boolean
-        val borderWidth = parseFloat(element.props["borderWidth"])?.dp
-        val borderColor = parseColor(element.props["borderColor"])
+        val onClick = element.getProp<EventLoopQueue.V8Callback>("onClick")
+        val enabled: Boolean? = element.getProp("enabled")
+        val borderWidth = parseFloat(element.getProp("borderWidth"))?.dp
+        val borderColor = parseColor(element.getProp("borderColor"))
         val border = if (borderWidth != null && borderColor != null) {
             BorderStroke(borderWidth, borderColor)
         } else null
-        val type = element.props["type"] as? String
+        val type: String? = element.getProp("type")
         val elevation = when (type) {
             "elevated" -> CardDefaults.elevatedCardElevation()
             "outlined" -> CardDefaults.outlinedCardElevation()

@@ -20,7 +20,7 @@ internal object TopAppBar : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val titleStr = element.props["title"]
+        val titleStr = element.getProp<Any>("title")
         val title = element.findTemplate("title")
         val actions = element.findTemplate("actions")
         val navigationIcon = element.findTemplate("navigationIcon")

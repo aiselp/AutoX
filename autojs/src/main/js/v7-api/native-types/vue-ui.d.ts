@@ -17,8 +17,6 @@ declare namespace ui {
         id: number
         modifier: Modifier
         parentNode: ComposeElement | null
-        props: Record<string, any>
-        children: ComposeElement[]
         removeChild(child: ComposeElement)
         insertChild(child: ComposeElement, ref: ComposeElement | null)
         addTemplate(name: String, element: ComposeElement)

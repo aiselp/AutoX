@@ -15,7 +15,7 @@ internal object Box : VueNativeComponent {
         element: ComposeElement,
         content: @Composable () -> Unit
     ) {
-        val contentAlignment = parseAlignment(element.props["contentAlignment"] as? String)
+        val contentAlignment = parseAlignment(element.getProp("contentAlignment"))
         Box(
             modifier = modifier,
             contentAlignment = contentAlignment?: Alignment.TopStart

@@ -35,7 +35,7 @@ internal object ModalNavigationDrawer : VueNativeComponent {
             modifier = modifier,
             drawerContent = { drawerContent?.Render() },
             drawerState = drawerState,
-            gesturesEnabled = element.props["gesturesEnabled"] as? Boolean ?: true
+            gesturesEnabled = element.getProp("gesturesEnabled") ?: true
         ) {
             content()
         }
@@ -53,6 +53,7 @@ internal object ModalNavigationDrawer : VueNativeComponent {
                 drawerState.close()
             }
         }
+
         fun isOpen(): Boolean {
             return drawerState.isOpen
         }
@@ -63,7 +64,7 @@ internal object ModalNavigationDrawer : VueNativeComponent {
         if (element == null) return
         element.Render()
         LaunchedEffect(element.update) {
-            val isOpen = element.props["isOpen"] as? Boolean
+            val isOpen: Boolean? = element.getProp("isOpen")
             if (isOpen != null) {
                 if (isOpen) {
                     drawerState.open()
