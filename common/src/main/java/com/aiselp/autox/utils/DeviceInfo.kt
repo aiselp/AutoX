@@ -24,17 +24,15 @@ class DeviceInfo(context: Context) {
 
     @SuppressLint("NewApi")
     private val abis: Array<String> =
-        if (Build.VERSION.SDK_INT >= 21) Build.SUPPORTED_ABIS else arrayOf(
-            Build.CPU_ABI, Build.CPU_ABI2
-        )
+        Build.SUPPORTED_ABIS
 
     @SuppressLint("NewApi")
     private val abis32Bits: Array<String>? =
-        if (Build.VERSION.SDK_INT >= 21) Build.SUPPORTED_32_BIT_ABIS else null
+        Build.SUPPORTED_32_BIT_ABIS
 
     @SuppressLint("NewApi")
     private val abis64Bits: Array<String>? =
-        if (Build.VERSION.SDK_INT >= 21) Build.SUPPORTED_64_BIT_ABIS else null
+        Build.SUPPORTED_64_BIT_ABIS
 
     init {
         val packageInfo = try {

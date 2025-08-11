@@ -27,7 +27,7 @@ androidx-work = "androidx.work:work-runtime:2.9.1"
 androidx-swiperefreshlayout = "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"
 androidx-constraintlayout = { group = "androidx.constraintlayout", name = "constraintlayout", version = "2.2.0" }
 androidx-activity-ktx = { module = "androidx.activity:activity-ktx", version.ref = "activity" }
-androidx-webkit = "androidx.webkit:webkit:1.12.1"
+androidx-webkit = "androidx.webkit:webkit:1.14.0"
 documentfile = "androidx.documentfile:documentfile:1.0.1"
 androidx-savedstate = { module = "androidx.savedstate:savedstate", version.ref = "savedstate" }
 androidx-savedstate-ktx = { module = "androidx.savedstate:savedstate-ktx", version.ref = "savedstate" }
@@ -37,9 +37,9 @@ activity-compose = { module = "androidx.activity:activity-compose", version.ref 
 appcompat = { group = "androidx.appcompat", name = "appcompat", version.ref = "appcompat" }
 # material ======================================
 material = { group = "com.google.android.material", name = "material", version.ref = "material" }
-compose-material3 = "androidx.compose.material3:material3:1.3.1"
-compose-material3-window-size = "androidx.compose.material3:material3-window-size-class:1.3.1"
-compose-material3-adaptive-navigation-suite = "androidx.compose.material3:material3-adaptive-navigation-suite:1.3.1"
+compose-material3 = "androidx.compose.material3:material3:1.3.2"
+compose-material3-window-size = "androidx.compose.material3:material3-window-size-class:1.3.2"
+compose-material3-adaptive-navigation-suite = "androidx.compose.material3:material3-adaptive-navigation-suite:1.3.2"
 
 #lifecycle
 lifecycle-runtime-ktx = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "lifecycle" }
@@ -70,7 +70,7 @@ mozilla-rhino = "org.mozilla:rhino:1.8.0"
 mozilla-rhino-xml = "org.mozilla:rhino-xml:1.8.0"
 mozilla-rhino-tools = "org.mozilla:rhino-tools:1.8.0"
 # commons
-commons-exec = "org.apache.commons:commons-exec:1.3"
+commons-exec = "org.apache.commons:commons-exec:1.5.0"
 commons-io = "commons-io:commons-io:2.6"
 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines-android" }
@@ -94,7 +94,7 @@ mlkit-text-recognition-korean = { module = "com.google.mlkit:text-recognition-ko
 quickie-bundled = { module = "io.github.g00fy2.quickie:quickie-bundled", version.ref = "quickie-bundled" }
 rxjava2 = "io.reactivex.rxjava2:rxjava:2.2.21"
 rxjava2-rxandroid = "io.reactivex.rxjava2:rxandroid:2.1.1"
-rxjava3 = "io.reactivex.rxjava3:rxjava:3.1.5"
+rxjava3 = "io.reactivex.rxjava3:rxjava:3.1.11"
 rxjava3-rxandroid = "io.reactivex.rxjava3:rxandroid:3.0.2"
 javet-android-node = "com.caoccao.javet:javet-node-android:4.1.5"
 #shizuku
@@ -107,8 +107,8 @@ ktsh = "com.jaredrummler:ktsh:1.0.0"
 junit = { module = "junit:junit", version.ref = "junit" }
 androidx-junit-ktx = { group = "androidx.test.ext", name = "junit-ktx", version.ref = "junit-ktx" }
 #leakcanary
-leakcanary-android = "com.squareup.leakcanary:leakcanary-android:2.13"
-leakcanary-object-watcher-android = "com.squareup.leakcanary:leakcanary-object-watcher-android:2.13"
+leakcanary-android = "com.squareup.leakcanary:leakcanary-android:2.14"
+leakcanary-object-watcher-android = "com.squareup.leakcanary:leakcanary-object-watcher-android:2.14"
 retrofit2-retrofit = "com.squareup.retrofit2:retrofit:2.9.0"
 retrofit2-converter-gson = "com.squareup.retrofit2:converter-gson:2.9.0"
 test-runner = "androidx.test:runner:1.6.2"

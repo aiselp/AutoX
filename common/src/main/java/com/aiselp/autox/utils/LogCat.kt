@@ -20,14 +20,14 @@ object LogCat {
             addArguments("-d -f")
             addArgument(file.absolutePath)
         }
-        DefaultExecutor().execute(commandLine)
+        DefaultExecutor.Builder().get().execute(commandLine)
     }
 
     fun dumpLogcat(outputStream: OutputStream) {
         val commandLine = CommandLine("logcat").apply {
             addArgument("-d")
         }
-        DefaultExecutor().apply {
+        DefaultExecutor.Builder().get().apply {
             streamHandler = PumpStreamHandler(outputStream)
             execute(commandLine)
         }
