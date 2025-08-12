@@ -1,6 +1,5 @@
 package org.autojs.autojs.ui.shortcut
 
-import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -9,24 +8,42 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.view.LayoutInflater
-import android.view.Menu
-import android.view.MenuItem
-import android.view.View
-import android.view.ViewGroup
-import android.widget.ImageView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmapOrNull
 import androidx.core.net.toUri
-import androidx.recyclerview.widget.RecyclerView
+import androidx.lifecycle.lifecycleScope
+import com.aiselp.autox.ui.material3.components.BackTopAppBar
+import com.aiselp.autox.ui.material3.theme.AppTheme
 import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.autojs.autojs.tool.BitmapTool
 import org.autojs.autojs.tool.writeTo
 import org.autojs.autojs.ui.BaseActivity
-import org.autojs.autojs.workground.WrapContentGridLayoutManger
 import org.autojs.autoxjs.R
-import org.autojs.autoxjs.databinding.ActivityShortcutIconSelectBinding
 import java.io.File
 
 
@@ -36,45 +53,86 @@ import java.io.File
  */
 
 open class ShortcutIconSelectActivity : BaseActivity() {
-    private lateinit var binding: ActivityShortcutIconSelectBinding
-    private val mApps: RecyclerView
-        get() = binding.apps
-    private var mPackageManager: PackageManager? = null
     private val mAppList: MutableList<AppItem> = ArrayList()
+    private var size by mutableIntStateOf(mAppList.size)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        binding = ActivityShortcutIconSelectBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        setupViews()
-    }
-
-    private fun setupViews() {
-        mPackageManager = packageManager
-        setToolbarAsBack(getString(R.string.text_select_icon))
-        setupApps()
-    }
-
-    private fun setupApps() {
-        mApps!!.adapter = AppsAdapter()
-        val manager = WrapContentGridLayoutManger(this, 5)
-        manager.setDebugInfo("IconSelectView")
-        mApps!!.layoutManager = manager
+        setContent {
+            val launcher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) {
+                if (it == null) return@rememberLauncherForActivityResult
+                setResult(RESULT_OK, Intent().setData(it))
+                finish()
+            }
+            AppTheme {
+                Scaffold(
+                    topBar = {
+                        BackTopAppBar(
+                            title = stringResource(R.string.text_select_icon),
+                            onBack = { finish() },
+                            actions = {
+                                IconButton(onClick = { launcher.launch("image/*") }) {
+                                    Icon(
+                                        modifier = Modifier.size(36.dp),
+                                        painter = painterResource(R.drawable.ic_insert_photo_white_48dp),
+                                        contentDescription = stringResource(R.string.text_select_image)
+                                    )
+                                }
+                            })
+                    }) { it ->
+                    AppList(Modifier.padding(it))
+                }
+            }
+        }
         loadApps()
     }
 
-    @SuppressLint("CheckResult")
-    private fun loadApps() {
-        val packages = mPackageManager!!.getInstalledApplications(PackageManager.GET_META_DATA)
-        Observable.fromIterable(packages)
-            .observeOn(Schedulers.computation())
-            .filter { appInfo: ApplicationInfo -> appInfo.icon != 0 }
-            .map { info: ApplicationInfo -> AppItem(info) }
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe { icon: AppItem ->
-                mAppList.add(icon)
-                mApps!!.adapter!!.notifyItemInserted(mAppList.size - 1)
+    @Composable
+    private fun AppList(modifier: Modifier = Modifier) {
+        LazyVerticalGrid(
+            columns = GridCells.FixedSize(65.dp),
+            modifier = modifier,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            items(size) { index ->
+                val modifier = Modifier
+                    .size(65.dp)
+                    .padding(horizontal = 2.dp)
+                val imageBitmap = mAppList[index].image
+                Box(modifier = Modifier.clickable {
+                    val appItem = mAppList[index]
+                    selectApp(appItem)
+                }) {
+                    if (imageBitmap != null) {
+                        Image(
+                            modifier = modifier, bitmap = imageBitmap, contentDescription = null
+                        )
+                    } else {
+                        Image(
+                            modifier = modifier,
+                            painter = painterResource(R.drawable.ic_ali_android),
+                            contentDescription = null
+                        )
+                    }
+                }
             }
+        }
+    }
+
+    private fun loadApps() {
+        val packages = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+        lifecycleScope.launch {
+            packages.forEach {
+                if (it.icon == 0) return@forEach
+                launch(Dispatchers.Default) {
+                    val item = AppItem(it)
+                    withContext(Dispatchers.Main) {
+                        mAppList.add(item)
+                        size++
+                    }
+                }
+            }
+        }
     }
 
     private fun selectApp(appItem: AppItem) {
@@ -87,59 +145,10 @@ open class ShortcutIconSelectActivity : BaseActivity() {
         finish()
     }
 
-    override fun onCreateOptionsMenu(menu: Menu): Boolean {
-        menuInflater.inflate(R.menu.menu_shortcut_icon_select, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        startActivityForResult(
-            Intent(Intent.ACTION_GET_CONTENT)
-                .setType("image/*"), 11234
-        )
-        return true
-    }
-
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (resultCode == RESULT_OK) {
-            setResult(RESULT_OK, data)
-            finish()
-        }
-    }
-
     private inner class AppItem(var info: ApplicationInfo) {
-        var icon: Drawable
-
-        init {
-            icon = info.loadIcon(mPackageManager)
-        }
-    }
-
-    private inner class AppIconViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        var icon: ImageView
-
-        init {
-            icon = itemView as ImageView
-            icon.setOnClickListener { v: View? -> selectApp(mAppList[adapterPosition]) }
-        }
-    }
-
-    private inner class AppsAdapter : RecyclerView.Adapter<AppIconViewHolder>() {
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppIconViewHolder {
-            return AppIconViewHolder(
-                LayoutInflater.from(parent.context)
-                    .inflate(R.layout.app_icon_list_item, parent, false)
-            )
-        }
-
-        override fun onBindViewHolder(holder: AppIconViewHolder, position: Int) {
-            holder.icon.setImageDrawable(mAppList[position].icon)
-        }
-
-        override fun getItemCount(): Int {
-            return mAppList.size
-        }
+        val icon: Drawable
+            get() = info.loadIcon(packageManager)
+        val image = icon.toBitmapOrNull()?.asImageBitmap()
     }
 
     companion object {
@@ -155,8 +164,8 @@ open class ShortcutIconSelectActivity : BaseActivity() {
                     BitmapTool.drawableToBitmap(drawable)
                 }
             }
-            val uri = data.data
-                ?: return Observable.error(IllegalArgumentException("invalid intent"))
+            val uri =
+                data.data ?: return Observable.error(IllegalArgumentException("invalid intent"))
             return Observable.fromCallable {
                 BitmapFactory.decodeStream(
                     context.contentResolver.openInputStream(
