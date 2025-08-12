@@ -48,7 +48,7 @@
         app:text="@string/text_others" />
     
     <org.autojs.autojs.ui.widget.ToolbarMenuItem
-        android:id="@id/action_log"
+        android:id="@+id/action_log"
         android:layout_width="38dp"
         android:layout_height="match_parent"
         app:icon="@drawable/ic_ali_log"
