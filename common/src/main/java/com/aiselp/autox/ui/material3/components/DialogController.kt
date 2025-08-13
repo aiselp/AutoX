@@ -70,50 +70,73 @@ fun DialogController.BaseDialog(
     BasicAlertDialog(
         onDismissRequest = onDismissRequest, properties = properties
     ) {
-        Card(modifier = Modifier.fillMaxWidth()) {
-            Column(
-                modifier = Modifier.padding(
-                    top = 16.dp,
-                    start = 16.dp,
-                    end = 16.dp,
-                    bottom = 4.dp
-                )
-            ) {
+        BaseDialog(
+            title = title,
+            positiveText = positiveText,
+            onPositiveClick = onPositiveClick ?: this::onPositiveClick,
+            negativeText = negativeText,
+            onNegativeClick = onNegativeClick ?: this::onNegativeClick,
+            neutralText = neutralText,
+            onNeutralClick = onNeutralClick ?: this::onNeutralClick,
+            content = content
+        )
+    }
+}
+
+@Composable
+fun BaseDialog(
+    title: @Composable RowScope.() -> Unit,
+    positiveText: String? = null,
+    onPositiveClick: (() -> Unit)? = null,
+    negativeText: String? = null,
+    onNegativeClick: (() -> Unit)? = null,
+    neutralText: String? = null,
+    onNeutralClick: (() -> Unit)? = null,
+    content: @Composable () -> Unit,
+) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.padding(
+                top = 16.dp,
+                start = 16.dp,
+                end = 16.dp,
+                bottom = 4.dp
+            )
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) { title() }
+            Spacer(modifier = Modifier.height(16.dp))
+            Box(modifier = Modifier.heightIn(max = 500.dp)) { content() }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            if (positiveText == null && negativeText == null && neutralText == null) {
+
+            } else Row(verticalAlignment = Alignment.CenterVertically) {
+                neutralText?.let {
+                    TextButton(
+                        onClick = onNeutralClick ?: {}
+                    ) {
+                        Text(text = it)
+                    }
+                }
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) { title() }
-                Spacer(modifier = Modifier.height(16.dp))
-                Box(modifier = Modifier.heightIn(max = 500.dp)) { content() }
-
-                Spacer(modifier = Modifier.height(8.dp))
-                if (positiveText == null && negativeText == null && neutralText == null) {
-
-                } else Row(verticalAlignment = Alignment.CenterVertically) {
-                    neutralText?.let {
+                    modifier = Modifier.weight(1f),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    negativeText?.let {
                         TextButton(
-                            onClick = onNeutralClick ?: this@BaseDialog::onNeutralClick
+                            onClick = onNegativeClick ?: {}
                         ) {
                             Text(text = it)
                         }
                     }
-                    Row(
-                        modifier = Modifier.weight(1f),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.End
-                    ) {
-                        negativeText?.let {
-                            TextButton(
-                                onClick = onNegativeClick ?: this@BaseDialog::onNegativeClick
-                            ) {
-                                Text(text = it)
-                            }
-                        }
-                        positiveText?.let {
-                            TextButton(
-                                onClick = onPositiveClick ?: this@BaseDialog::onPositiveClick
-                            ) {
-                                Text(text = it)
-                            }
+                    positiveText?.let {
+                        TextButton(
+                            onClick = onPositiveClick ?: {}
+                        ) {
+                            Text(text = it)
                         }
                     }
                 }
@@ -137,7 +160,8 @@ fun DialogController.AlertDialog(
     fun d() {
         scope.launch { dismiss() }
     }
-    BaseDialog(onDismissRequest = { d();onDismiss() },
+    BaseDialog(
+        onDismissRequest = { d();onDismiss() },
         title = { DialogTitle(title = title) },
         positiveText = positiveText,
         onPositiveClick = onPositiveClick ?: { d();onPositiveClick() },
@@ -145,10 +169,15 @@ fun DialogController.AlertDialog(
         onNegativeClick = onNegativeClick ?: { d();onNegativeClick() },
         neutralText = neutralText,
         onNeutralClick = onNeutralClick ?: { d();onNegativeClick() },
-        content = { Text(text = content) })
+        content = { DialogText(text = content) })
 }
 
 @Composable
-fun DialogTitle(title: String) {
-    Text(text = title, fontSize = 20.sp)
+fun DialogTitle(title: String, modifier: Modifier = Modifier) {
+    Text(modifier = modifier, text = title, fontSize = 20.sp)
+}
+
+@Composable
+fun DialogText(text: String, modifier: Modifier = Modifier) {
+    Text(modifier = modifier, text = text, fontSize = 16.sp)
 }

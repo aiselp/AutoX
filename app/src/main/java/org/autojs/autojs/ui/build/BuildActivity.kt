@@ -1,5 +1,6 @@
 package org.autojs.autojs.ui.build
 
+import android.app.Activity
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -44,7 +45,13 @@ class BuildActivity : AppCompatActivity() {
          * @param sourcePath 可能是项目目录，也可能是脚本文件
          */
         fun start(context: Context, sourcePath: String?) {
-            context.startActivity(getIntent(context, sourcePath))
+            if (context is Activity)
+                context.startActivity(getIntent(context, sourcePath))
+            else context.startActivity(
+                getIntent(context, sourcePath).addFlags(
+                    Intent.FLAG_ACTIVITY_NEW_TASK
+                )
+            )
         }
 
     }
