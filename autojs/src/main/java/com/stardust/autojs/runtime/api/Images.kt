@@ -22,6 +22,9 @@ import com.stardust.autojs.core.ui.inflater.util.Drawables
 import com.stardust.autojs.runtime.ScriptRuntime
 import com.stardust.pio.UncheckedIOException
 import com.stardust.util.ScreenMetrics
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.functions.Consumer
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -47,6 +50,7 @@ class Images(
 
     @Volatile
     private var mOpenCvInitialized = false
+    private val disposables = mutableListOf<Disposable>()
 
     @ScriptVariable
     val colorFinder: ColorFinder = ColorFinder(mScreenMetrics)
@@ -76,6 +80,24 @@ class Images(
         return runBlocking {
             screenCapture.captureImageWrapper()
         }
+    }
+
+    fun registerAsyncCapture(onNext: Consumer<ImageWrapper>): Disposable {
+        val screenCapture = mScreenCaptureRequester.screenCapture
+        checkNotNull(screenCapture) { SecurityException("No screen capture permission") }
+        val scheduler = AndroidSchedulers.from(mScriptRuntime.loopers.servantLooper)
+        var disposable: Disposable? = null
+        disposable = screenCapture.registerAsyncCapture(scheduler, {
+            try {
+                onNext.accept(it)
+            } catch (e: Throwable) {
+                disposable?.dispose()
+                mScriptRuntime.exit(e)
+            }
+        }).also {
+            disposables.add(it)
+        }
+        return disposable
     }
 
     fun captureScreen(path: String): Boolean {
@@ -172,6 +194,7 @@ class Images(
     }
 
     fun releaseScreenCapturer() {
+        disposables.forEach { it.dispose() }
         //mScreenCapturer?.release()
     }
 

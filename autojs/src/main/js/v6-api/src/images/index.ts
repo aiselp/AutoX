@@ -1,4 +1,5 @@
 import { asGlobal } from "@/utils"
+import { registerAsyncCapture } from "./async_capture"
 
 type Image = Autox.Image
 type ImageFormat = 'png' | 'jpeg' | 'webp' | 'jpg'
@@ -112,6 +113,7 @@ var MatchingResult = (function () {
 
 function images() {
 }
+images.registerAsyncCapture = registerAsyncCapture
 
 
 if (android.os.Build.VERSION.SDK_INT >= 21) {

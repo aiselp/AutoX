@@ -14,9 +14,13 @@ import android.os.Looper
 import android.util.Log
 import com.stardust.autojs.core.image.ImageWrapper
 import com.stardust.util.ScreenMetrics
+import io.reactivex.rxjava3.core.Scheduler
+import io.reactivex.rxjava3.disposables.Disposable
+import io.reactivex.rxjava3.functions.Consumer
+import io.reactivex.rxjava3.subjects.PublishSubject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeout
-import kotlinx.coroutines.yield
+import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -28,12 +32,15 @@ class ScreenCapturer(
     private val mediaProjection: MediaProjection,
     orientation: Int = 0,
     private val screenDensity: Int = ScreenMetrics.getDeviceScreenDensity(),
-    mHandler: Handler = Handler(Looper.getMainLooper())
+    private val mHandler: Handler = Handler(Looper.getMainLooper())
 ) {
     private var mVirtualDisplay: VirtualDisplay
     private var mImageReader: ImageReader
+    private val executor = Executors.newSingleThreadExecutor()
 
     private val cachedImageBitmap = AtomicReference<Bitmap?>()
+    private val latestImage = AtomicReference<Image>()
+    private val publishSubject = PublishSubject.create<ImageWrapper>()
 
     @Volatile
     var available = true
@@ -55,7 +62,25 @@ class ScreenCapturer(
     }
 
     private fun createImageReader(width: Int, height: Int): ImageReader {
-        return ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3)
+        return ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3).apply {
+            setOnImageAvailableListener({
+                try {
+                    executor.submit {
+                        val image = acquireLatestImage()
+                        if (image == null) return@submit
+                        if (publishSubject.hasObservers()) {
+                            val bitmap = ImageWrapper.toBitmap(image)
+                            image.close()
+                            cachedImageBitmap.set(bitmap)
+                            publishSubject.onNext(ImageWrapper.ofBitmap(bitmap))
+                        } else {
+                            latestImage.getAndSet(image)?.close()
+                        }
+                    }
+                } catch (_: Exception) {
+                }
+            }, mHandler)
+        }
     }
 
     private fun createVirtualDisplay(width: Int, height: Int, screenDensity: Int): VirtualDisplay {
@@ -72,6 +97,7 @@ class ScreenCapturer(
     }
 
     private fun refreshVirtualDisplay(orientation: Int) = synchronized(this) {
+        latestImage.set(null)
         mImageReader.close()
         val screenHeight = ScreenMetrics.getOrientationAwareScreenHeight(orientation)
         val screenWidth = ScreenMetrics.getOrientationAwareScreenWidth(orientation)
@@ -80,43 +106,67 @@ class ScreenCapturer(
         mVirtualDisplay.resize(screenWidth, screenHeight, screenDensity)
     }
 
-    fun capture(): Image? = synchronized(this) {
+    fun capture(): Image? {
         if (!available) throw Exception("ScreenCapturer is not available")
-        val newImage = mImageReader.acquireLatestImage()
+        val newImage = latestImage.getAndSet(null)
         return newImage
     }
 
-    suspend fun captureImageWrapper(): ImageWrapper {
-        var image = capture()
-        val bitmap1 = cachedImageBitmap.get()
-        if (image == null && bitmap1 != null) {
-            Log.i(LOG_TAG, "Using cached image")
-            return ImageWrapper.ofBitmap(bitmap1)
-        }
-        //在缓存图像均不可用的情况下等待2秒取得截图，否则抛出错误
-        val newImage = image ?: runCatching {
-            withTimeout(2000) {
-                while (image == null) {
-                    delay(200)
-                    image = capture()
-                }
-                yield()
-                image!!
+    fun registerAsyncCapture(scheduler: Scheduler, onNext: Consumer<ImageWrapper>): Disposable {
+        val eventProcessing = AtomicReference(false)
+        return publishSubject.filter {
+            eventProcessing.getAndSet(true) != true
+        }.observeOn(scheduler).subscribe {
+            try {
+                onNext.accept(it)
+            } finally {
+                eventProcessing.set(false)
             }
-        }.getOrElse {
-            available = false
-            throw Exception("ScreenCapturer timeout")
         }
-        val bitmap = ImageWrapper.toBitmap(newImage)
-        newImage.close()
+    }
+
+    fun createImageWrapper(image: Image): ImageWrapper {
+        val bitmap = ImageWrapper.toBitmap(image)
+        image.close()
         cachedImageBitmap.set(bitmap)
         return ImageWrapper.ofBitmap(bitmap)
+    }
+
+    suspend fun captureImageWrapper(): ImageWrapper {
+        val imageWrapper = synchronized(this) {
+            val image = capture()
+            if (image != null) createImageWrapper(image) else null
+        }
+        if (imageWrapper != null) return imageWrapper
+        cachedImageBitmap.get()?.let {
+            Log.i(LOG_TAG, "Using cached image")
+            return ImageWrapper.ofBitmap(it)
+        }
+        //在缓存图像均不可用的情况下等待2秒取得截图，否则抛出错误
+        return withTimeout(2000) {
+            var img: ImageWrapper? = null
+            while (true) {
+                delay(200)
+                img = synchronized(this) {
+                    capture()?.let {
+                        createImageWrapper(it)
+                    }
+                }
+                if (img !== null) {
+                    break
+                }
+            }
+            img!!
+        }
     }
 
     fun release() = synchronized(this) {
         available = false
         mVirtualDisplay.release()
         mImageReader.close()
+        executor.shutdown()
+        cachedImageBitmap.set(null)
+        latestImage.getAndSet(null)?.close()
     }
 
     @Throws(Throwable::class)
