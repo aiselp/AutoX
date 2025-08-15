@@ -24,6 +24,7 @@ import org.autojs.autojs.ui.explorer.ExplorerViewKt
 import org.autojs.autojs.ui.widget.BindableViewHolder
 import org.autojs.autojs.ui.widget.CheckBoxCompat
 import org.autojs.autoxjs.R
+import org.autojs.autoxjs.databinding.FileChooseListFileBinding
 
 /**
  * Created by Stardust on 2017/10/19.
@@ -68,14 +69,11 @@ class FileChooseListView : ExplorerViewKt {
         parent: ViewGroup?,
         viewType: Int
     ): BindableViewHolder<Any> {
+        val layoutInflater = LayoutInflater.from(context)
         return when (viewType) {
             VIEW_TYPE_ITEM -> {
                 ExplorerItemViewHolder(
-                    inflater.inflate(
-                        R.layout.file_choose_list_file,
-                        parent,
-                        false
-                    )
+                    FileChooseListFileBinding.inflate(layoutInflater,parent,false)
                 )
             }
             VIEW_TYPE_PAGE -> {
@@ -102,57 +100,40 @@ class FileChooseListView : ExplorerViewKt {
         mSelectedFiles[file] = position
     }
 
-    @SuppressLint("NonConstantResourceId")
-    internal inner class ExplorerItemViewHolder(itemView: View?) :
-        BindableViewHolder<Any>(itemView) {
+    internal inner class ExplorerItemViewHolder(bind: FileChooseListFileBinding) :
+        BindableViewHolder<Any>(bind.root) {
 
-        @JvmField
-        @BindView(R.id.name)
-        var mName: TextView? = null
+        var mName: TextView = bind.name
+        var mFirstChar: TextView = bind.firstChar
+        var mCheckBox: CheckBoxCompat = bind.checkbox
+        var mDesc: TextView = bind.desc
 
-        @JvmField
-        @BindView(R.id.first_char)
-        var mFirstChar: TextView? = null
-
-        @JvmField
-        @BindView(R.id.checkbox)
-        var mCheckBox: CheckBoxCompat? = null
-
-        @JvmField
-        @BindView(R.id.desc)
-        var mDesc: TextView? = null
-        var mFirstCharBackground: GradientDrawable
+        var mFirstCharBackground = mFirstChar.background as GradientDrawable
         private var mExplorerItem: ExplorerItem? = null
+
+        init {
+            bind.item.setOnClickListener { mCheckBox.toggle() }
+            bind.checkbox.setOnCheckedChangeListener{ _, _ -> onCheckedChanged() }
+        }
+
         override fun bind(item: Any, position: Int) {
             if (item !is ExplorerItem) return
             mExplorerItem = item
-            mName!!.text = ExplorerViewHelper.getDisplayName(item)
-            mDesc!!.text = PFiles.getHumanReadableSize(item.size)
-            mFirstChar!!.text = ExplorerViewHelper.getIconText(item)
+            mName.text = ExplorerViewHelper.getDisplayName(item)
+            mDesc.text = PFiles.getHumanReadableSize(item.size)
+            mFirstChar.text = ExplorerViewHelper.getIconText(item)
             mFirstCharBackground.setColor(ExplorerViewHelper.getIconColor(item))
-            mCheckBox!!.setChecked(
+            mCheckBox.setChecked(
                 mSelectedFiles.containsKey(mExplorerItem!!.toScriptFile()),
                 false
             )
         }
-
-        @OnClick(R.id.item)
-        fun onItemClick() {
-            mCheckBox!!.toggle()
-        }
-
-        @OnCheckedChanged(R.id.checkbox)
         fun onCheckedChanged() {
-            if (mCheckBox!!.isChecked) {
+            if (mCheckBox.isChecked) {
                 check(mExplorerItem!!.toScriptFile(), absoluteAdapterPosition)
             } else {
                 mSelectedFiles.remove(mExplorerItem!!.toScriptFile())
             }
-        }
-
-        init {
-            ButterKnife.bind(this, itemView!!)
-            mFirstCharBackground = mFirstChar!!.background as GradientDrawable
         }
     }
 

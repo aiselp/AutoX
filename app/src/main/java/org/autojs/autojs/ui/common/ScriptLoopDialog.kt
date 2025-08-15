@@ -1,47 +1,89 @@
 package org.autojs.autojs.ui.common
 
+import android.app.Dialog
 import android.content.Context
-import android.view.View
-import android.widget.EditText
-import com.afollestad.materialdialogs.MaterialDialog
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
+import com.aiselp.autox.ui.material3.components.BaseDialog
+import com.aiselp.autox.ui.material3.components.ComposeDialog
+import com.aiselp.autox.ui.material3.components.DialogTitle
 import com.stardust.app.DialogUtils
 import com.stardust.app.GlobalAppContext.toast
 import com.stardust.autojs.execution.ExecutionConfig
 import com.stardust.autojs.servicecomponents.EngineController
 import org.autojs.autojs.model.script.ScriptFile
 import org.autojs.autoxjs.R
-import org.autojs.autoxjs.databinding.DialogScriptLoopBinding
 
 /**
  * Created by Stardust on 2017/7/8.
  */
-class ScriptLoopDialog(context: Context?, private val mScriptFile: ScriptFile) {
-    private val mDialog: MaterialDialog
+class ScriptLoopDialog(context: Context, private val mScriptFile: ScriptFile) {
+    private val dialog: Dialog
 
-    private val bind = kotlin.run {
-        val view = View.inflate(context!!, R.layout.dialog_script_loop, null)
-        DialogScriptLoopBinding.bind(view)
-    }
-
-    private val mLoopTimes: EditText = bind.loopTimes
-    private val mLoopInterval: EditText = bind.loopInterval
-    private val mLoopDelay: EditText = bind.loopDelay
+    private val mLoopTimes = mutableStateOf("1")
+    private val mLoopInterval = mutableStateOf("1.0")
+    private val mLoopDelay = mutableStateOf("0.0")
 
 
     init {
-        mDialog = MaterialDialog.Builder(context!!)
-            .title(R.string.text_run_repeatedly)
-            .customView(bind.root, true)
-            .positiveText(R.string.ok)
-            .onPositive { _, _ -> startScriptRunningLoop() }
-            .build()
+        dialog = ComposeDialog(context) {
+            BaseDialog(
+                title = { DialogTitle(stringResource(R.string.text_run_repeatedly)) },
+                positiveText = stringResource(R.string.ok),
+                onPositiveClick = { dismiss();startScriptRunningLoop() }
+            ) {
+                Column {
+                    TextField(
+                        value = mLoopTimes.value,
+                        label = {
+                            Text(
+                                stringResource(R.string.text_loop_times) + "-(${
+                                    stringResource(R.string.hint_loop_times)
+                                })"
+                            )
+                        },
+                        onValueChange = { mLoopTimes.value = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    TextField(
+                        value = mLoopInterval.value,
+                        label = { Text(stringResource(R.string.text_loop_interval)) },
+                        onValueChange = { mLoopInterval.value = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    TextField(
+                        value = mLoopDelay.value,
+                        label = {
+                            Text(
+                                stringResource(R.string.text_loop_delay) + "-(${
+                                    stringResource(R.string.hint_loop_delay)
+                                })"
+                            )
+                        },
+                        onValueChange = { mLoopDelay.value = it },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                    )
+                }
+            }
+        }
     }
 
     private fun startScriptRunningLoop() {
         try {
-            val loopTimes = mLoopTimes.text.toString().toInt()
-            val loopInterval = mLoopInterval.text.toString().toFloat()
-            val loopDelay = mLoopDelay.text.toString().toFloat()
+            val loopTimes = mLoopTimes.value.toInt()
+            val loopInterval = mLoopInterval.value.toFloat()
+            val loopDelay = mLoopDelay.value.toFloat()
             EngineController.runScript(
                 mScriptFile, null, ExecutionConfig(
                     workingDirectory = mScriptFile.parent ?: "/",
@@ -50,17 +92,12 @@ class ScriptLoopDialog(context: Context?, private val mScriptFile: ScriptFile) {
                     interval = (loopInterval * 1000L).toLong()
                 )
             )
-        } catch (e: NumberFormatException) {
+        } catch (_: NumberFormatException) {
             toast(R.string.text_number_format_error)
         }
     }
 
-    fun windowType(windowType: Int): ScriptLoopDialog {
-        mDialog.window?.setType(windowType)
-        return this
-    }
-
     fun show() {
-        DialogUtils.showDialog(mDialog)
+        DialogUtils.showDialog(dialog)
     }
 }

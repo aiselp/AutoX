@@ -2,7 +2,6 @@ package org.autojs.autojs.ui.explorer
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.graphics.drawable.GradientDrawable
 import android.util.AttributeSet
 import android.util.Log
 import android.view.KeyEvent
@@ -11,15 +10,48 @@ import android.view.MenuItem
 import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver
+import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.PopupMenu
 import android.widget.TextView
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.ComposeView
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout.OnRefreshListener
 import com.google.android.material.snackbar.Snackbar
 import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.pio.PFiles
@@ -27,6 +59,10 @@ import io.reactivex.Observable
 import io.reactivex.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.schedulers.Schedulers
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.autojs.autojs.model.explorer.Explorer
 import org.autojs.autojs.model.explorer.ExplorerChangeEvent
 import org.autojs.autojs.model.explorer.ExplorerDirPage
@@ -34,7 +70,6 @@ import org.autojs.autojs.model.explorer.ExplorerFileItem
 import org.autojs.autojs.model.explorer.ExplorerItem
 import org.autojs.autojs.model.explorer.ExplorerPage
 import org.autojs.autojs.model.explorer.ExplorerProjectPage
-import org.autojs.autojs.model.explorer.ExplorerSampleItem
 import org.autojs.autojs.model.explorer.ExplorerSamplePage
 import org.autojs.autojs.model.explorer.Explorers
 import org.autojs.autojs.model.script.ScriptFile
@@ -48,25 +83,24 @@ import org.autojs.autojs.ui.common.ScriptOperations
 import org.autojs.autojs.ui.viewmodel.ExplorerItemList
 import org.autojs.autojs.ui.viewmodel.ExplorerItemList.SortConfig
 import org.autojs.autojs.ui.widget.BindableViewHolder
+import org.autojs.autojs.ui.widget.fillMaxSize
 import org.autojs.autojs.workground.WrapContentGridLayoutManger
 import org.autojs.autoxjs.R
-import org.autojs.autoxjs.databinding.ScriptFileListDirectoryBinding
-import org.autojs.autoxjs.databinding.ScriptFileListFileBinding
 import java.io.File
 import java.util.Stack
 
-open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
+@OptIn(ExperimentalMaterial3Api::class)
+open class ExplorerViewKt : FrameLayout,
     PopupMenu.OnMenuItemClickListener, ViewTreeObserver.OnGlobalFocusChangeListener {
 
     private var onItemClickListener: ((view: View, item: ExplorerItem?) -> Unit)? = null
     private var onItemOperatedListener: ((item: ExplorerItem?) -> Unit)? = null
     private var explorerItemList = ExplorerItemList()
-    protected var explorerItemListView: RecyclerView? = null
-        private set
-    private var projectToolbar: ExplorerProjectToolbar? = null
+    protected val explorerItemListView: RecyclerView = RecyclerView(context)
+    private val projectToolbar: ExplorerProjectToolbar = ExplorerProjectToolbar(context)
+
     private val explorerAdapter: ExplorerAdapter = ExplorerAdapter()
     private var filter: ((ExplorerItem) -> Boolean)? = null
-    protected var selectedItem: ExplorerItem? = null
     private var explorer: Explorer? = null
     private val pageStateHistory = Stack<ExplorerPageState>()
     private var currentPageState = ExplorerPageState()
@@ -74,17 +108,33 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
     private var directorySpanSize1 = 2
     val currentPage get() = currentPageState.currentPage
     private var disposable: Disposable? = null
+    private var isRefreshing by mutableStateOf(false)
+    private var scope: CoroutineScope? = null
 
     init {
+        val composeView = ComposeView(context)
+        composeView.setContent {
+            scope = rememberCoroutineScope()
+            PullToRefreshBox(
+                isRefreshing = isRefreshing,
+                onRefresh = { onRefresh() }
+            ) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    projectToolbar.Content()
+                    Box(Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(2.dp))) {
+                        AndroidView(factory = { explorerItemListView.fillMaxSize() })
+                    }
+                }
+            }
+        }
+        addView(composeView)
         Log.d(
             LOG_TAG, "item bg = " + Integer.toHexString(
                 ContextCompat.getColor(context, R.color.item_background)
             )
         )
-        setOnRefreshListener(this)
-        inflate(context, R.layout.explorer_view, this)
-        explorerItemListView = findViewById(R.id.explorer_item_list)
-        projectToolbar = findViewById(R.id.project_toolbar)
         initExplorerItemListView()
     }
 
@@ -108,19 +158,23 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
     private fun setCurrentPageState(currentPageState: ExplorerPageState) {
         this.currentPageState = currentPageState
         if (this.currentPageState.currentPage is ExplorerProjectPage) {
-            projectToolbar!!.visibility = VISIBLE
-            projectToolbar!!.setProject(currentPageState.currentPage!!.toScriptFile())
+            projectToolbar.visibility = false
+            projectToolbar.setProject(currentPageState.currentPage!!.toScriptFile())
         } else {
-            projectToolbar!!.visibility = GONE
+            projectToolbar.visibility = true
         }
     }
 
     protected fun enterDirectChildPage(childItemGroup: ExplorerPage?) {
         currentPageState.scrollY =
-            (explorerItemListView!!.layoutManager as LinearLayoutManager?)!!.findLastCompletelyVisibleItemPosition()
+            (explorerItemListView.layoutManager as LinearLayoutManager?)!!.findLastCompletelyVisibleItemPosition()
         pageStateHistory.push(currentPageState)
         setCurrentPageState(ExplorerPageState(childItemGroup))
         loadItemList()
+    }
+
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
     }
 
     fun setOnItemClickListener(listener: (view: View, item: ExplorerItem?) -> Unit) {
@@ -202,7 +256,7 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
     }
 
     private fun initExplorerItemListView() {
-        explorerItemListView!!.adapter = explorerAdapter
+        explorerItemListView.adapter = explorerAdapter
         val manager = WrapContentGridLayoutManger(context, 2)
         manager.setDebugInfo("ExplorerView")
         manager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
@@ -214,7 +268,7 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
                 //For files and category
             }
         }
-        explorerItemListView!!.layoutManager = manager
+        explorerItemListView.layoutManager = manager
     }
 
     private fun positionOfCategoryFile(): Int {
@@ -243,7 +297,7 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
                 explorerItemList = list
                 explorerAdapter.notifyDataSetChanged()
                 isRefreshing = false
-                post { explorerItemListView!!.scrollToPosition(currentPageState.scrollY) }
+                post { explorerItemListView.scrollToPosition(currentPageState.scrollY) }
             }
     }
 
@@ -288,64 +342,33 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
         }
     }
 
-    override fun onRefresh() {
+    fun onRefresh() {
         explorer!!.notifyChildrenChanged(currentPageState.currentPage)
-        projectToolbar!!.refresh()
+        projectToolbar.refresh()
     }
 
     val currentDirectory: ScriptFile?
         get() = currentPage?.toScriptFile()
 
-    @SuppressLint("CheckResult")
-    override fun onMenuItemClick(item: MenuItem): Boolean {
-        when (item.itemId) {
-            R.id.rename -> ScriptOperations(context, this, currentPage)
-                .rename(selectedItem as ExplorerFileItem?)
-                .subscribe(Observers.emptyObserver())
 
-            R.id.delete -> kotlin.run {
-                ScriptOperations(context, this, currentPage)
-                    .delete(selectedItem!!.toScriptFile())
+    fun onMenuSelect(optionMenu: OptionMenu, item: ExplorerItem) {
+        val operations = ScriptOperations(context, this, currentPage)
+        when (optionMenu) {
+            OptionMenu.RUN_REPEATEDLY -> {
+                ScriptLoopDialog(context, item.toScriptFile()).show()
+            }
+
+            OptionMenu.RENAME -> operations.rename(item as ExplorerFileItem)
+
+            OptionMenu.DELETE -> operations.delete(item.toScriptFile()) {
                 loadItemList()
             }
 
-            R.id.run_repeatedly -> {
-                ScriptLoopDialog(context, selectedItem!!.toScriptFile())
-                    .show()
-                notifyOperated()
-            }
+            OptionMenu.SEND -> send(item.toScriptFile())
 
-            R.id.create_shortcut -> ScriptOperations(context, this, currentPage)
-                .createShortcut(selectedItem!!.toScriptFile())
-
-            R.id.open_by_other_apps -> {
-                openByOtherApps(selectedItem!!.toScriptFile())
-                notifyOperated()
-            }
-
-            R.id.send -> {
-                send(selectedItem!!.toScriptFile())
-                notifyOperated()
-            }
-
-            R.id.timed_task -> {
-                ScriptOperations(context, this, currentPage)
-                    .timedTask(selectedItem!!.toScriptFile())
-                notifyOperated()
-            }
-
-            R.id.action_build_apk -> {
-                BuildActivity.start(context, selectedItem!!.path)
-                notifyOperated()
-            }
-
-            R.id.action_sort_by_date -> sort(ExplorerItemList.SORT_TYPE_DATE, dirSortMenuShowing)
-            R.id.action_sort_by_type -> sort(ExplorerItemList.SORT_TYPE_TYPE, dirSortMenuShowing)
-            R.id.action_sort_by_name -> sort(ExplorerItemList.SORT_TYPE_NAME, dirSortMenuShowing)
-            R.id.action_sort_by_size -> sort(ExplorerItemList.SORT_TYPE_SIZE, dirSortMenuShowing)
-            R.id.reset -> {
-                Explorers.Providers.workspace().resetSample(
-                    selectedItem!!.toScriptFile()
+            OptionMenu.RESET_TO_INITIAL_CONTENT -> {
+                val e = Explorers.Providers.workspace().resetSample(
+                    item.toScriptFile()
                 ).observeOn(AndroidSchedulers.mainThread())
                     .subscribe({
                         Snackbar.make(
@@ -356,32 +379,39 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
                     }, Observers.toastMessage())
             }
 
+            OptionMenu.TIMED_TASK -> operations.timedTask(item.toScriptFile())
+            OptionMenu.BUILD_APK -> BuildActivity.start(context, item.path)
+            OptionMenu.OPEN_BY_OTHER_APPS -> openByOtherApps(item.toScriptFile())
+            OptionMenu.CREATE_SHORTCUT -> operations.createShortcut(item.toScriptFile())
+        }
+    }
+
+    override fun onMenuItemClick(item: MenuItem): Boolean {
+        when (item.itemId) {
+            R.id.action_sort_by_date -> sort(ExplorerItemList.SORT_TYPE_DATE, dirSortMenuShowing)
+            R.id.action_sort_by_type -> sort(ExplorerItemList.SORT_TYPE_TYPE, dirSortMenuShowing)
+            R.id.action_sort_by_name -> sort(ExplorerItemList.SORT_TYPE_NAME, dirSortMenuShowing)
+            R.id.action_sort_by_size -> sort(ExplorerItemList.SORT_TYPE_SIZE, dirSortMenuShowing)
+
             else -> return false
         }
         return true
     }
 
-    protected fun notifyOperated() {
-        onItemOperatedListener?.invoke(selectedItem)
-    }
-
-    @SuppressLint("CheckResult", "NotifyDataSetChanged")
+    @SuppressLint("NotifyDataSetChanged")
     private fun sort(sortType: Int, isDir: Boolean) {
         isRefreshing = true
-        Observable.fromCallable {
+        scope?.launch(Dispatchers.Default) {
             if (isDir) {
                 explorerItemList.sortItemGroup(sortType)
             } else {
                 explorerItemList.sortFile(sortType)
             }
-            explorerItemList
-        }
-            .subscribeOn(Schedulers.computation())
-            .observeOn(AndroidSchedulers.mainThread())
-            .subscribe {
+            withContext(Dispatchers.Main) {
                 explorerAdapter.notifyDataSetChanged()
                 isRefreshing = false
             }
+        }
     }
 
 
@@ -391,15 +421,8 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
         viewType: Int
     ): BindableViewHolder<Any> {
         return when (viewType) {
-            VIEW_TYPE_ITEM -> {
-                ExplorerItemViewHolder(
-                    ScriptFileListFileBinding.inflate(inflater, parent, false)
-                )
-            }
-
-            VIEW_TYPE_PAGE -> {
-                ExplorerPageViewHolder(inflater, parent)
-            }
+            VIEW_TYPE_ITEM -> ExplorerItemViewHolder(ComposeView(context))
+            VIEW_TYPE_PAGE -> ExplorerPageViewHolder(ComposeView(context))
 
             else -> {
                 CategoryViewHolder(
@@ -409,6 +432,15 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
                         false
                     )
                 )
+            }
+        }
+    }
+
+    @Composable
+    fun ExplorerList() {
+        LazyColumn {
+            items(explorerItemList.groupCount()) {
+
             }
         }
     }
@@ -477,112 +509,128 @@ open class ExplorerViewKt : SwipeRefreshLayout, OnRefreshListener,
         }
     }
 
-    inner class ExplorerItemViewHolder internal constructor(itemBinding: ScriptFileListFileBinding) :
-        BindableViewHolder<Any>(itemBinding.root) {
-        var name = itemBinding.name
-        var firstChar = itemBinding.firstChar
-        var desc = itemBinding.desc
-        var options = itemBinding.more
-        var edit = itemBinding.edit
-        var run = itemBinding.run
-        var firstCharBackground: GradientDrawable
-        private var explorerItem: ExplorerItem? = null
+    inner class ExplorerItemViewHolder internal constructor(view: ComposeView) :
+        BindableViewHolder<Any>(view) {
+        var name by mutableStateOf("")
+        var firstChar by mutableStateOf("J")
+        var desc by mutableStateOf("")
+        var firstCharBackground by mutableStateOf(Color(0xFF5cab7d))
+
+        var editVisibility by mutableStateOf(true)
+        var runVisibility by mutableStateOf(true)
+        var showMenu by mutableStateOf(false)
+
+        //        var options = itemBinding.more
+        private var explorerItem: ExplorerItem? by mutableStateOf(null)
 
         init {
-            itemBinding.item.setOnClickListener { onItemClick() }
-            run.setOnClickListener { run() }
-            edit.setOnClickListener { edit() }
-            options.setOnClickListener { showOptionMenu() }
-            firstCharBackground = firstChar.background as GradientDrawable
+            view.setContent {
+                ExplorerItem(
+                    name = name,
+                    desc = desc,
+                    firstChar = firstChar,
+                    firstCharBackground = firstCharBackground,
+                    editVisibility = editVisibility,
+                    runVisibility = runVisibility,
+                    onItemClick = { onItemClick() },
+                    run = { run() },
+                    edit = ::edit,
+                    more = { showMenu = true },
+                ) {
+                    explorerItem?.let {
+                        OptionMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false },
+                            it
+                        ) { showMenu = false; onMenuSelect(it, explorerItem!!) }
+                    }
+                }
+            }
         }
 
         override fun bind(item: Any, position: Int) {
             if (item !is ExplorerItem) return
             explorerItem = item
-            name.text = ExplorerViewHelper.getDisplayName(item)
-            desc.text = PFiles.getHumanReadableSize(item.size)
-            firstChar.text = ExplorerViewHelper.getIconText(item)
-            firstCharBackground.setColor(ExplorerViewHelper.getIconColor(item))
-            edit.visibility = if (item.isEditable) VISIBLE else GONE
-            run.visibility = if (item.isExecutable) VISIBLE else GONE
+            name = ExplorerViewHelper.getDisplayName(item)
+            desc = PFiles.getHumanReadableSize(item.size)
+            firstChar = ExplorerViewHelper.getIconText(item)
+            firstCharBackground = Color(ExplorerViewHelper.getIconColor(item))
+            editVisibility = item.isEditable
+            runVisibility = item.isExecutable
         }
 
         private fun onItemClick() {
             onItemClickListener?.invoke(itemView, explorerItem)
-            notifyOperated()
+            onItemOperatedListener?.invoke(explorerItem)
         }
 
         fun run() {
             EngineController.runScript(File(explorerItem!!.path))
-            notifyOperated()
         }
 
         fun edit() {
             edit(context, ScriptFile(explorerItem!!.path))
-            notifyOperated()
-        }
-
-        private fun showOptionMenu() {
-            selectedItem = explorerItem
-            val popupMenu = PopupMenu(context, options)
-            popupMenu.inflate(R.menu.menu_script_options)
-            val menu = popupMenu.menu
-            if (!explorerItem!!.isExecutable) {
-                menu.removeItem(R.id.run_repeatedly)
-                menu.removeItem(R.id.more)
-            }
-            if (!explorerItem!!.canDelete()) {
-                menu.removeItem(R.id.delete)
-            }
-            if (!explorerItem!!.canRename()) {
-                menu.removeItem(R.id.rename)
-            }
-            if (explorerItem !is ExplorerSampleItem) {
-                menu.removeItem(R.id.reset)
-            }
-            popupMenu.setOnMenuItemClickListener(this@ExplorerViewKt)
-            popupMenu.show()
         }
     }
 
 
     inner class ExplorerPageViewHolder internal constructor(
-        binding: ScriptFileListDirectoryBinding
-    ) : BindableViewHolder<Any>(binding.root) {
+        view: ComposeView,
+    ) : BindableViewHolder<Any>(view) {
 
-        val name: TextView = binding.name
-        val options: View = binding.more
-        val icon: ImageView = binding.icon
+        var name by mutableStateOf("")
+        var optionsVisibility by mutableStateOf(false)
+        var iconRes by mutableIntStateOf(R.drawable.circle_blue)
         private var explorerPage: ExplorerPage? = null
 
-        constructor(
-            layoutInflater: LayoutInflater, parent: ViewGroup?,
-        ) : this(ScriptFileListDirectoryBinding.inflate(layoutInflater, parent, false))
-
         init {
-            binding.item.setOnClickListener { onItemClick() }
-            binding.more.setOnClickListener { showOptionMenu() }
+            view.setContent {
+                ElevatedCard(
+                    onClick = { onItemClick() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 5.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.height(48.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Spacer(Modifier.width(16.dp))
+                        Image(
+                            painter = painterResource(iconRes),
+                            modifier = Modifier.size(32.dp),
+                            contentDescription = null
+                        )
+                        Spacer(Modifier.width(16.dp))
+                        Text(text = name, modifier = Modifier.weight(1f))
+                        var show by remember { mutableStateOf(false) }
+                        if (!optionsVisibility) IconButton(onClick = { show = true }) {
+                            Icon(
+                                modifier = Modifier.size(24.dp),
+                                painter = painterResource(R.drawable.ic_more_vert_black_24dp),
+                                contentDescription = null
+                            )
+                            OptionMenu2(
+                                expanded = show,
+                                onDismissRequest = { show = false },
+                                onMenuSelect = { show = false; onMenuSelect(it, explorerPage!!) }
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         override fun bind(data: Any, position: Int) {
             if (data !is ExplorerPage) return
-            name.text = ExplorerViewHelper.getDisplayName(data)
-            icon.setImageResource(ExplorerViewHelper.getIcon(data))
-            options.visibility =
-                if (data is ExplorerSamplePage) GONE else VISIBLE
+            name = ExplorerViewHelper.getDisplayName(data)
+            iconRes = ExplorerViewHelper.getIcon(data)
+            optionsVisibility = data is ExplorerSamplePage
             explorerPage = data
         }
 
         private fun onItemClick() {
             enterDirectChildPage(explorerPage)
-        }
-
-        private fun showOptionMenu() {
-            selectedItem = explorerPage
-            val popupMenu = PopupMenu(context, options)
-            popupMenu.inflate(R.menu.menu_dir_options)
-            popupMenu.setOnMenuItemClickListener(this@ExplorerViewKt)
-            popupMenu.show()
         }
     }
 
