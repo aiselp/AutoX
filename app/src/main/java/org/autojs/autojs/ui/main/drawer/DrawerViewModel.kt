@@ -24,8 +24,9 @@ class DrawerViewModel(private val context: Application) : AndroidViewModel(conte
     var githubReleaseInfo by mutableStateOf<GithubReleaseInfo?>(null)
         private set
 
-    fun checkUpdate(onUpdate: () -> Unit = {}, onComplete: () -> Unit = {}) {
-        showToast(context.getString(R.string.text_checking_for_updates))
+    fun checkUpdate(onUpdate: () -> Unit = {}, onComplete: () -> Unit = {}, toast: Boolean = true) {
+        if (toast)
+            showToast(context.getString(R.string.text_checking_for_updates))
         viewModelScope.launch {
             try {
                 var releaseInfo = VersionService2.gitUpdateCheckApi.getGithubLastReleaseInfo()
@@ -41,7 +42,7 @@ class DrawerViewModel(private val context: Application) : AndroidViewModel(conte
                 }
                 if (isLatestVersion == null) {
                     //Can't find information
-                    showToast(
+                    if (toast) showToast(
                         context.getString(
                             R.string.text_check_update_error,
                             context.getString(R.string.text_update_information_not_found)
@@ -51,7 +52,7 @@ class DrawerViewModel(private val context: Application) : AndroidViewModel(conte
                 }
                 if (isLatestVersion == true) {
                     //is the latest version
-                    showToast(context.getString(R.string.text_is_latest_version))
+                    if (toast) showToast(context.getString(R.string.text_is_latest_version))
                 } else {
                     //new version
                     githubReleaseInfo = releaseInfo
@@ -59,7 +60,7 @@ class DrawerViewModel(private val context: Application) : AndroidViewModel(conte
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                showToast(
+                if (toast) showToast(
                     context.getString(
                         R.string.text_check_update_error,
                         e.localizedMessage ?: ""

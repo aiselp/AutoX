@@ -22,6 +22,7 @@ mlkit-common-version = "18.11.0"
 # androidx
 core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }
 
+androidx-datastore = "androidx.datastore:datastore-preferences:1.1.7"
 androidx-viewpager2 = "androidx.viewpager2:viewpager2:1.1.0"
 androidx-work = "androidx.work:work-runtime:2.9.1"
 androidx-swiperefreshlayout = "androidx.swiperefreshlayout:swiperefreshlayout:1.1.0"

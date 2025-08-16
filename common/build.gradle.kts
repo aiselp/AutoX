@@ -55,6 +55,7 @@ dependencies {
     api(libs.compose.material3.adaptive.navigation.suite)
     api(libs.androidx.webkit)
     api(libs.commons.exec)
+    api(libs.androidx.datastore)
     api("com.github.hyb1996:settingscompat:1.1.5")
     implementation(libs.androidx.activity.ktx)
     implementation(libs.appcompat)

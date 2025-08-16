@@ -29,10 +29,14 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.viewpager2.widget.ViewPager2
 import com.aiselp.autox.ui.material3.BottomBar
 import com.aiselp.autox.ui.material3.DrawerPage
 import com.aiselp.autox.ui.material3.MainTopAppBar
+import com.aiselp.autox.ui.material3.components.DialogController
+import com.aiselp.autox.ui.material3.components.UpdateDialog
+import com.aiselp.autox.ui.material3.components.isIgnoreUpdate
 import com.aiselp.autox.ui.material3.theme.AppTheme
 import com.stardust.autojs.IndependentScriptService
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
@@ -46,6 +50,7 @@ import org.autojs.autojs.Pref
 import org.autojs.autojs.timing.TimedTaskScheduler
 import org.autojs.autojs.ui.floating.FloatyWindowManger
 import org.autojs.autojs.ui.main.components.DocumentPageMenuButton
+import org.autojs.autojs.ui.main.drawer.DrawerViewModel
 import org.autojs.autojs.ui.main.scripts.ScriptListFragment
 import org.autojs.autojs.ui.main.task.TaskManagerFragmentKt
 import org.autojs.autojs.ui.main.web.EditorAppManager
@@ -167,6 +172,22 @@ fun MainPage(
         },
         drawerContent = { DrawerPage() },
     ) {
+        val model: DrawerViewModel = viewModel()
+        val dialogController = remember { DialogController() }
+        dialogController.UpdateDialog(autoUpdate = true)
+        LaunchedEffect(Unit) {
+            model.checkUpdate(
+                onUpdate = {
+                    val name = model.githubReleaseInfo?.name
+                    scope.launch {
+                        if (name != null && !isIgnoreUpdate(context, name)) {
+                            dialogController.show()
+                        }
+                    }
+                }, toast = false
+            )
+        }
+
         AndroidView(
             modifier = Modifier
                 .padding(it),

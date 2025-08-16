@@ -6,7 +6,6 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
-import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -53,7 +52,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.edit
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -64,6 +62,7 @@ import com.aiselp.autox.ui.material3.components.BaseDialog
 import com.aiselp.autox.ui.material3.components.DialogController
 import com.aiselp.autox.ui.material3.components.DialogTitle
 import com.aiselp.autox.ui.material3.components.SettingOptionSwitch
+import com.aiselp.autox.ui.material3.components.UpdateDialog
 import com.aiselp.autox.ui.material3.components.Watch
 import com.stardust.app.GlobalAppContext
 import com.stardust.app.isOpPermissionGranted
@@ -75,12 +74,10 @@ import com.stardust.autojs.core.shizuku.ShizukuClient
 import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.toast
-import com.stardust.util.ClipboardUtil
 import com.stardust.util.IntentUtil
 import com.stardust.view.accessibility.AccessibilityService
 import io.github.g00fy2.quickie.QRResult
 import io.github.g00fy2.quickie.ScanQRCode
-import io.noties.markwon.Markwon
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -95,8 +92,6 @@ import org.autojs.autojs.ui.floating.FloatyWindowManger
 import org.autojs.autojs.ui.main.drawer.DrawerViewModel
 import org.autojs.autojs.ui.settings.SettingsActivity
 import org.autojs.autoxjs.R
-import org.joda.time.DateTimeZone
-import org.joda.time.Instant
 
 private const val TAG = "DrawerPage"
 private const val URL_DEV_PLUGIN = "https://github.com/kkevsekk1/Auto.js-VSCode-Extension"
@@ -733,56 +728,7 @@ private fun CheckForUpdate(model: DrawerViewModel = viewModel()) {
         Text(text = stringResource(R.string.text_check_for_updates))
     }
 
-    dialog.BaseDialog(
-        onDismissRequest = { scope.launch { dialog.dismiss() } },
-        title = {
-            DialogTitle(
-                title = stringResource(
-                    R.string.text_new_version2,
-                    model.githubReleaseInfo!!.name
-                )
-            )
-        },
-        positiveText = stringResource(id = R.string.text_download),
-        onPositiveClick = {
-            scope.launch { dialog.dismiss() }
-            model.downloadApk()
-        },
-        negativeText = stringResource(id = R.string.cancel),
-        onNegativeClick = { scope.launch { dialog.dismiss() } },
-        neutralText = stringResource(R.string.text_copy_link),
-        onNeutralClick = {
-            ClipboardUtil.setClip(context, model.getApkNameAndDownloadLink().second)
-            scope.launch { dialog.dismiss() }
-            toast(context, R.string.text_copy_successfully)
-        }
-    ) {
-        val date = rememberSaveable {
-            Instant.parse(model.githubReleaseInfo!!.createdAt)
-                .toDateTime(DateTimeZone.getDefault())
-                .toString("yyyy-MM-dd HH:mm:ss")
-        }
-        Column(
-            Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-        ) {
-            Text(
-                stringResource(id = R.string.text_release_date, date)
-            )
-            AndroidView(
-                factory = { context ->
-                    TextView(context).apply {
-                        val content =
-                            model.githubReleaseInfo!!.body.trim().replace("\r\n", "\n")
-                                .replace("\n", "  \n")
-                        val markdwon = Markwon.builder(context).build()
-                        markdwon.setMarkdown(this, content)
-                    }
-                }
-            )
-        }
-    }
+    dialog.UpdateDialog(model)
 }
 
 @Composable
