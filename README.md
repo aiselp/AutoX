@@ -1,18 +1,17 @@
-# Auto.js And Autox.js
+# Autox.js v7
+<p align="center"> 
+  
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/aiselp/AutoX/total)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/aiselp/AutoX)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/aiselp/AutoX/android-test.yml)
+
+</p>
 
 [English Document](README_en.md)
 
 ## 简介
 
 一个支持无障碍服务的Android平台上的JavaScript 运行环境 和 开发环境，其发展目标是类似JsBox和Workflow。
-
-~~由于[原作者](https://github.com/hyb1996) 不再维护 Auto.js 项目
-我计划在原来基础上继续维护者项目，本项目从[autojs](https://github.com/hyb1996/Auto.js) 并将原项目命名为Autox.js。
-你现在看的是原4.1版基础上的项目，后面我将针对项目本身如何开发、运行的进行介绍，欢迎更多开发者参与这个项目维护升级，
-最新的[Autox.js地址](https://github.com/kkevsekk1/AutoX), 文档中很多原项目路径，
-在原项目没有删除的情况下我并不打算替换掉，以表对于原作者的尊重。这篇文档里有加密相关的内容可能和实际运行情况有冲突，
-如果你希望写的代码加密保护知识产权，请参考项目 https://github.com/kkevsekk1/webpack-autojs
-我会逐步完善更新，程序代码，尽可能保持一致。~~
 
 本项目从[hyb1996](https://github.com/hyb1996/Auto.js) autojs 获得,并命名为Autox.js （autojs 修改版本），
 你现在看的是原4.1版本基础上的项目，
@@ -39,9 +38,9 @@
 如果下载过慢可以右键复制 Release Assets 中APK文件的链接地址，粘贴到 [http://toolwa.com/github/](http://toolwa.com/github/) 等github加速网站下载
 
 #### APK版本说明：
-- universal: 通用版（不在乎安装包大小/懒得选就用这个版本，包含以下2种CPU架构so）
-- armeabi-v7a: 32位ARM设备（备用机首选）
+目前仅提供一下两种版本
 - arm64-v8a: 64位ARM设备（主流旗舰机）
+- mini-arm64-v8a: 移除一些非必要资源版本，可以在使用时按需下载
 
 ### 特性
 
@@ -62,60 +61,12 @@
 3. Auto.js执行大部分任务不需要root权限。只有需要精确坐标点击、滑动的相关函数才需要root权限
 4. Auto.js可以提供界面编写等功能，不仅仅是作为一个脚本软件而存在
 
+### v7版本新增功能特性🎉
+
 
 ### 示例
 可在[这里](https://github.com/aiselp/AutoX/tree/setup-v7/app/src/main/assets/sample)查看一些示例，或者直接在应用内查看和运行。
 
-### 架构图
-
-待补充，不过是否有人真对此感兴趣？欢迎联系我交流
-
-## 关于License
-
-##### 本产品采用 [GPL-V2](https://opensource.org/licenses/GPL-2.0) 许可证
-
-##### 由于历史原因还得遵循[autojs项目](https://github.com/hyb1996/Auto.js)的协议：
-
-基于[Mozilla Public License Version 2.0](https://github.com/hyb1996/NoRootScriptDroid/blob/master/LICENSE.md)并附加以下条款：
-
-* **非商业性使用** — 不得将此项目及其衍生的项目的源代码和二进制产品用于任何商业和盈利用途
-
-#### 本Autox.js能不能采用GPL-V2?
-
-关于GPL-V2 应该很容易理解， 著名linux 采用该许可证。但是对于MPL-2.0 有非常多的文章都是停留在MPL-1.1 的版本，对非常多国内开发者造成困扰,
-这是一篇比较标准[译文](https://github.com/rachelzhang1/MPL2.0_zh-CN/blob/93d2feec60d8b0b5a54a1843c866994af4610d4f/Mozilla_Public_License_2.0_Simplified_Chinese_Reference.txt)
-有兴趣可以研究一下。
-
-#### 代码贡献者需要注意：
-
-原文中没人声明license 即为MPL2.0 ,新加文件或修改（仅限于修你自己的）代码采用GPL-V2，需要做相关声明。
-
-``` java
-// SPDX-License-Identifier: GPL-2.0
-// 申明你的版权
-```
-
-#### 其他人使用Autox.js，做深度开发请注意
-
-* 如果你使用了带有GPL-2.0 声明的代码 或编译出来的二进制。你需要开源你所有代码。
-* 如果你仅使用了MPL-2.0 的东西，你需要开源你修改过的相关代码。
-
-#### 抛开本产品谈 开源和商业
-
-* 开源不等于随意使用，开源也不等于禁止商用！
-* 开源东西可以商用，但你需要按规定开源！
-* 商用的产品可以是开源的，比如redhat！
-* 不按开源协议使用开源产品，那可了解openwrt的来源，以及近几年国内的侵权案例！
-
-#### 关于其他人开发的js脚本，在这上面运行。是否需要遵循GPL-2.0进行开源
-
-* 那是你的自由，不受这协议限制，如同linux 运行软件一样
-
-#### 使用本产品或autojs 产品是否可以商用?
-
-* 本产品 能不能商用，取决于 原来autojs，因为目前很多功能和代码版权归autojs 所有。
-* autojs 能不能商用,取决于你对于附带的 “ **非商业性使用** ” 的理解和其法律效益。
-* 反正本产品不会拿autojs 进行商用。
 
 ### 编译相关：
 环境要求:`jdk`版本17以上
