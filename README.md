@@ -4,6 +4,8 @@
 ![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/aiselp/AutoX/total)
 ![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/aiselp/AutoX)
 ![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/aiselp/AutoX/android-test.yml)
+![GitHub Release](https://img.shields.io/github/v/release/aiselp/AutoX)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/ca72518c8bd548f9a350d5a15e2ed9ea)](https://app.codacy.com/gh/aiselp/AutoX/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
 
 </p>
 
@@ -63,24 +65,36 @@
 
 ### v7版本新增功能特性🎉
 
+- [x] 全新基于Material Design 3的ui界面
+- [x] 支持[Shizuku](https://shizuku.rikka.app/introduction/)功能并且能够运行嵌入式脚本，从而能够动态调试基于Shizuku的api而无需频繁构建调试apk来测试Shizuku功能
+- [x] 引入新的[nodejs引擎](https://github.com/caoccao/Javet?tab=readme-ov-file)，支持运行大量来自npm软件包，同时能够与java交互
+- [x] 迁移大量模块使用ts编写并添加类型申明，支持使用ts编写脚本并获得更全面的类型提示
+- [x] 全新基于Vue3和Jetpack Compose的ui框架，让你可以使用vue3编写数据响应式的Material Design 3界面
+- [ ] 新一代基于nodejs的api(简称v7 api)，提供大量非阻塞式的功能模块(完善中)
+- [x] 完善app打包功能和签名管理，支持打包nodejs引擎脚本，支持特殊权限请求配置
+- [x] [Rhino](https://github.com/mozilla/rhino/)升级至v1.8.0稳定版，支持更多es6+语法
 
 ### 示例
 可在[这里](https://github.com/aiselp/AutoX/tree/setup-v7/app/src/main/assets/sample)查看一些示例，或者直接在应用内查看和运行。
 
 
 ### 编译相关：
-环境要求:`jdk`版本17以上
+环境要求:`java`版本为17
 
 命令说明：在项目根目录下运行命令，如果使用 Windows powerShell < 7.0，请使用包含 ";" 的命令
 
-从7.0版本开始，构建之前，需要运行以下命令编译js模块，确保你已经安装了nodejs 20+
+**从7.0版本开始，构建之前，需要运行以下命令编译js模块，确保你已经安装了nodejs 20+**
+
 ```shell
 ./gradlew autojs:buildJsModule
 ```
+仅需运行一次，若更改了模块代码需再次运行获得更新
 ##### 构建文档
+
 ```shell
 ./gradlew app:buildDocs
 ````
+仅需运行一次，若更改了文档需再次运行获得更新
 ##### 本地安装调试版本到设备：
 ```shell
 ./gradlew app:buildDebugTemplateApp && ./gradlew app:assembleV7Debug && ./gradlew app:installV7Debug
@@ -115,3 +129,12 @@
 
 再点击 Android Studio 菜单 "Build" -> "Generate Signed Bundle /APK..." -> 勾选"APK" -> "Next" -> 选择或新建证书 -> "Next" -> 选择"v7Release" -> "Finish"
 生成的APK文件，在 app/v7/release 下
+
+### 测试
+目前为autojs模块中添加了部分脚本功能测试，如需运行测试请参考以下步骤
+
+1. 准备一台安卓设备并使用adb连接到电脑
+2. 使用最新版`Android Studio`完成一次模块构建`./gradlew autojs:assemble`
+3. 打开`autojs/src/androidTest`目录下的测试类
+4. 点击类名旁边的运行按钮开始测试
+5. 随后可能因设备而异需要在手机上点击允许测试apk安装
