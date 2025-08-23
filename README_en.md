@@ -1,16 +1,19 @@
-# Auto.js and AutoX.js
+# AutoX.js v7
+<p align="center"> 
+  
+![GitHub Downloads (all assets, all releases)](https://img.shields.io/github/downloads/aiselp/AutoX/total)
+![GitHub Issues or Pull Requests](https://img.shields.io/github/issues/aiselp/AutoX)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/aiselp/AutoX/android-test.yml)
+![GitHub Release](https://img.shields.io/github/v/release/aiselp/AutoX)
+[![Codacy Badge](https://app.codacy.com/project/badge/Grade/ca72518c8bd548f9a350d5a15e2ed9ea)](https://app.codacy.com/gh/aiselp/AutoX/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)
+
+</p>
+
 [中文文档](README.md)
 ## Introduction
 
 A JavaScript runtime and development environment on the Android platform that supports barrier-free services. Its development goal is similar to JsBox and Workflow.
 
-~~Since the [original author](https://github.com/hyb1996) no longer maintains the Auto.js project
-I plan to continue to maintain the project on the original basis. This project is based on [autojs](https://github.com/hyb1996/Auto.js) and the original project is named Autox.js.
-You are now looking at the project based on the original 4.1 version. Later, I will introduce how to develop and run the project itself. More developers are welcome to participate in the maintenance and upgrade of this project.
-The latest [Autox.js address](https://github.com/kkevsekk1/AutoX), there are many original project paths in the document,
-I do not intend to replace the original project if it is not deleted, to show respect for the original author. This document contains encryption-related content that may conflict with the actual operation.
-If you want to encrypt the code you write to protect intellectual property, please refer to the project https://github.com/kkevsekk1/webpack-autojs
-I will gradually improve and update the program code to keep it consistent as much as possible.~~
 
 This project is obtained from [hyb1996](https://github.com/hyb1996/Auto.js) autojs and named Autox.js (autojs modified version).
 You are now looking at the project based on the original 4.1 version.
@@ -42,9 +45,9 @@ About the two agreements:
 If the download is too slow, you can right-click and copy the link address of the APK file in Release Assets, and paste it to [http://toolwa.com/github/](http://toolwa.com/github/) and other github acceleration websites to download
 
 #### APK version description:
-- universal: universal version (don't care about the size of the installation package/don't bother to choose, just use this version, including the following 2 CPU architectures so)
-- armeabi-v7a: 32-bit ARM device (preferred for backup machine)
-- arm64-v8a: 64-bit ARM device (mainstream flagship machine)
+Currently, only the following two versions are available:
+- arm64-v8a: 64-bit ARM devices (mainstream flagship devices)
+- mini-arm64-v8a: Removes some non-essential resource versions and can be downloaded on demand.
 
 ### Features
 
@@ -65,79 +68,35 @@ This software is different from software such as Keyboard Wizard. The main diffe
 3. Auto.js does not require root permissions to perform most tasks. Only functions related to clicks and slides that require precise coordinates require root permissions
 4. Auto.js can provide functions such as interface writing, and is not just a scripting software
 
+### New features in v7 🎉
+
+- [x] Brand new UI based on Material Design 3
+- [x] Support for [Shizuku](https://shizuku.rikka.app/introduction/) and the ability to run embedded scripts, allowing dynamic debugging of Shizuku-based APIs without frequently building debug APKs to test Shizuku functionality
+- [x] Introducing a new [NodeJS engine](https://github.com/caoccao/Javet?tab=readme-ov-file), supporting the execution of a large number of NPM packages and interoperability with Java
+- [x] Migrating numerous modules to TS and adding type declarations, supporting scripts written in TS and providing more comprehensive type hints
+- [x] A brand new UI framework based on Vue3 and Jetpack Compose, allowing you to write data-responsive Material Design 3 interfaces with Vue3
+- [ ] A new generation of NodeJS-based APIs (referred to as the v7 API), providing a large number of non-blocking functional modules (working on)
+- [x]  Improved app packaging and signature management, support for packaging Node.js engine scripts, and support for special permission request configuration.
+- [x] [Rhino](https://github.com/mozilla/rhino/) upgraded to stable version 1.8.0, supporting more ES6+ syntax.
+
 ### Examples
 You can view some examples [here](https://github.com/aiselp/AutoX/tree/setup-v7/app/src/main/assets/sample), or view and run them directly in the app.
 
-### Architecture diagram
-
-To be supplemented, but is anyone really interested in this? Welcome to contact me for communication
-
-## About License
-
-##### This product adopts the [GPL-V2](https://opensource.org/licenses/GPL-2.0) license
-
-##### Due to historical reasons, it must also follow the [autojs project](https://github.com/hyb1996/Auto.js) agreement:
-
-Based on [Mozilla Public License Version 2.0](https://github.com/hyb1996/NoRootScriptDroid/blob/master/LICENSE.md) and with the following terms:
-
-* **Non-commercial use** — The source code and binary products of this project and its derivatives may not be used for any commercial and profit-making purposes
-
-#### Can this Autox.js adopt GPL-V2?
-
-It should be easy to understand about GPL-V2, the famous linux adopts this license. However, many articles about MPL-2.0 are still based on the MPL-1.1 version, which has caused trouble for many domestic developers.
-This is a relatively standard [translation](https://github.com/rachelzhang1/MPL2.0_zh-CN/blob/93d2feec60d8b0b5a54a1843c866994af4610d4f/Mozilla_Public_License_2.0_Simplified_Chinese_Reference.txt)
-If you are interested, you can study it.
-
-#### Code contributors should note:
-
-No one in the original text declares that the license is MPL2.0. New files or modifications (limited to your own modifications) of the code use GPL-V2, and relevant statements need to be made.
-
-``` java
-// SPDX-License-Identifier: GPL-2.0
-// Claim your copyright
-```
-
-#### Others using Autox.js, please pay attention to in-depth development
-
-* If you use code with GPL-2.0 declaration or compiled binary. You need to open source all your code.
-
-* If you only use MPL-2.0 stuff, you need to open source the relevant code you modified.
-
-#### Let's talk about open source and business aside from this product
-
-* Open source does not mean arbitrary use, and open source does not mean prohibiting commercial use!
-
-* Open source things can be commercial, but you need to open source according to regulations!
-
-* Commercial products can be open source, such as redhat!
-
-* If you do not use open source products according to the open source agreement, you can understand the source of openwrt and the domestic infringement cases in recent years!
-
-#### About js scripts developed by others, run on it. Is it necessary to follow GPL-2.0 for open source?
-
-* That is your freedom, not restricted by this agreement, just like running software in Linux
-
-#### Can this product or autojs product be used for commercial purposes?
-
-* Whether this product can be used for commercial purposes depends on the original autojs, because many functions and code copyrights are currently owned by autojs.
-
-* Whether autojs can be used for commercial purposes depends on your understanding of the accompanying "**non-commercial use**" and its legal benefits.
-
-* Anyway, this product will not use autojs for commercial purposes.
-
 ### Compilation related:
-Environment requirements: `jdk` version 17 or above
+Environment Requirements: Java version 17
 
-Command description: Run the command in the project root directory. If you use Windows powerShell < 7.0, please use the command containing ";"
+Command Instructions: Run the command in the project root directory. If using Windows PowerShell (less than 7.0), use the command with a ";" prefix.
 
-Starting from version 7.0, before building, you need to run the following command to compile the js module. Make sure you have installed nodejs 20+
+**Starting with version 7.0, you need to run the following command to compile the JS module before building. Make sure you have Node.js version 20 or higher installed.**
 ```shell
 ./gradlew autojs:buildJsModule
 ```
+Only needs to be run once. If the module code is changed, it needs to be run again to get the update.
 ##### Building Documentation
 ```shell
 ./gradlew app:buildDocs
 ````
+Only needs to be run once. If the document is changed, it needs to be run again to get the update.
 ##### Locally install the debug version to the device:
 ```shell
 ./gradlew app:buildDebugTemplateApp && ./gradlew app:assembleV7Debug && ./gradlew app:installV7Debug
@@ -172,3 +131,12 @@ First run the following command:
 
 Then click the Android Studio menu "Build" -> "Generate Signed Bundle /APK..." -> Check "APK" -> "Next" -> Select or create a new certificate -> "Next" -> Select "v7Release" -> "Finish"
 The generated APK file is under app/v7/release
+
+### Testing
+We've added some script functionality tests to the autojs module. To run the tests, please refer to the following steps.
+
+1. Prepare an Android device and connect it to your computer using adb.
+2. Use the latest version of Android Studio to build the module using `./gradlew autojs:assemble`.
+3. Open the test class in the `autojs/src/androidTest` directory.
+4. Click the Run button next to the class name to start the test.
+5. Depending on your device, you may need to click Allow test APK installation on your phone.
