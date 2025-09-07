@@ -1,5 +1,6 @@
 import com.android.build.gradle.internal.tasks.factory.dependsOn
 import java.io.FileNotFoundException
+import java.util.Base64
 
 plugins {
     id("com.android.application")
@@ -9,8 +10,14 @@ plugins {
     id("com.google.devtools.ksp")
 }
 
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(versions.javaVersionInt))
+    }
+}
 
 android {
+    namespace = "org.autojs.autoxjs"
     compileSdk = versions.compile
     defaultConfig {
         applicationId = "org.autojs.autoxjs"
@@ -38,10 +45,6 @@ android {
         abortOnError = false
         disable.addAll(listOf("MissingTranslation", "ExtraTranslation"))
     }
-    compileOptions {
-        sourceCompatibility = versions.javaVersion
-        targetCompatibility = versions.javaVersion
-    }
 
     splits {
         // Configures multiple APKs based on ABI.
@@ -58,24 +61,38 @@ android {
             isUniversalApk = false
         }
     }
+    val signing =
+        if (System.getenv("CI") == "true" && System.getenv("KEYSTORE_BASE64").isNotEmpty()) {
+            val file = File.createTempFile("key", "jks")
+            val bytes = Base64.getDecoder().decode(System.getenv("KEYSTORE_BASE64"))
+            file.writeBytes(bytes)
+            signingConfigs.create("release") {
+                storeFile = file
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        } else null
+
     buildTypes {
         named("debug") {
             isShrinkResources = false
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
-                    "proguard-rules.pro"
+                    getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
                 )
             )
         }
         named("release") {
+            if (signing != null) {
+                signingConfig = signing
+            }
             isShrinkResources = false
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
-                    "proguard-rules.pro"
+                    getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
                 )
             )
         }
@@ -110,11 +127,9 @@ android {
                     delete(
                         fileTree(outputDir) {
                             include(
-                                "codeeditor/**/*",
-                                "template.apk"
+                                "codeeditor/**/*", "template.apk"
                             )
-                        }
-                    )
+                        })
                 }
             }
         }
@@ -135,12 +150,10 @@ android {
         //ktor netty implementation("io.ktor:ktor-server-netty:2.0.1")
         resources.pickFirsts.addAll(
             listOf(
-                "META-INF/io.netty.versions.properties",
-                "META-INF/INDEX.LIST"
+                "META-INF/io.netty.versions.properties", "META-INF/INDEX.LIST"
             )
         )
     }
-    namespace = "org.autojs.autoxjs"
 
 }
 

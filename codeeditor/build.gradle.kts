@@ -4,7 +4,11 @@ plugins {
     id("kotlin-kapt")
     id("de.undercouch.download") version "5.6.0"
 }
-
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(versions.javaVersionInt))
+    }
+}
 android {
     namespace = "com.aiselp.autojs.codeeditor"
     compileSdk = versions.compile
@@ -31,10 +35,6 @@ android {
                 "proguard-rules.pro"
             )
         }
-    }
-    compileOptions {
-        sourceCompatibility = versions.javaVersion
-        targetCompatibility = versions.javaVersion
     }
 }
 

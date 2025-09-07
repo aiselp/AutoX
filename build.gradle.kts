@@ -32,7 +32,7 @@ allprojects {
         //首选国外镜像加快github CI
         google()
         mavenCentral()
-        maven("https://www.jitpack.io")
+        maven { url = uri("https://jitpack.io") }
         maven("https://maven.aliyun.com/repository/central")
         google { url = uri("https://maven.aliyun.com/repository/google") }
         mavenCentral { url = uri("https://maven.aliyun.com/repository/public") }

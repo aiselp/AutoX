@@ -4,8 +4,10 @@ plugins {
     id("com.android.library")
     id("kotlin-android")
 }
-kotlin {
-    jvmToolchain(17)
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(versions.javaVersionInt))
+    }
 }
 android {
     compileSdk = versions.compile
@@ -37,10 +39,6 @@ android {
         getByName("main") {
             res.srcDirs("src/main/res", "src/main/res-i18n")
         }
-    }
-    compileOptions {
-        sourceCompatibility = versions.javaVersion
-        targetCompatibility = versions.javaVersion
     }
     namespace = "com.stardust"
 }

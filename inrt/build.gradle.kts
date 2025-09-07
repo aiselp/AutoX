@@ -3,7 +3,11 @@ plugins {
     id("com.android.application")
     id("kotlin-android")
 }
-
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(versions.javaVersionInt))
+    }
+}
 
 android {
     compileSdk = versions.compile
@@ -34,10 +38,6 @@ android {
     }
     composeOptions{
         kotlinCompilerExtensionVersion = compose_version
-    }
-    compileOptions {
-        sourceCompatibility = versions.javaVersion
-        targetCompatibility = versions.javaVersion
     }
     buildTypes {
         named("debug") {

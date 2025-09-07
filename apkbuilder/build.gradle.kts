@@ -2,6 +2,12 @@ plugins {
     id("com.android.library")
     id("kotlin-android")
 }
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(versions.javaVersionInt))
+    }
+}
 android {
     compileSdk = versions.compile
 
@@ -24,10 +30,6 @@ android {
         }
     }
     namespace = "com.stardust.autojs.apkbuilder"
-    compileOptions {
-        sourceCompatibility = versions.javaVersion
-        targetCompatibility = versions.javaVersion
-    }
 
     sourceSets {
         named("main") {

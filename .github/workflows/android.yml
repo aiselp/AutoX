@@ -42,28 +42,23 @@ jobs:
       - name: Build inrt template
         run: |
           ./gradlew app:buildTemplateApp
-      - name: Build App
+      - name: Build Sign App
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ASIGNING_KEY }}
+          KEYSTORE_PASSWORD: ${{ secrets.AKEY_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AALIAS }}
+          KEY_PASSWORD: ${{ secrets.AKEY_PASSWORD }}
         run: |
           ./gradlew app:assembleRelease
-      - uses: Tlaster/android-sign@v1.2.2
-        name: Sign app APK
-        with:
-          releaseDirectory: |
-            app/build/outputs/apk/v7/release
-            app/build/outputs/apk/v7_mini/release
-          signingKeyBase64: ${{ secrets.ASIGNING_KEY }}
-          output: build/app/signed
-          alias: ${{ secrets.AALIAS }}
-          keyStorePassword: ${{ secrets.AKEY_STORE_PASSWORD }}
-          keyPassword: ${{ secrets.AKEY_PASSWORD }}
-        env:
-          BUILD_TOOLS_VERSION: "34.0.0"
       - name: rename apk
         run: |
+          mkdir -p build/app/signed
+          mv app/build/outputs/apk/v7/release/*.apk build/app/signed/
+          mv app/build/outputs/apk/v7_mini/release/*.apk build/app/signed/
           cp app/src/main/assets/template.apk build/app/signed/ 
           cd build/app/signed
-          mv app-v7-arm64-v8a-release*.apk Autox-v7-arm64-v8a-release-${{steps.vars.outputs.short_ref}}.apk
-          mv app-v7_mini-arm64-v8a-release*.apk Autox-v7_mini-arm64-v8a-release-${{steps.vars.outputs.short_ref}}.apk
+          mv app-v7-*.apk Autox-v7-arm64-v8a-release-${{steps.vars.outputs.short_ref}}.apk
+          mv app-v7_mini-*.apk Autox-v7_mini-arm64-v8a-release-${{steps.vars.outputs.short_ref}}.apk
           ls
       - name: create-gh-release
         if: github.repository == 'aiselp/AutoX'
