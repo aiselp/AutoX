@@ -62,7 +62,7 @@ android {
         }
     }
     val signing =
-        if (System.getenv("CI") == "true" && System.getenv("KEYSTORE_BASE64").isNotEmpty()) {
+        if (System.getenv("CI") == "true" && !System.getenv("KEYSTORE_BASE64").isNullOrEmpty()) {
             val file = File.createTempFile("key", "jks")
             val bytes = Base64.getDecoder().decode(System.getenv("KEYSTORE_BASE64"))
             file.writeBytes(bytes)
