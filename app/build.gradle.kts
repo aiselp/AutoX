@@ -252,7 +252,6 @@ dependencies {
     implementation(libs.androidx.viewpager2)
     implementation(libs.coil.compose)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.3")
-    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.17.3")
 }
 
 fun copyTemplateToAPP(isDebug: Boolean, to: File) {
