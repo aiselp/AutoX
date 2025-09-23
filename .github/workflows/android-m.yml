@@ -43,4 +43,4 @@ jobs:
         with:
           name: apk-${{ github.event.inputs.flavor }}
           path: |
-            app/build/outputs/apk/${{ github.event.inputs.flavor }}/*.apk
+            app/${{ github.event.inputs.flavor }}/*.apk
