@@ -36,9 +36,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: apk-${{ github.event.inputs.flavor }}
-          path: ./app/build/outputs/apk/debug/*.apk
-                ./inrt/build/outputs/apk/debug/*.apk
-                app/build/outputs/apk/v6/release/*.apk
-                app/build/outputs/apk/v7/release/*.apk
-                app/build/outputs/apk/v6/debug/*.apk
+          path: app/build/outputs/apk/v7/release/*.apk
                 app/build/outputs/apk/v7/debug/*.apk
