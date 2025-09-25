@@ -79,7 +79,7 @@ class OnnxDetector {
         )
 
         try {
-            // ✅ 修复：使用正确的API执行推理
+            // ✅ 修复：使用正确的API
             val results = session.run(Collections.singletonMap(inputName, inputTensor))
             try {
                 val outputTensor = results.get(0)
@@ -163,7 +163,7 @@ class OnnxDetector {
         return detections
     }
 
-    // ✅ 修复：改进的NMS算法，避免在迭代中修改集合
+    // ✅ 修复：改进的NMS算法
     private fun nonMaxSuppression(detections: List<Detection>, iouThreshold: Float): List<Detection> {
         val sorted = detections.sortedByDescending { it.confidence }
         val result = mutableListOf<Detection>()
@@ -203,8 +203,6 @@ class OnnxDetector {
             0f
         }
     }
-
-    private fun sigmoid(x: Float): Float = 1f / (1f + exp(-x))
 
     fun release() {
         session?.close()
