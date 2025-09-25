@@ -13,11 +13,6 @@ class OnnxClassifier {
     private var inputWidth = 224
     private var inputHeight = 224
 
-    /**
-     * 初始化 ONNX 模型
-     * @param modelPath 模型文件路径
-     * @return 是否加载成功
-     */
     fun init(modelPath: String): Boolean {
         return try {
             val sessionOptions = OrtSession.SessionOptions()
@@ -47,18 +42,12 @@ class OnnxClassifier {
         }
     }
 
-    /**
-     * 分类结果数据类
-     */
     data class Classification(
         val classId: Int,
         val className: String,
         val confidence: Float
     )
 
-    /**
-     * 执行图像分类
-     */
     fun classify(bitmap: Bitmap, labels: List<String>): Classification? {
         val session = this.session ?: throw IllegalStateException("Model not initialized")
 
@@ -82,7 +71,7 @@ class OnnxClassifier {
         )
 
         try {
-            // ✅ 修复：使用正确的API执行推理
+            // ✅ 修复：使用正确的API
             val results = session.run(Collections.singletonMap(inputName, inputTensor))
             try {
                 val outputTensor = results.get(0)
