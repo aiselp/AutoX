@@ -6,7 +6,6 @@ import android.util.Log
 import org.json.JSONObject
 import java.io.File
 
-// ✅ 修复：移除AutoX特定依赖，使用Context
 class OnnxModule(private val context: Context) {
 
     private val detector = OnnxDetector()
@@ -17,7 +16,6 @@ class OnnxModule(private val context: Context) {
         private const val TAG = "OnnxModule"
     }
 
-    // ✅ 修复：移除JavascriptInterface注解
     fun init(options: String): Boolean {
         return try {
             val json = JSONObject(options)
@@ -84,7 +82,6 @@ class OnnxModule(private val context: Context) {
         }
     }
 
-    // ✅ 修复：简化参数类型
     fun detect(bitmap: Bitmap): List<Map<String, Any>> {
         return try {
             if (labels.isEmpty()) {
@@ -128,7 +125,6 @@ class OnnxModule(private val context: Context) {
         }
     }
 
-    // ✅ 修复：移除JSThread注解
     fun release() {
         try {
             detector.release()
