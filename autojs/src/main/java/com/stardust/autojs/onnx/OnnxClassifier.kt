@@ -1,8 +1,10 @@
-// 文件: OnnxClassifier.kt
 import ai.onnxruntime.*
 import android.graphics.Bitmap
 import android.util.Log
 import java.nio.FloatBuffer
+import kotlin.math.exp
+import kotlin.math.max
+import java.util.Collections
 
 class OnnxClassifier {
     private var session: OrtSession? = null
@@ -23,7 +25,7 @@ class OnnxClassifier {
             session = env.createSession(modelPath, sessionOptions)
 
             // ✅ 修复 1: 使用 getInputInfo() 替代已移除的 inputMetadata
-            val inputInfo = session!!.getInputInfo()
+            val inputInfo = session!!.inputInfo
             if (inputInfo.isEmpty()) {
                 Log.e("OnnxClassifier", "❌ Model has no input")
                 return false
@@ -88,25 +90,30 @@ class OnnxClassifier {
             longArrayOf(1, 3, inputHeight.toLong(), inputWidth.toLong())
         )
 
-        // ✅ 执行推理
-        val results = session.run(mapOf(inputName to inputTensor))
-        val output = results.values.first().value as FloatArray
+        try {
+            // ✅ 修复 3: 使用正确的API执行推理
+            val results = session.run(Collections.singletonMap(inputName, inputTensor))
+            try {
+                val outputTensor = results.get(0) // 获取第一个输出
+                val output = outputTensor.value as FloatArray
 
-        Log.d("OnnxClassifier", "📊 Output shape: ${results.values.first().shape?.contentToString() ?: "unknown"}")
+                Log.d("OnnxClassifier", "📊 Output shape: ${outputTensor.info.dims.contentToString()}")
 
-        // ✅ 后处理：Softmax + 取最大概率
-        val probabilities = softmax(output)
-        val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: return null
-        val confidence = probabilities[maxIndex]
-        val className = labels.getOrNull(maxIndex) ?: "unknown"
+                // ✅ 后处理：Softmax + 取最大概率
+                val probabilities = softmax(output)
+                val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: return null
+                val confidence = probabilities[maxIndex]
+                val className = labels.getOrNull(maxIndex) ?: "unknown"
 
-        val result = Classification(maxIndex, className, confidence)
-
-        // ✅ 修复 3: 正确释放资源（推荐使用 try-finally 或 use）
-        inputTensor.close()
-        results.values.forEach { it.close() } // 所有输出 Tensor 都要 close
-
-        return result
+                return Classification(maxIndex, className, confidence)
+            } finally {
+                // ✅ 修复 4: 正确释放结果资源
+                results.close()
+            }
+        } finally {
+            // ✅ 修复 5: 正确释放输入资源
+            inputTensor.close()
+        }
     }
 
     /**
@@ -114,7 +121,7 @@ class OnnxClassifier {
      */
     private fun softmax(logits: FloatArray): FloatArray {
         val max = logits.maxOrNull() ?: 0f
-        val exps = logits.map { kotlin.math.exp(it - max).toFloat() }
+        val exps = logits.map { exp(it - max).toFloat() }
         val sum = exps.sum()
         return exps.map { it / sum }.toFloatArray()
     }
