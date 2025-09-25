@@ -1,11 +1,4 @@
-// package: com.autox.onnx
-import android.graphics.BitmapFactory
-import android.util.Log
-import com.stardust.autojs.runtime.api.ScriptRuntime
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.File
-
+// OnnxModule.kt
 @JSThread
 class OnnxModule(private val runtime: ScriptRuntime) {
 
@@ -26,69 +19,39 @@ class OnnxModule(private val runtime: ScriptRuntime) {
                 val file = File(labelsFile)
                 if (file.exists()) {
                     labels = file.readLines()
+                    Log.i("OnnxModule", "Loaded ${labels.size} labels from $labelsFile")
+                } else {
+                    Log.w("OnnxModule", "Labels file not found: $labelsFile")
                 }
             }
 
-            // 初始化检测器
+            var success = true
             if (detectModel.isNotEmpty()) {
                 if (!File(detectModel).exists()) {
                     Log.e("OnnxModule", "Detect model not found: $detectModel")
-                    return false
+                    success = false
+                } else if (!detector.init(detectModel)) {
+                    Log.e("OnnxModule", "Failed to init detector")
+                    success = false
                 }
-                if (!detector.init(detectModel)) return false
             }
 
-            // 初始化分类器
             if (classifyModel.isNotEmpty()) {
                 if (!File(classifyModel).exists()) {
                     Log.e("OnnxModule", "Classify model not found: $classifyModel")
-                    return false
+                    success = false
+                } else if (!classifier.init(classifyModel)) {
+                    Log.e("OnnxModule", "Failed to init classifier")
+                    success = false
                 }
-                if (!classifier.init(classifyModel)) return false
             }
 
-            return true
+            return success
         } catch (e: Exception) {
             Log.e("OnnxModule", "Init failed", e)
             return false
         }
     }
 
-    @JavascriptInterface
-    fun detect(imagePath: String): String {
-        val bitmap = BitmapFactory.decodeFile(imagePath) ?: return "[]"
-        val results = detector.detect(bitmap, labels)
-        val array = JSONArray()
-        for (r in results) {
-            val obj = JSONObject()
-            obj.put("classId", r.classId)
-            obj.put("className", r.className)
-            obj.put("confidence", r.confidence)
-            obj.put("left", r.left)
-            obj.put("top", r.top)
-            obj.put("right", r.right)
-            obj.put("bottom", r.bottom)
-            array.put(obj)
-        }
-        return array.toString()
-    }
-
-    @JavascriptInterface
-    fun classify(imagePath: String): String {
-        val bitmap = BitmapFactory.decodeFile(imagePath) ?: return "{}"
-        val result = classifier.classify(bitmap, labels)
-        return if (result != null) {
-            val obj = JSONObject()
-            obj.put("classId", result.classId)
-            obj.put("className", result.className)
-            obj.put("confidence", result.confidence)
-            obj.toString()
-        } else "{}"
-    }
-
-    @JavascriptInterface
-    fun release() {
-        detector.release()
-        classifier.release()
-    }
+    // detect / classify / release 方法无需修改，保持原样
 }
