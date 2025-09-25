@@ -1,15 +1,12 @@
-// 文件: OnnxModule.kt
 package com.stardust.autojs.onnx
 
-import com.stardust.autojs.engine.ScriptRuntime
-import com.stardust.autojs.runtime.api.JSThread
-import com.stardust.autojs.annotation.JavascriptInterface
+import android.content.Context
 import android.graphics.Bitmap
 import android.util.Log
 import org.json.JSONObject
 import java.io.File
 
-class OnnxModule(private val runtime: ScriptRuntime) {
+class OnnxModule(private val context: Context) {
 
     private val detector = OnnxDetector()
     private val classifier = OnnxClassifier()
@@ -29,7 +26,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
      * }
      * @return 是否初始化成功
      */
-    @JavascriptInterface
     fun init(options: String): Boolean {
         return try {
             val json = JSONObject(options)
@@ -109,7 +105,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
      *   ...
      * ]
      */
-    @JavascriptInterface
     fun detect(bitmap: Any): List<Map<String, Any>> {
         return try {
             val inputBitmap = when (bitmap) {
@@ -148,7 +143,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
      * @return Map<String, Any>? 分类结果
      * { "classId": 207, "className": "tiger", "confidence": 0.99 }
      */
-    @JavascriptInterface
     fun classify(bitmap: Any): Map<String, Any>? {
         return try {
             val inputBitmap = when (bitmap) {
@@ -166,9 +160,9 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             val result = classifier.classify(inputBitmap, labels) ?: return null
 
             mapOf(
-                "classId" to result["classId"]!!,
-                "className" to result["className"]!!,
-                "confidence" to result["confidence"]!!
+                "classId" to result.classId,
+                "className" to result.className,
+                "confidence" to result.confidence
             )
         } catch (e: Exception) {
             Log.e(TAG, "❌ Classify failed", e)
@@ -179,8 +173,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     /**
      * 释放所有模型资源
      */
-    @JavascriptInterface
-    @JSThread
     fun release() {
         try {
             detector.release()
@@ -194,7 +186,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     /**
      * 获取当前标签列表
      */
-    @JavascriptInterface
     fun getLabels(): List<String> {
         return labels
     }
