@@ -5,6 +5,10 @@ import java.nio.FloatBuffer
 import kotlin.math.exp
 import kotlin.math.max
 import java.util.Collections
+import com.stardust.autojs.runtime.ScriptRuntime
+import com.stardust.autojs.runtime.ScriptRuntimeV2
+import com.stardust.autojs.annotation.ScriptInterface
+import com.stardust.autojs.runtime.api.Threads
 
 class OnnxClassifier {
     private var session: OrtSession? = null
