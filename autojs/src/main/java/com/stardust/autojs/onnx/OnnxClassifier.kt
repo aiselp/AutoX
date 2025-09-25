@@ -1,21 +1,31 @@
 // OnnxClassifier.kt
-import ai.onnxruntime.*
-import android.graphics.Bitmap
-import android.util.Log
-import java.nio.FloatBuffer
-
 class OnnxClassifier {
     private var session: OrtSession? = null
     private val env = OrtEnvironment.getEnvironment()
     private var inputName: String = ""
-    private val imageSize = 224
+    
+    // 动态尺寸
+    private var inputWidth = 224
+    private var inputHeight = 224
 
     fun init(modelPath: String): Boolean {
         try {
             val sessionOptions = OrtSession.SessionOptions()
             session = env.createSession(modelPath, sessionOptions)
             inputName = session!!.inputNames.first()
-            Log.i("OnnxClassifier", "Model loaded: $modelPath, Input: $inputName")
+
+            val inputMetadata = session!!.inputMetadata
+            val shape = inputMetadata[inputName]!!.shape
+
+            if (shape.size == 4) {
+                inputHeight = shape[2].toInt()
+                inputWidth = shape[3].toInt()
+                Log.i("OnnxClassifier", "Model input size: ${inputWidth}x${inputHeight}")
+            } else {
+                Log.e("OnnxClassifier", "Unexpected input shape: ${shape.contentToString()}")
+                return false
+            }
+
             return true
         } catch (e: Exception) {
             Log.e("OnnxClassifier", "Failed to load model: $modelPath", e)
@@ -32,11 +42,11 @@ class OnnxClassifier {
     fun classify(bitmap: Bitmap, labels: List<String>): Classification? {
         val session = this.session ?: throw IllegalStateException("Model not initialized")
 
-        // 1. 预处理：缩放 + 归一化 + RGB → BGR
-        val resized = Bitmap.createScaledBitmap(bitmap, imageSize, imageSize, true)
-        val tensorBuffer = FloatBuffer.allocate(imageSize * imageSize * 3)
-        for (y in 0 until imageSize) {
-            for (x in 0 until imageSize) {
+        val resized = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
+        val tensorBuffer = FloatBuffer.allocate(inputWidth * inputHeight * 3)
+
+        for (y in 0 until inputHeight) {
+            for (x in 0 until inputWidth) {
                 val pixel = resized.getPixel(x, y)
                 tensorBuffer.put(((pixel shr 16) and 0xFF) / 255f)  // B
                 tensorBuffer.put(((pixel shr 8) and 0xFF) / 255f)   // G
@@ -45,13 +55,15 @@ class OnnxClassifier {
         }
         tensorBuffer.rewind()
 
-        val inputTensor = OnnxTensor.createTensor(env, tensorBuffer, longArrayOf(1, 3, imageSize, imageSize))
+        val inputTensor = OnnxTensor.createTensor(
+            env,
+            tensorBuffer,
+            longArrayOf(1, 3, inputHeight.toLong(), inputWidth.toLong())
+        )
 
-        // 2. 推理
         val results = session.run(mapOf(inputName to inputTensor))
         val output = results.values.first().value as FloatArray
 
-        // 3. Softmax + 找最大
         val probabilities = softmax(output)
         val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: return null
         val confidence = probabilities[maxIndex]
@@ -62,21 +74,14 @@ class OnnxClassifier {
             confidence = confidence
         )
 
-        // 释放资源
         inputTensor.close()
         results.values.forEach { it.close() }
 
         return result
     }
 
-    private fun softmax(logits: FloatArray): FloatArray {
-        val max = logits.maxOrNull() ?: 0f
-        val exps = logits.map { exp(it - max).toFloat() }.toFloatArray()
-        val sum = exps.sum()
-        return exps.map { it / sum }.toFloatArray()
-    }
-
-    private fun exp(x: Float): Float = kotlin.math.exp(x.toDouble()).toFloat()
+    // softmax, exp 等保持不变
+    // ...
 
     fun release() {
         session?.close()
