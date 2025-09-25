@@ -5,6 +5,10 @@ import android.graphics.Bitmap
 import android.util.Log
 import org.json.JSONObject
 import java.io.File
+import com.stardust.autojs.runtime.ScriptRuntime
+import com.stardust.autojs.runtime.ScriptRuntimeV2
+import com.stardust.autojs.annotation.ScriptInterface
+import com.stardust.autojs.runtime.api.Threads
 
 class OnnxModule(private val context: Context) {
 
