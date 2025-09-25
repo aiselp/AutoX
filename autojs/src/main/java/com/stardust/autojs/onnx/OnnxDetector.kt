@@ -6,17 +6,13 @@ import kotlin.math.max
 import kotlin.math.min
 import java.nio.FloatBuffer
 import java.util.Collections
-import com.stardust.autojs.runtime.ScriptRuntime
-import com.stardust.autojs.runtime.ScriptRuntimeV2
-import com.stardust.autojs.annotation.ScriptInterface
-import com.stardust.autojs.runtime.api.Threads
 
 class OnnxDetector {
     private var session: OrtSession? = null
     private val env = OrtEnvironment.getEnvironment()
     private var inputName: String = ""
 
-    // ✅ 动态输入尺寸（根据模型自动设置）
+    // 动态输入尺寸（根据模型自动设置）
     private var inputWidth = 640
     private var inputHeight = 640
     private val numClasses = 80
@@ -32,7 +28,7 @@ class OnnxDetector {
             val sessionOptions = OrtSession.SessionOptions()
             session = env.createSession(modelPath, sessionOptions)
 
-            // ✅ 修复 1: 使用正确的API获取输入信息
+            // 修复：使用正确的API获取输入信息
             val inputInfo = session!!.inputInfo
             if (inputInfo.isEmpty()) {
                 Log.e("OnnxDetector", "❌ Model has no input")
@@ -41,7 +37,7 @@ class OnnxDetector {
 
             inputName = inputInfo.keys.first()
 
-            // ✅ 修复 2: 从 TensorInfo 获取 shape
+            // 修复：从 TensorInfo 获取 shape
             val shape = (inputInfo[inputName]!!.info as TensorInfo).shape
             if (shape.size == 4) {
                 inputHeight = shape[2].toInt() // NCHW: [B, C, H, W]
@@ -81,7 +77,7 @@ class OnnxDetector {
     fun detect(bitmap: Bitmap, labels: List<String>): List<Detection> {
         val session = this.session ?: throw IllegalStateException("Model not initialized")
 
-        // ✅ 使用模型实际输入尺寸进行缩放
+        // 使用模型实际输入尺寸进行缩放
         val resized = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
         val tensorBuffer = FloatBuffer.allocate(inputWidth * inputHeight * 3)
 
@@ -104,13 +100,13 @@ class OnnxDetector {
         )
 
         try {
-            // ✅ 修复 3: 使用正确的API执行推理
+            // 修复：使用正确的API执行推理
             val results = session.run(Collections.singletonMap(inputName, inputTensor))
             try {
                 val outputTensor = results.get(0)
                 val output = outputTensor.value as FloatArray
 
-                // ✅ 输出模型输出 shape，便于调试
+                // 输出模型输出 shape，便于调试
                 Log.d("OnnxDetector", "📊 Output shape: ${outputTensor.info.dims.contentToString()}")
 
                 // 解码 YOLOv8 输出
@@ -118,7 +114,7 @@ class OnnxDetector {
                 // 非极大值抑制
                 return nonMaxSuppression(detections, iouThreshold = 0.45f)
             } finally {
-                // ✅ 修复 4: 确保资源释放
+                // 修复：确保资源释放
                 results.close()
             }
         } finally {
