@@ -1,7 +1,9 @@
-// OnnxDetector.kt
+// 文件: OnnxDetector.kt
 import ai.onnxruntime.*
 import android.graphics.Bitmap
 import android.util.Log
+import kotlin.math.maxOf
+import kotlin.math.minOf
 import java.nio.FloatBuffer
 
 class OnnxDetector {
@@ -21,17 +23,23 @@ class OnnxDetector {
      * @return 是否加载成功
      */
     fun init(modelPath: String): Boolean {
-        try {
+        return try {
             val sessionOptions = OrtSession.SessionOptions()
             session = env.createSession(modelPath, sessionOptions)
-            inputName = session!!.inputNames.first()
 
-            // ✅ 从模型元数据获取输入尺寸 [1, 3, H, W]
-            val inputMetadata = session!!.inputMetadata
-            val shape = inputMetadata[inputName]!!.shape
+            // ✅ 修复 1: 使用 getInputInfo() 替代已移除的 inputMetadata
+            val inputInfo = session!!.getInputInfo()
+            if (inputInfo.isEmpty()) {
+                Log.e("OnnxDetector", "❌ Model has no input")
+                return false
+            }
 
+            inputName = inputInfo.keys.first()
+
+            // ✅ 修复 2: 从 TensorInfo 获取 shape
+            val shape = (inputInfo[inputName]!!.info as TensorInfo).shape
             if (shape.size == 4) {
-                inputHeight = shape[2].toInt()
+                inputHeight = shape[2].toInt() // NCHW: [B, C, H, W]
                 inputWidth = shape[3].toInt()
                 Log.i("OnnxDetector", "✅ Model input size: ${inputWidth}x${inputHeight}")
             } else {
@@ -39,10 +47,10 @@ class OnnxDetector {
                 return false
             }
 
-            return true
+            true
         } catch (e: Exception) {
             Log.e("OnnxDetector", "❌ Failed to load model: $modelPath", e)
-            return false
+            false
         }
     }
 
@@ -72,7 +80,7 @@ class OnnxDetector {
         val resized = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
         val tensorBuffer = FloatBuffer.allocate(inputWidth * inputHeight * 3)
 
-        // 将 Bitmap 转换为 BGR 归一化 FloatBuffer
+        // 将 Bitmap 转换为 BGR 归一化 FloatBuffer（注意：YOLO 通常用 BGR）
         for (y in 0 until inputHeight) {
             for (x in 0 until inputWidth) {
                 val pixel = resized.getPixel(x, y)
@@ -92,22 +100,22 @@ class OnnxDetector {
 
         // 执行推理
         val results = session.run(mapOf(inputName to inputTensor))
-        val output = results.values.first().value as FloatArray
+        try {
+            val outputTensor = results.values.first()
+            val output = outputTensor.value as FloatArray
 
-        // ✅ 输出模型输出 shape，便于调试
-        val outputShape = results.values.first().shape
-        Log.d("OnnxDetector", "📊 Output shape: ${outputShape.contentToString()}")
+            // ✅ 输出模型输出 shape，便于调试
+            Log.d("OnnxDetector", "📊 Output shape: ${outputTensor.shape?.contentToString() ?: "unknown"}")
 
-        // 解码 YOLOv8 输出
-        val detections = decodeYOLOv8(output, labels, bitmap.width.toFloat(), bitmap.height.toFloat())
-        // 非极大值抑制
-        val finalDetections = nonMaxSuppression(detections, iouThreshold = 0.45f)
-
-        // 释放资源
-        inputTensor.close()
-        results.values.forEach { it.close() }
-
-        return finalDetections
+            // 解码 YOLOv8 输出
+            val detections = decodeYOLOv8(output, labels, bitmap.width.toFloat(), bitmap.height.toFloat())
+            // 非极大值抑制
+            return nonMaxSuppression(detections, iouThreshold = 0.45f)
+        } finally {
+            // ✅ 修复 3: 确保资源释放（即使解码出错）
+            inputTensor.close()
+            results.values.forEach { it.close() }
+        }
     }
 
     /**
@@ -126,7 +134,7 @@ class OnnxDetector {
         // 推断 numBoxes: total_elements / (numClasses + 4)
         val inferredNumBoxes = numOutputElements / numOutputChannels
         if (inferredNumBoxes != numBoxes) {
-            Log.w("OnnxDetector", "⚠️  NumBoxes mismatch: expected $numBoxes, got $inferredNumBoxes")
+            Log.w("OnnxDetector", "⚠️ NumBoxes mismatch: expected $numBoxes, got $inferredNumBoxes")
             numBoxes = inferredNumBoxes
         }
 
@@ -152,10 +160,10 @@ class OnnxDetector {
             if (confidence < 0.25f) continue // 置信度过滤
 
             // 提取 bbox (cx, cy, w, h)
-            val cx = output[i]           // 中心 x
-            val cy = output[i + numBoxes]     // 中心 y
-            val w = output[i + 2 * numBoxes]  // 宽度
-            val h = output[i + 3 * numBoxes]  // 高度
+            val cx = output[i]                     // 中心 x
+            val cy = output[i + numBoxes]          // 中心 y
+            val w = output[i + 2 * numBoxes]       // 宽度
+            val h = output[i + 3 * numBoxes]       // 高度
 
             // 转换为左上角和右下角坐标 (归一化)
             val left = cx - w / 2f
@@ -194,11 +202,23 @@ class OnnxDetector {
         val sorted = detections.sortedByDescending { it.confidence }
         val result = mutableListOf<Detection>()
 
-        while (sorted.isNotEmpty()) {
-            val current = sorted.removeAt(0)
+        var i = 0
+        while (i < sorted.size) {
+            val current = sorted[i]
             result.add(current)
+            i++
 
-            sorted.removeAll { iou(current, it) > iouThreshold }
+            // 使用索引过滤，避免 ConcurrentModificationException
+            val toRemove = mutableListOf<Int>()
+            for (j in i until sorted.size) {
+                if (iou(current, sorted[j]) > iouThreshold) {
+                    toRemove.add(j)
+                }
+            }
+            // 逆序删除
+            for (index in toRemove.reversed()) {
+                sorted.removeAt(index)
+            }
         }
 
         return result
