@@ -3,12 +3,7 @@ import android.graphics.Bitmap
 import android.util.Log
 import java.nio.FloatBuffer
 import kotlin.math.exp
-import kotlin.math.max
 import java.util.Collections
-import com.stardust.autojs.runtime.ScriptRuntime
-import com.stardust.autojs.runtime.ScriptRuntimeV2
-import com.stardust.autojs.annotation.ScriptInterface
-import com.stardust.autojs.runtime.api.Threads
 
 class OnnxClassifier {
     private var session: OrtSession? = null
@@ -28,7 +23,7 @@ class OnnxClassifier {
             val sessionOptions = OrtSession.SessionOptions()
             session = env.createSession(modelPath, sessionOptions)
 
-            // ✅ 修复 1: 使用 getInputInfo() 替代已移除的 inputMetadata
+            // 使用正确的API获取输入信息
             val inputInfo = session!!.inputInfo
             if (inputInfo.isEmpty()) {
                 Log.e("OnnxClassifier", "❌ Model has no input")
@@ -37,7 +32,7 @@ class OnnxClassifier {
 
             inputName = inputInfo.keys.first()
 
-            // ✅ 修复 2: 从 TensorInfo 获取 shape
+            // 从 TensorInfo 获取 shape
             val shape = (inputInfo[inputName]!!.info as TensorInfo).shape
             if (shape.size == 4) {
                 inputHeight = shape[2].toInt() // NCHW: [B, C, H, W]
@@ -76,7 +71,7 @@ class OnnxClassifier {
         val resized = Bitmap.createScaledBitmap(bitmap, inputWidth, inputHeight, true)
         val tensorBuffer = FloatBuffer.allocate(inputWidth * inputHeight * 3)
 
-        // ✅ 像素归一化：0-255 -> 0.0-1.0 (RGB)
+        // 像素归一化：0-255 -> 0.0-1.0 (RGB)
         for (y in 0 until inputHeight) {
             for (x in 0 until inputWidth) {
                 val pixel = resized.getPixel(x, y)
@@ -87,7 +82,7 @@ class OnnxClassifier {
         }
         tensorBuffer.rewind()
 
-        // ✅ 创建输入 Tensor（注意：NCHW 格式）
+        // 创建输入 Tensor（注意：NCHW 格式）
         val inputTensor = OnnxTensor.createTensor(
             env,
             tensorBuffer,
@@ -95,7 +90,7 @@ class OnnxClassifier {
         )
 
         try {
-            // ✅ 修复 3: 使用正确的API执行推理
+            // 修复：使用正确的API执行推理
             val results = session.run(Collections.singletonMap(inputName, inputTensor))
             try {
                 val outputTensor = results.get(0) // 获取第一个输出
@@ -103,7 +98,7 @@ class OnnxClassifier {
 
                 Log.d("OnnxClassifier", "📊 Output shape: ${outputTensor.info.dims.contentToString()}")
 
-                // ✅ 后处理：Softmax + 取最大概率
+                // 后处理：Softmax + 取最大概率
                 val probabilities = softmax(output)
                 val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: return null
                 val confidence = probabilities[maxIndex]
@@ -111,11 +106,11 @@ class OnnxClassifier {
 
                 return Classification(maxIndex, className, confidence)
             } finally {
-                // ✅ 修复 4: 正确释放结果资源
+                // 修复：正确释放结果资源
                 results.close()
             }
         } finally {
-            // ✅ 修复 5: 正确释放输入资源
+            // 修复：正确释放输入资源
             inputTensor.close()
         }
     }
