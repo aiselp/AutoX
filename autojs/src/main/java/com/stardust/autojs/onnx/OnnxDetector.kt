@@ -1,10 +1,11 @@
-// 文件: OnnxDetector.kt
 import ai.onnxruntime.*
 import android.graphics.Bitmap
 import android.util.Log
-import kotlin.math.maxOf
-import kotlin.math.minOf
+import kotlin.math.exp
+import kotlin.math.max
+import kotlin.math.min
 import java.nio.FloatBuffer
+import java.util.Collections
 
 class OnnxDetector {
     private var session: OrtSession? = null
@@ -27,8 +28,8 @@ class OnnxDetector {
             val sessionOptions = OrtSession.SessionOptions()
             session = env.createSession(modelPath, sessionOptions)
 
-            // ✅ 修复 1: 使用 getInputInfo() 替代已移除的 inputMetadata
-            val inputInfo = session!!.getInputInfo()
+            // ✅ 修复 1: 使用正确的API获取输入信息
+            val inputInfo = session!!.inputInfo
             if (inputInfo.isEmpty()) {
                 Log.e("OnnxDetector", "❌ Model has no input")
                 return false
@@ -98,23 +99,26 @@ class OnnxDetector {
             longArrayOf(1, 3, inputHeight.toLong(), inputWidth.toLong())
         )
 
-        // 执行推理
-        val results = session.run(mapOf(inputName to inputTensor))
         try {
-            val outputTensor = results.values.first()
-            val output = outputTensor.value as FloatArray
+            // ✅ 修复 3: 使用正确的API执行推理
+            val results = session.run(Collections.singletonMap(inputName, inputTensor))
+            try {
+                val outputTensor = results.get(0)
+                val output = outputTensor.value as FloatArray
 
-            // ✅ 输出模型输出 shape，便于调试
-            Log.d("OnnxDetector", "📊 Output shape: ${outputTensor.shape?.contentToString() ?: "unknown"}")
+                // ✅ 输出模型输出 shape，便于调试
+                Log.d("OnnxDetector", "📊 Output shape: ${outputTensor.info.dims.contentToString()}")
 
-            // 解码 YOLOv8 输出
-            val detections = decodeYOLOv8(output, labels, bitmap.width.toFloat(), bitmap.height.toFloat())
-            // 非极大值抑制
-            return nonMaxSuppression(detections, iouThreshold = 0.45f)
+                // 解码 YOLOv8 输出
+                val detections = decodeYOLOv8(output, labels, bitmap.width.toFloat(), bitmap.height.toFloat())
+                // 非极大值抑制
+                return nonMaxSuppression(detections, iouThreshold = 0.45f)
+            } finally {
+                // ✅ 修复 4: 确保资源释放
+                results.close()
+            }
         } finally {
-            // ✅ 修复 3: 确保资源释放（即使解码出错）
             inputTensor.close()
-            results.values.forEach { it.close() }
         }
     }
 
@@ -201,23 +205,20 @@ class OnnxDetector {
     private fun nonMaxSuppression(detections: List<Detection>, iouThreshold: Float): List<Detection> {
         val sorted = detections.sortedByDescending { it.confidence }
         val result = mutableListOf<Detection>()
+        val toRemove = mutableSetOf<Int>()
 
-        var i = 0
-        while (i < sorted.size) {
+        for (i in sorted.indices) {
+            if (toRemove.contains(i)) continue
+            
             val current = sorted[i]
             result.add(current)
-            i++
-
-            // 使用索引过滤，避免 ConcurrentModificationException
-            val toRemove = mutableListOf<Int>()
-            for (j in i until sorted.size) {
+            
+            for (j in (i + 1) until sorted.size) {
+                if (toRemove.contains(j)) continue
+                
                 if (iou(current, sorted[j]) > iouThreshold) {
                     toRemove.add(j)
                 }
-            }
-            // 逆序删除
-            for (index in toRemove.reversed()) {
-                sorted.removeAt(index)
             }
         }
 
@@ -228,32 +229,26 @@ class OnnxDetector {
      * 计算两个框的 IoU
      */
     private fun iou(box1: Detection, box2: Detection): Float {
-        val interLeft = maxOf(box1.left, box2.left)
-        val interTop = maxOf(box1.top, box2.top)
-        val interRight = minOf(box1.right, box2.right)
-        val interBottom = minOf(box1.bottom, box2.bottom)
+        val interLeft = max(box1.left, box2.left)
+        val interTop = max(box1.top, box2.top)
+        val interRight = min(box1.right, box2.right)
+        val interBottom = min(box1.bottom, box2.bottom)
 
-        val interArea = maxOf(0f, interRight - interLeft) * maxOf(0f, interBottom - interTop)
+        val interArea = max(0f, interRight - interLeft) * max(0f, interBottom - interTop)
         val area1 = (box1.right - box1.left) * (box1.bottom - box1.top)
         val area2 = (box2.right - box2.left) * (box2.bottom - box2.top)
 
-        return interArea / (area1 + area2 - interArea)
+        return if (area1 + area2 - interArea > 0) {
+            interArea / (area1 + area2 - interArea)
+        } else {
+            0f
+        }
     }
 
     /**
      * Sigmoid 函数
      */
-    private fun sigmoid(x: Float): Float = 1f / (1f + kotlin.math.exp(-x).toFloat())
-
-    /**
-     * Softmax 函数（未使用，保留备用）
-     */
-    private fun softmax(logits: FloatArray): FloatArray {
-        val max = logits.maxOrNull() ?: 0f
-        val exps = logits.map { kotlin.math.exp(it - max).toFloat() }
-        val sum = exps.sum()
-        return exps.map { it / sum }.toFloatArray()
-    }
+    private fun sigmoid(x: Float): Float = 1f / (1f + exp(-x))
 
     /**
      * 释放模型资源
