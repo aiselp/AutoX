@@ -6,6 +6,10 @@ import kotlin.math.max
 import kotlin.math.min
 import java.nio.FloatBuffer
 import java.util.Collections
+import com.stardust.autojs.runtime.ScriptRuntime
+import com.stardust.autojs.runtime.ScriptRuntimeV2
+import com.stardust.autojs.annotation.ScriptInterface
+import com.stardust.autojs.runtime.api.Threads
 
 class OnnxDetector {
     private var session: OrtSession? = null
