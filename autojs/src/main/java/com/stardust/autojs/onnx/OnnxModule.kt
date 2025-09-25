@@ -5,10 +5,6 @@ import android.graphics.Bitmap
 import android.util.Log
 import org.json.JSONObject
 import java.io.File
-import com.stardust.autojs.runtime.ScriptRuntime
-import com.stardust.autojs.runtime.ScriptRuntimeV2
-import com.stardust.autojs.annotation.ScriptInterface
-import com.stardust.autojs.runtime.api.Threads
 
 class OnnxModule(private val context: Context) {
 
@@ -109,21 +105,13 @@ class OnnxModule(private val context: Context) {
      *   ...
      * ]
      */
-    fun detect(bitmap: Any): List<Map<String, Any>> {
+    fun detect(bitmap: Bitmap): List<Map<String, Any>> {
         return try {
-            val inputBitmap = when (bitmap) {
-                is Bitmap -> bitmap
-                else -> {
-                    Log.e(TAG, "❌ Invalid bitmap type: ${bitmap.javaClass}")
-                    return emptyList()
-                }
-            }
-
             if (labels.isEmpty()) {
                 Log.w(TAG, "⚠️ No labels loaded, using 'class_X' as fallback")
             }
 
-            val detections = detector.detect(inputBitmap, labels)
+            val detections = detector.detect(bitmap, labels)
             detections.map { detection ->
                 mapOf(
                     "classId" to detection.classId,
@@ -147,21 +135,13 @@ class OnnxModule(private val context: Context) {
      * @return Map<String, Any>? 分类结果
      * { "classId": 207, "className": "tiger", "confidence": 0.99 }
      */
-    fun classify(bitmap: Any): Map<String, Any>? {
+    fun classify(bitmap: Bitmap): Map<String, Any>? {
         return try {
-            val inputBitmap = when (bitmap) {
-                is Bitmap -> bitmap
-                else -> {
-                    Log.e(TAG, "❌ Invalid bitmap type: ${bitmap.javaClass}")
-                    return null
-                }
-            }
-
             if (labels.isEmpty()) {
                 Log.w(TAG, "⚠️ No labels loaded, using 'class_X' as fallback")
             }
 
-            val result = classifier.classify(inputBitmap, labels) ?: return null
+            val result = classifier.classify(bitmap, labels) ?: return null
 
             mapOf(
                 "classId" to result.classId,
