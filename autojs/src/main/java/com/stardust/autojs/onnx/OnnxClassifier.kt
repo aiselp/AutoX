@@ -1,4 +1,4 @@
-// package: com.autox.onnx
+// OnnxClassifier.kt
 import ai.onnxruntime.*
 import android.graphics.Bitmap
 import android.util.Log
@@ -15,6 +15,7 @@ class OnnxClassifier {
             val sessionOptions = OrtSession.SessionOptions()
             session = env.createSession(modelPath, sessionOptions)
             inputName = session!!.inputNames.first()
+            Log.i("OnnxClassifier", "Model loaded: $modelPath, Input: $inputName")
             return true
         } catch (e: Exception) {
             Log.e("OnnxClassifier", "Failed to load model: $modelPath", e)
@@ -31,15 +32,15 @@ class OnnxClassifier {
     fun classify(bitmap: Bitmap, labels: List<String>): Classification? {
         val session = this.session ?: throw IllegalStateException("Model not initialized")
 
-        // 1. 预处理
+        // 1. 预处理：缩放 + 归一化 + RGB → BGR
         val resized = Bitmap.createScaledBitmap(bitmap, imageSize, imageSize, true)
         val tensorBuffer = FloatBuffer.allocate(imageSize * imageSize * 3)
         for (y in 0 until imageSize) {
             for (x in 0 until imageSize) {
                 val pixel = resized.getPixel(x, y)
-                tensorBuffer.put((pixel and 0xFF) / 255f)
-                tensorBuffer.put(((pixel shr 8) and 0xFF) / 255f)
-                tensorBuffer.put(((pixel shr 16) and 0xFF) / 255f)
+                tensorBuffer.put(((pixel shr 16) and 0xFF) / 255f)  // B
+                tensorBuffer.put(((pixel shr 8) and 0xFF) / 255f)   // G
+                tensorBuffer.put((pixel and 0xFF) / 255f)           // R
             }
         }
         tensorBuffer.rewind()
@@ -50,9 +51,10 @@ class OnnxClassifier {
         val results = session.run(mapOf(inputName to inputTensor))
         val output = results.values.first().value as FloatArray
 
-        // 3. 找最大概率
-        val maxIndex = output.indices.maxByOrNull { output[it] } ?: return null
-        val confidence = output[maxIndex]
+        // 3. Softmax + 找最大
+        val probabilities = softmax(output)
+        val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: return null
+        val confidence = probabilities[maxIndex]
 
         val result = Classification(
             classId = maxIndex,
@@ -60,10 +62,21 @@ class OnnxClassifier {
             confidence = confidence
         )
 
+        // 释放资源
         inputTensor.close()
         results.values.forEach { it.close() }
+
         return result
     }
+
+    private fun softmax(logits: FloatArray): FloatArray {
+        val max = logits.maxOrNull() ?: 0f
+        val exps = logits.map { exp(it - max).toFloat() }.toFloatArray()
+        val sum = exps.sum()
+        return exps.map { it / sum }.toFloatArray()
+    }
+
+    private fun exp(x: Float): Float = kotlin.math.exp(x.toDouble()).toFloat()
 
     fun release() {
         session?.close()
