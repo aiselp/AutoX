@@ -91,6 +91,8 @@ dependencies {
     implementation("cz.adaptech:tesseract4android:4.1.1")
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:1.9.0")
+    implementation("androidx.core:core-ktx:1.12.0")
 
 }
 tasks.register<Exec>("buildV7Api") {
