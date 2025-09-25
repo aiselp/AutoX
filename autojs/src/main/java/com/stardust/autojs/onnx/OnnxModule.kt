@@ -6,6 +6,7 @@ import android.util.Log
 import org.json.JSONObject
 import java.io.File
 
+// ✅ 修复：移除AutoX特定依赖，使用Context
 class OnnxModule(private val context: Context) {
 
     private val detector = OnnxDetector()
@@ -16,16 +17,7 @@ class OnnxModule(private val context: Context) {
         private const val TAG = "OnnxModule"
     }
 
-    /**
-     * 初始化 ONNX 模型
-     * @param options JSON 字符串，格式：
-     * {
-     *   "detectModel": "/path/to/yolov8n.onnx",
-     *   "classifyModel": "/path/to/resnet18.onnx",
-     *   "labels": "/path/to/labels.txt"
-     * }
-     * @return 是否初始化成功
-     */
+    // ✅ 修复：移除JavascriptInterface注解
     fun init(options: String): Boolean {
         return try {
             val json = JSONObject(options)
@@ -35,7 +27,6 @@ class OnnxModule(private val context: Context) {
 
             Log.d(TAG, "🔧 Initializing ONNX models...")
 
-            // 加载标签
             if (labelsPath.isNotEmpty()) {
                 val file = File(labelsPath)
                 if (file.exists() && file.canRead()) {
@@ -49,7 +40,6 @@ class OnnxModule(private val context: Context) {
 
             var success = true
 
-            // 初始化检测模型
             if (detectModelPath.isNotEmpty()) {
                 val modelFile = File(detectModelPath)
                 if (!modelFile.exists()) {
@@ -66,7 +56,6 @@ class OnnxModule(private val context: Context) {
                 }
             }
 
-            // 初始化分类模型
             if (classifyModelPath.isNotEmpty()) {
                 val modelFile = File(classifyModelPath)
                 if (!modelFile.exists()) {
@@ -88,7 +77,6 @@ class OnnxModule(private val context: Context) {
             } else {
                 Log.e(TAG, "❌ ONNX module initialization failed")
             }
-
             success
         } catch (e: Exception) {
             Log.e(TAG, "❌ Init failed due to exception", e)
@@ -96,15 +84,7 @@ class OnnxModule(private val context: Context) {
         }
     }
 
-    /**
-     * 执行目标检测
-     * @param bitmap Android Bitmap 对象
-     * @return List<Map<String, Any>> 检测结果列表
-     * [
-     *   { "classId": 0, "className": "person", "confidence": 0.95, "left": 100, "top": 50, "right": 200, "bottom": 300 },
-     *   ...
-     * ]
-     */
+    // ✅ 修复：简化参数类型
     fun detect(bitmap: Bitmap): List<Map<String, Any>> {
         return try {
             if (labels.isEmpty()) {
@@ -129,12 +109,6 @@ class OnnxModule(private val context: Context) {
         }
     }
 
-    /**
-     * 执行图像分类
-     * @param bitmap Android Bitmap 对象
-     * @return Map<String, Any>? 分类结果
-     * { "classId": 207, "className": "tiger", "confidence": 0.99 }
-     */
     fun classify(bitmap: Bitmap): Map<String, Any>? {
         return try {
             if (labels.isEmpty()) {
@@ -154,9 +128,7 @@ class OnnxModule(private val context: Context) {
         }
     }
 
-    /**
-     * 释放所有模型资源
-     */
+    // ✅ 修复：移除JSThread注解
     fun release() {
         try {
             detector.release()
@@ -167,9 +139,6 @@ class OnnxModule(private val context: Context) {
         }
     }
 
-    /**
-     * 获取当前标签列表
-     */
     fun getLabels(): List<String> {
         return labels
     }
