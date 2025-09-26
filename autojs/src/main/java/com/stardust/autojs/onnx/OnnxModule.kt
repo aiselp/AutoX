@@ -1,55 +1,31 @@
 package com.stardust.autojs.onnx
 
-import android.webkit.JavascriptInterface
-import android.util.Log
 import com.stardust.autojs.runtime.ScriptRuntime
-import com.stardust.autojs.runtime.api.Threads
-import org.opencv.core.Mat
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtSession
+import android.content.Context
 
-/**
- * JS 可调用的 ONNX 模块
- */
 class OnnxModule(private val runtime: ScriptRuntime) {
 
-    private var detector: OnnxDetector? = null
-    private var classifier: OnnxClassifier? = null
+    private lateinit var session: OrtSession
 
-    @JavascriptInterface
-    fun loadDetector(modelPath: String, labels: Array<String>) {
-        detector = OnnxDetector(OnnxWrapper(modelPath, labels))
+    fun loadModel(context: Context, modelPath: String) {
+        val env = ai.onnxruntime.OrtEnvironment.getEnvironment()
+        val modelFile = context.getFileStreamPath(modelPath)
+        session = env.createSession(modelFile.absolutePath, OrtSession.SessionOptions())
     }
 
-    @JavascriptInterface
-    fun loadClassifier(modelPath: String, labels: Array<String>) {
-        classifier = OnnxClassifier(OnnxWrapper(modelPath, labels))
+    fun runModel(inputs: Map<String, OnnxTensor>): Map<String, Any> {
+        // 使用 run 替代 evaluate
+        val result = session.run(inputs)
+        val outputMap = mutableMapOf<String, Any>()
+        result.forEach { tensor ->
+            outputMap[tensor.key] = tensor.value
+        }
+        return outputMap
     }
 
-    @JavascriptInterface
-    fun detect(imgPath: String): String {
-        val mat = OnnxUtils.readImage(imgPath)
-        val dets = detector?.detect(mat) ?: return "[]"
-        return dets.joinToString(
-            prefix = "[", postfix = "]"
-        ) { """{"label":"${it.label}","score":${it.confidence},"box":[${it.box.joinToString()}]}""" }
-    }
-
-    @JavascriptInterface
-    fun classify(imgPath: String): String {
-        val mat = OnnxUtils.readImage(imgPath)
-        val res = classifier?.classify(mat) ?: return "[]"
-        return res.joinToString(
-            prefix = "[", postfix = "]"
-        ) { """{"label":"${it.first}","score":${it.second}}""" }
-    }
-
-    @JavascriptInterface
-    fun runAsync(code: String) {
-        Threads(runtime).start(Runnable {
-            try {
-                runtime.bridges.evaluate(code) // 使用 ScriptRuntime 执行 JS
-            } catch (e: Exception) {
-                Log.e("OnnxModule", "runAsync error", e)
-            }
-        })
+    fun dispose() {
+        session.close()
     }
 }
