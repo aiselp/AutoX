@@ -1,11 +1,12 @@
 import ai.onnxruntime.*
 import android.graphics.Bitmap
 import android.util.Log
-import kotlin.math.exp
 import kotlin.math.max
 import kotlin.math.min
 import java.nio.FloatBuffer
 import java.util.Collections
+
+
 
 class OnnxDetector {
     private var session: OrtSession? = null
@@ -79,7 +80,6 @@ class OnnxDetector {
         )
 
         try {
-            // ✅ 修复：使用正确的API
             val results = session.run(Collections.singletonMap(inputName, inputTensor))
             try {
                 val outputTensor = results.get(0)
@@ -88,7 +88,7 @@ class OnnxDetector {
                 Log.d("OnnxDetector", "📊 Output shape: ${outputTensor.info.dims.contentToString()}")
 
                 val detections = decodeYOLOv8(output, labels, bitmap.width.toFloat(), bitmap.height.toFloat())
-                return nonMaxSuppression(detections, iouThreshold = 0.45f)
+                return nonMaxSuppression(detections, 0.45f)
             } finally {
                 results.close()
             }
@@ -115,16 +115,14 @@ class OnnxDetector {
         val detections = mutableListOf<Detection>()
 
         for (i in 0 until numBoxes) {
-            val classScoresStart = 4
-            val classScoresEnd = numOutputChannels
             var maxConf = 0f
             var maxClassId = -1
 
-            for (j in classScoresStart until classScoresEnd) {
+            for (j in 4 until numOutputChannels) {
                 val conf = output[j * numBoxes + i]
                 if (conf > maxConf) {
                     maxConf = conf
-                    maxClassId = j - classScoresStart
+                    maxClassId = j - 4
                 }
             }
 
@@ -146,47 +144,38 @@ class OnnxDetector {
             val scaledRight = (right * originalWidth).coerceIn(0f, originalWidth)
             val scaledBottom = (bottom * originalHeight).coerceIn(0f, originalHeight)
 
-            val className = labels.getOrNull(maxClassId) ?: "unknown"
+            val className = if (labels.isNotEmpty() && maxClassId >= 0 && maxClassId < labels.size) {
+                labels[maxClassId]
+            } else {
+                "unknown"
+            }
 
             detections.add(
-                Detection(
-                    classId = maxClassId,
-                    className = className,
-                    confidence = confidence,
-                    left = scaledLeft,
-                    top = scaledTop,
-                    right = scaledRight,
-                    bottom = scaledBottom
-                )
+                Detection(maxClassId, className, confidence, scaledLeft, scaledTop, scaledRight, scaledBottom)
             )
         }
         return detections
     }
 
-    // ✅ 修复：改进的NMS算法
     private fun nonMaxSuppression(detections: List<Detection>, iouThreshold: Float): List<Detection> {
-        val sorted = detections.sortedByDescending { it.confidence }
+        val sorted = detections.sortedByDescending { it.confidence }.toMutableList()
         val result = mutableListOf<Detection>()
-        val toRemove = mutableSetOf<Int>()
 
-        for (i in sorted.indices) {
-            if (toRemove.contains(i)) continue
-            
-            val current = sorted[i]
+        while (sorted.isNotEmpty()) {
+            val current = sorted.removeAt(0)
             result.add(current)
-            
-            for (j in (i + 1) until sorted.size) {
-                if (toRemove.contains(j)) continue
-                
-                if (iou(current, sorted[j]) > iouThreshold) {
-                    toRemove.add(j)
+
+            val iterator = sorted.iterator()
+            while (iterator.hasNext()) {
+                val other = iterator.next()
+                if (iou(current, other) > iouThreshold) {
+                    iterator.remove()
                 }
             }
         }
         return result
     }
 
-    // ✅ 修复：使用正确的数学函数
     private fun iou(box1: Detection, box2: Detection): Float {
         val interLeft = max(box1.left, box2.left)
         val interTop = max(box1.top, box2.top)
@@ -199,9 +188,7 @@ class OnnxDetector {
 
         return if (area1 + area2 - interArea > 0) {
             interArea / (area1 + area2 - interArea)
-        } else {
-            0f
-        }
+        } else 0f
     }
 
     fun release() {
