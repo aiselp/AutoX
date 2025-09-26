@@ -42,11 +42,7 @@ class OnnxClassifier {
         }
     }
 
-    data class Classification(
-        val classId: Int,
-        val className: String,
-        val confidence: Float
-    )
+    data class Classification(val classId: Int, val className: String, val confidence: Float)
 
     fun classify(bitmap: Bitmap, labels: List<String>): Classification? {
         val session = this.session ?: throw IllegalStateException("Model not initialized")
@@ -71,7 +67,6 @@ class OnnxClassifier {
         )
 
         try {
-            // ✅ 修复：使用正确的API
             val results = session.run(Collections.singletonMap(inputName, inputTensor))
             try {
                 val outputTensor = results.get(0)
@@ -80,11 +75,22 @@ class OnnxClassifier {
                 Log.d("OnnxClassifier", "📊 Output shape: ${outputTensor.info.dims.contentToString()}")
 
                 val probabilities = softmax(output)
-                val maxIndex = probabilities.indices.maxByOrNull { probabilities[it] } ?: return null
-                val confidence = probabilities[maxIndex]
-                val className = labels.getOrNull(maxIndex) ?: "unknown"
+                var maxIndex = 0
+                var maxProb = probabilities[0]
+                for (i in 1 until probabilities.size) {
+                    if (probabilities[i] > maxProb) {
+                        maxProb = probabilities[i]
+                        maxIndex = i
+                    }
+                }
 
-                return Classification(maxIndex, className, confidence)
+                val className = if (labels.isNotEmpty() && maxIndex < labels.size) {
+                    labels[maxIndex]
+                } else {
+                    "unknown"
+                }
+
+                return Classification(maxIndex, className, maxProb)
             } finally {
                 results.close()
             }
@@ -94,10 +100,18 @@ class OnnxClassifier {
     }
 
     private fun softmax(logits: FloatArray): FloatArray {
-        val max = logits.maxOrNull() ?: 0f
-        val exps = logits.map { exp(it - max).toFloat() }
-        val sum = exps.sum()
-        return exps.map { it / sum }.toFloatArray()
+        var max = logits[0]
+        for (v in logits) if (v > max) max = v
+        val exps = FloatArray(logits.size)
+        var sum = 0f
+        for (i in logits.indices) {
+            exps[i] = exp((logits[i] - max).toDouble()).toFloat()
+            sum += exps[i]
+        }
+        for (i in exps.indices) {
+            exps[i] /= sum
+        }
+        return exps
     }
 
     fun release() {
