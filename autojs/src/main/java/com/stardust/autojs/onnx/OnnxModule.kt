@@ -3,16 +3,14 @@ package com.stardust.autojs.onnx
 import android.util.Log
 import android.webkit.JavascriptInterface
 import com.stardust.autojs.runtime.ScriptRuntime
-import com.stardust.autojs.runtime.ScriptRuntimeV2
 import com.stardust.autojs.runtime.api.Threads
+import com.stardust.autojs.runtime.ScriptRuntimeV2
 import org.opencv.core.Mat
 import java.io.File
-import kotlin.math.max
-import kotlin.math.min
 
 /**
- * AutoX 的 ONNX 模块封装
- * 提供 JS 可直接调用的 API
+ * AutoX 的 ONNX 模块
+ * 可供 JS 调用
  */
 class OnnxModule(private val runtime: ScriptRuntime) {
 
@@ -21,27 +19,34 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     private var labels: List<String> = emptyList()
 
     /**
-     * 加载分类模型
+     * 加载分类器
      */
     @JavascriptInterface
     fun loadClassifier(modelPath: String, labelPath: String) {
         val f = File(modelPath)
         if (!f.exists()) {
-            throw RuntimeException("模型文件不存在: $modelPath")
+            throw RuntimeException("分类模型文件不存在: $modelPath")
         }
         classifier = OnnxClassifier(modelPath)
-        labels = File(labelPath).readLines().map { it.trim() }
+
+        val lf = File(labelPath)
+        if (lf.exists()) {
+            labels = lf.readLines().map { it.trim() }.filter { it.isNotEmpty() }
+        } else {
+            labels = emptyList()
+        }
+
         Log.d("OnnxModule", "分类模型加载成功: $modelPath, labels=${labels.size}")
     }
 
     /**
-     * 加载检测模型
+     * 加载检测器
      */
     @JavascriptInterface
     fun loadDetector(modelPath: String) {
         val f = File(modelPath)
         if (!f.exists()) {
-            throw RuntimeException("模型文件不存在: $modelPath")
+            throw RuntimeException("检测模型文件不存在: $modelPath")
         }
         detector = OnnxDetector(modelPath)
         Log.d("OnnxModule", "检测模型加载成功: $modelPath")
@@ -61,11 +66,12 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         } else {
             "unknown"
         }
-        return "{\"label\":\"$label\",\"confidence\":${result.confidence}}"
+
+        return """{"label":"$label","confidence":${result.confidence}}"""
     }
 
     /**
-     * 目标检测
+     * 目标检测预测
      */
     @JavascriptInterface
     fun detect(imagePath: String): String {
@@ -73,7 +79,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         val mat = OnnxUtils.loadImage(imagePath)
         val results = d.predict(mat)
 
-        // 转成 JSON 数组
         val sb = StringBuilder()
         sb.append("[")
         for ((i, r) in results.withIndex()) {
@@ -90,10 +95,16 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     }
 
     /**
-     * 异步执行（使用 AutoX 的 Threads API）
+     * 异步执行任务
      */
     @JavascriptInterface
-    fun runAsync(runnable: Runnable) {
-        Threads.start(runnable)
+    fun runAsync(code: String) {
+        Threads.start {
+            try {
+                runtime.execute(code)
+            } catch (e: Exception) {
+                Log.e("OnnxModule", "runAsync error", e)
+            }
+        }
     }
 }
