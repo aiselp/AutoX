@@ -16,7 +16,6 @@ class OnnxDetector(private val runtime: ScriptRuntime) {
     fun detect(input: FloatArray): List<DetectionResult> {
         val w = wrapper ?: throw IllegalStateException("Model not loaded")
         val output = w.run(FloatBuffer.wrap(input))
-        // 假设输出为 [N, 6]，每行: [label_idx, score, x1, y1, x2, y2]
         val results = mutableListOf<DetectionResult>()
         for ((idx, row) in output.withIndex()) {
             if (row.size < 6) continue
