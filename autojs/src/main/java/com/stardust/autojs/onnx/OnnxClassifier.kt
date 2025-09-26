@@ -1,21 +1,23 @@
 package com.stardust.autojs.onnx
 
-import ai.onnxruntime.*
-import org.opencv.core.Mat
+import com.stardust.autojs.runtime.ScriptRuntime
+import ai.onnxruntime.OnnxTensor
+import android.graphics.Bitmap
 
-/**
- * 简单的 ONNX 分类器
- */
-class OnnxClassifier(private val wrapper: OnnxWrapper) {
+class OnnxClassifier(private val runtime: ScriptRuntime) {
 
-    fun classify(image: Mat): List<Pair<String, Float>> {
-        val input = OnnxUtils.matToFloatTensor(image, wrapper.inputShape)
-        val results = wrapper.run(input)
+    private val wrapper = OnnxWrapper()
 
-        // 假设只有一个输出 (softmax 概率)
-        val scores = results[wrapper.outputName] as FloatArray
-        val classes = wrapper.labels
+    fun classify(bitmap: Bitmap): Int {
+        val inputTensor = preprocess(bitmap)
+        val outputs = runtime.putProperty("onnx_classifier_input", inputTensor) as Map<String, OnnxTensor>
+        val result = runtime.putProperty("onnx_classifier_result", outputs) as Map<String, Any>
+        val scores = result.values.firstOrNull() as? FloatArray ?: return -1
+        return wrapper.argmax(wrapper.softmax(scores))
+    }
 
-        return classes.zip(scores.toList())
+    private fun preprocess(bitmap: Bitmap): Map<String, OnnxTensor> {
+        // TODO: 根据你的模型输入改 preprocessing
+        return emptyMap()
     }
 }
