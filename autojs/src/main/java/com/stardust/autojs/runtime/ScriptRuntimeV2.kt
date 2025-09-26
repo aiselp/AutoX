@@ -41,10 +41,6 @@ import java.io.StringReader
 import java.io.StringWriter
 import com.stardust.autojs.onnx.OnnxModule
 
-import android.webkit.JavascriptInterface
-import com.stardust.autojs.runtime.ScriptRuntime
-import java.nio.FloatBuffer
-
 
 class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     lateinit var consoleExtension: ConsoleExtension
@@ -55,6 +51,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     val gmlkit: GoogleMLKit = GoogleMLKit()
 
     val paddle: Paddle = Paddle()
+
     @ScriptVariable
     val onnx: OnnxModule = OnnxModule(this)
 
@@ -186,5 +183,3 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
         }
     }
 }
-
-
