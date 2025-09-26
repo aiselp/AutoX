@@ -12,18 +12,23 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
     }
 
     fun predict(input: FloatArray): FloatArray {
-        val w = wrapper ?: throw IllegalStateException("Model not loaded")
-        val inputBuffer: FloatBuffer = FloatBuffer.wrap(input)
-        val output = w.run(inputBuffer)
+        val w = wrapper ?: throw IllegalStateException("Model not loaded. Call loadModel() first.")
         
-        // 修复：从 Array<FloatArray> 中提取第一个 FloatArray
-        return output.firstOrNull() ?: throw IllegalStateException("No output from model")
+        // 确保输入缓冲区是可读的
+        val inputBuffer = FloatBuffer.wrap(input)
+        
+        val outputArray = w.run(inputBuffer)
+        
+        if (outputArray.isEmpty()) {
+            throw IllegalStateException("Model returned empty output")
+        }
+        
+        // 返回第一个输出（假设单输出模型）
+        return outputArray[0]
     }
-    
-    // 可选：如果需要处理多个输出
-    fun predictMultiple(input: FloatArray): Array<FloatArray> {
-        val w = wrapper ?: throw IllegalStateException("Model not loaded")
-        val inputBuffer: FloatBuffer = FloatBuffer.wrap(input)
-        return w.run(inputBuffer)
+
+    fun unloadModel() {
+        wrapper?.close()
+        wrapper = null
     }
 }
