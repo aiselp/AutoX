@@ -1,23 +1,19 @@
 package com.stardust.autojs.onnx
 
 import com.stardust.autojs.runtime.ScriptRuntime
-import ai.onnxruntime.OnnxTensor
-import android.graphics.Bitmap
+import java.nio.FloatBuffer
 
 class OnnxClassifier(private val runtime: ScriptRuntime) {
 
-    private val wrapper = OnnxWrapper()
+    private var wrapper: OnnxWrapper? = null
 
-    fun classify(bitmap: Bitmap): Int {
-        val inputTensor = preprocess(bitmap)
-        val outputs = runtime.putProperty("onnx_classifier_input", inputTensor) as Map<String, OnnxTensor>
-        val result = runtime.putProperty("onnx_classifier_result", outputs) as Map<String, Any>
-        val scores = result.values.firstOrNull() as? FloatArray ?: return -1
-        return wrapper.argmax(wrapper.softmax(scores))
+    fun loadModel(path: String) {
+        wrapper = OnnxWrapper(path)
     }
 
-    private fun preprocess(bitmap: Bitmap): Map<String, OnnxTensor> {
-        // TODO: 根据你的模型输入改 preprocessing
-        return emptyMap()
+    fun predict(input: FloatArray): FloatArray {
+        val w = wrapper ?: throw IllegalStateException("Model not loaded")
+        val inputBuffer: FloatBuffer = FloatBuffer.wrap(input)
+        return w.run(inputBuffer)
     }
 }
