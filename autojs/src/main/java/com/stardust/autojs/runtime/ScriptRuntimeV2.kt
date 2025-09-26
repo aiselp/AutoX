@@ -55,6 +55,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     val gmlkit: GoogleMLKit = GoogleMLKit()
 
     val paddle: Paddle = Paddle()
+    @ScriptVariable
     val onnx: OnnxModule = OnnxModule(this)
 
     @ScriptVariable
