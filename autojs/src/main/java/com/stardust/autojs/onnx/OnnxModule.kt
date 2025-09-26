@@ -16,7 +16,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     }
 
     fun runModel(inputs: Map<String, OnnxTensor>): Map<String, Any> {
-        // 使用 run 替代 evaluate
         val result = session.run(inputs)
         val outputMap = mutableMapOf<String, Any>()
         result.forEach { tensor ->
