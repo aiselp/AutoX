@@ -1,127 +1,99 @@
 package com.stardust.autojs.onnx
 
-import android.content.Context
-import android.graphics.Bitmap
 import android.util.Log
-import org.json.JSONObject
+import android.webkit.JavascriptInterface
+import com.stardust.autojs.runtime.ScriptRuntime
+import com.stardust.autojs.runtime.ScriptRuntimeV2
+import com.stardust.autojs.runtime.api.Threads
+import org.opencv.core.Mat
 import java.io.File
+import kotlin.math.max
+import kotlin.math.min
 
-// ⚠️ 如果 AutoX 没有 ScriptRuntime/JSThread/JavaScriptInterface，请去掉相关 import 和注解
-// import com.stardust.autojs.engine.ScriptRuntime
-// import com.stardust.autojs.engine.JSThread
-// import android.webkit.JavascriptInterface
+/**
+ * AutoX 的 ONNX 模块封装
+ * 提供 JS 可直接调用的 API
+ */
+class OnnxModule(private val runtime: ScriptRuntime) {
 
-class OnnxModule(private val context: Context) {
-
-    private val detector = OnnxDetector()
-    private val classifier = OnnxClassifier()
+    private var detector: OnnxDetector? = null
+    private var classifier: OnnxClassifier? = null
     private var labels: List<String> = emptyList()
 
-    companion object {
-        private const val TAG = "OnnxModule"
-    }
-
-    fun init(options: String): Boolean {
-        return try {
-            val json = JSONObject(options)
-            val detectModelPath = json.optString("detectModel", "").trim()
-            val classifyModelPath = json.optString("classifyModel", "").trim()
-            val labelsPath = json.optString("labels", "").trim()
-
-            Log.d(TAG, "🔧 Initializing ONNX models...")
-
-            if (labelsPath.isNotEmpty()) {
-                val file = File(labelsPath)
-                if (file.exists() && file.canRead()) {
-                    labels = file.readLines().map { it.trim() }.filter { it.isNotEmpty() }
-                    Log.i(TAG, "✅ Loaded ${labels.size} labels from $labelsPath")
-                } else {
-                    Log.w(TAG, "⚠️ Labels file not found or unreadable: $labelsPath")
-                    labels = emptyList()
-                }
-            }
-
-            var success = true
-
-            if (detectModelPath.isNotEmpty()) {
-                val modelFile = File(detectModelPath)
-                if (!modelFile.exists() || !modelFile.canRead() || !detector.init(detectModelPath)) {
-                    Log.e(TAG, "❌ Failed to initialize detector: $detectModelPath")
-                    success = false
-                } else {
-                    Log.i(TAG, "✅ Detector initialized: $detectModelPath")
-                }
-            }
-
-            if (classifyModelPath.isNotEmpty()) {
-                val modelFile = File(classifyModelPath)
-                if (!modelFile.exists() || !modelFile.canRead() || !classifier.init(classifyModelPath)) {
-                    Log.e(TAG, "❌ Failed to initialize classifier: $classifyModelPath")
-                    success = false
-                } else {
-                    Log.i(TAG, "✅ Classifier initialized: $classifyModelPath")
-                }
-            }
-
-            if (success) Log.i(TAG, "🎉 ONNX module initialized successfully")
-            else Log.e(TAG, "❌ ONNX module initialization failed")
-
-            success
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Init failed due to exception", e)
-            false
+    /**
+     * 加载分类模型
+     */
+    @JavascriptInterface
+    fun loadClassifier(modelPath: String, labelPath: String) {
+        val f = File(modelPath)
+        if (!f.exists()) {
+            throw RuntimeException("模型文件不存在: $modelPath")
         }
+        classifier = OnnxClassifier(modelPath)
+        labels = File(labelPath).readLines().map { it.trim() }
+        Log.d("OnnxModule", "分类模型加载成功: $modelPath, labels=${labels.size}")
     }
 
-    fun detect(bitmap: Bitmap): List<Map<String, Any>> {
-        return try {
-            val detections = detector.detect(bitmap, labels)
-            val result = mutableListOf<Map<String, Any>>()
-            for (d in detections) {
-                result.add(
-                    mapOf(
-                        "classId" to d.classId,
-                        "className" to d.className,
-                        "confidence" to d.confidence,
-                        "left" to d.left,
-                        "top" to d.top,
-                        "right" to d.right,
-                        "bottom" to d.bottom
-                    )
-                )
-            }
-            result
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Detect failed", e)
-            emptyList()
+    /**
+     * 加载检测模型
+     */
+    @JavascriptInterface
+    fun loadDetector(modelPath: String) {
+        val f = File(modelPath)
+        if (!f.exists()) {
+            throw RuntimeException("模型文件不存在: $modelPath")
         }
+        detector = OnnxDetector(modelPath)
+        Log.d("OnnxModule", "检测模型加载成功: $modelPath")
     }
 
-    fun classify(bitmap: Bitmap): Map<String, Any>? {
-        return try {
-            val result = classifier.classify(bitmap, labels) ?: return null
-            mapOf(
-                "classId" to result.classId,
-                "className" to result.className,
-                "confidence" to result.confidence
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Classify failed", e)
-            null
+    /**
+     * 分类预测
+     */
+    @JavascriptInterface
+    fun classify(imagePath: String): String {
+        val c = classifier ?: throw RuntimeException("请先调用 loadClassifier()")
+        val mat = OnnxUtils.loadImage(imagePath)
+        val result = c.predict(mat)
+
+        val label = if (result.labelIndex in labels.indices) {
+            labels[result.labelIndex]
+        } else {
+            "unknown"
         }
+        return "{\"label\":\"$label\",\"confidence\":${result.confidence}}"
     }
 
-    fun release() {
-        try {
-            detector.release()
-            classifier.release()
-            Log.i(TAG, "🗑️ ONNX models released")
-        } catch (e: Exception) {
-            Log.e(TAG, "❌ Error during release", e)
+    /**
+     * 目标检测
+     */
+    @JavascriptInterface
+    fun detect(imagePath: String): String {
+        val d = detector ?: throw RuntimeException("请先调用 loadDetector()")
+        val mat = OnnxUtils.loadImage(imagePath)
+        val results = d.predict(mat)
+
+        // 转成 JSON 数组
+        val sb = StringBuilder()
+        sb.append("[")
+        for ((i, r) in results.withIndex()) {
+            val label = if (r.labelIndex in labels.indices) labels[r.labelIndex] else "unknown"
+            sb.append("{")
+            sb.append("\"label\":\"$label\",")
+            sb.append("\"confidence\":${r.confidence},")
+            sb.append("\"x\":${r.x},\"y\":${r.y},\"w\":${r.w},\"h\":${r.h}")
+            sb.append("}")
+            if (i != results.lastIndex) sb.append(",")
         }
+        sb.append("]")
+        return sb.toString()
     }
 
-    fun getLabels(): List<String> {
-        return labels
+    /**
+     * 异步执行（使用 AutoX 的 Threads API）
+     */
+    @JavascriptInterface
+    fun runAsync(runnable: Runnable) {
+        Threads.start(runnable)
     }
 }
