@@ -1,28 +1,28 @@
 package com.stardust.autojs.onnx
 
 import com.stardust.autojs.runtime.ScriptRuntime
-import ai.onnxruntime.OnnxTensor
-import android.graphics.Bitmap
+import java.nio.FloatBuffer
 
 class OnnxDetector(private val runtime: ScriptRuntime) {
 
-    private val wrapper = OnnxWrapper()
+    private var wrapper: OnnxWrapper? = null
 
-    fun detect(bitmap: Bitmap): List<FloatArray> {
-        val inputTensor = preprocess(bitmap)
-        val outputs = runtime.putProperty("onnx_detector_input", inputTensor) as Map<String, OnnxTensor>
-        val result = runtime.putProperty("onnx_detector_result", outputs) as Map<String, Any>
-        val detections = mutableListOf<FloatArray>()
-        result.values.forEach { output ->
-            if (output is FloatArray) {
-                detections.add(output)
-            }
-        }
-        return detections
+    fun loadModel(path: String) {
+        wrapper = OnnxWrapper(path)
     }
 
-    private fun preprocess(bitmap: Bitmap): Map<String, OnnxTensor> {
-        // TODO: 根据你的模型输入改 preprocessing
-        return emptyMap()
+    data class DetectionResult(val label: String, val score: Float, val box: FloatArray)
+
+    fun detect(input: FloatArray): List<DetectionResult> {
+        val w = wrapper ?: throw IllegalStateException("Model not loaded")
+        val output = w.run(FloatBuffer.wrap(input))
+        // 假设输出为 [N, 6]，每行: [label_idx, score, x1, y1, x2, y2]
+        val results = mutableListOf<DetectionResult>()
+        for ((idx, row) in output.withIndex()) {
+            if (row.size < 6) continue
+            val label = "class_${row[0].toInt()}"
+            results.add(DetectionResult(label, row[1], row.sliceArray(2..5)))
+        }
+        return results
     }
 }
