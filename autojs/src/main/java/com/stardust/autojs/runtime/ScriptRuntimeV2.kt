@@ -39,7 +39,7 @@ import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringReader
 import java.io.StringWriter
-package com.stardust.autojs.onnx
+import com.stardust.autojs.onnx.OnnxModule
 
 import android.webkit.JavascriptInterface
 import com.stardust.autojs.runtime.ScriptRuntime
