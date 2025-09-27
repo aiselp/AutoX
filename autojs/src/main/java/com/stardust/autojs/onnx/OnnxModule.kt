@@ -96,7 +96,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             mapOf(
                 "label" to r.label,
                 "score" to r.score.toDouble(),
-                "box" to r.box.toDoubleArray()
+                "box" to r.box.map { it.toDouble() }.toDoubleArray()  // 修复这一行
             )
         }.toTypedArray()
     }
