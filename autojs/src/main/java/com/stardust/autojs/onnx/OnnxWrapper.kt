@@ -1,40 +1,62 @@
+// autojs/src/main/java/com/stardust/autojs/onnx/OnnxWrapper.kt
 package com.stardust.autojs.onnx
 
-import ai.onnxruntime.*
-import java.io.File
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.OrtSession
+import android.util.Log
 import java.nio.FloatBuffer
 
 class OnnxWrapper(modelPath: String) {
+    private val env = OrtEnvironment.getEnvironment()
+    private val session: OrtSession = env.createSession(modelPath)
 
-    private val env: OrtEnvironment = OrtEnvironment.getEnvironment()
-    private val session: OrtSession
-
-    init {
-        val sessionOptions = OrtSession.SessionOptions()
-        session = env.createSession(File(modelPath).absolutePath, sessionOptions)
+    val metadataClassNames: List<String>? by lazy {
+        try {
+            val meta = session.metadata
+            val props = meta.customMetadata
+            val candidates = listOf("names", "labels", "class_names", "classes")
+            for (key in candidates) {
+                val value = props[key] ?: continue
+                return@lazy if (value.startsWith("[") && value.endsWith("]")) {
+                    val arr = org.json.JSONArray(value)
+                    (0 until arr.length()).map { arr.getString(it) }
+                } else {
+                    value.split(Regex("[,\n\\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to read class names from model metadata", e)
+            null
+        }
     }
 
-    fun run(inputBuffer: FloatBuffer): Array<FloatArray> {
-        val shape = longArrayOf(1, inputBuffer.remaining().toLong())
-        
-        return OnnxTensor.createTensor(env, inputBuffer, shape).use { tensor ->
-            session.run(mapOf(session.inputNames.iterator().next() to tensor)).use { results ->
-                @Suppress("UNCHECKED_CAST")
-                (results[0].value as Array<FloatArray>)
-            }
+    fun run(input: FloatBuffer): List<FloatArray> {
+        val inputName = session.inputNames[0]
+        val shape = session.inputInfo[inputName]?.shape?.map { if (it < 0) 1L else it }?.toLongArray()
+            ?: longArrayOf(1, 3, 224, 224)
+
+        val tensor = OnnxTensor.createTensor(env, input, shape)
+        val output = session.run(mapOf(inputName to tensor))
+        tensor.close()
+
+        val results = mutableListOf<FloatArray>()
+        for (value in output.values) {
+            val floatArray = (value as OnnxTensor).floatBuffer?.let {
+                val arr = FloatArray(it.remaining())
+                it.get(arr)
+                arr
+            } ?: floatArrayOf()
+            results.add(floatArray)
+            value.close()
         }
+        output.close()
+        return results
     }
 
     fun close() {
-        try {
-            session.close()
-        } catch (e: Exception) {
-            // 忽略关闭异常
-        }
-        try {
-            env.close()
-        } catch (e: Exception) {
-            // 忽略关闭异常
-        }
+        session.close()
+        env.close()
     }
 }
