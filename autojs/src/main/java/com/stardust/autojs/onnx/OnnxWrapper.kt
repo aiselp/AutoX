@@ -22,7 +22,7 @@ class OnnxWrapper(modelPath: String) {
                     val arr = org.json.JSONArray(value)
                     (0 until arr.length()).map { arr.getString(it) }
                 } else {
-                    value.split(Regex("[,\n\\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
+                    value.split(Regex("[,\\n\\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
                 }
             }
             null
@@ -34,7 +34,9 @@ class OnnxWrapper(modelPath: String) {
 
     fun run(input: FloatBuffer): List<FloatArray> {
         val inputName = session.inputNames[0]
-        val shape = session.inputInfo[inputName]?.shape?.map { if (it < 0) 1L else it }?.toLongArray()
+        // 安全获取 shape，处理 -1（动态维度）替换为 1
+        val rawShape = session.inputInfo[inputName]?.shape
+        val shape = rawShape?.map { if (it < 0L) 1L else it }?.toLongArray()
             ?: longArrayOf(1, 3, 224, 224)
 
         val tensor = OnnxTensor.createTensor(env, input, shape)
@@ -42,16 +44,25 @@ class OnnxWrapper(modelPath: String) {
         tensor.close()
 
         val results = mutableListOf<FloatArray>()
-        for (value in output.values) {
-            val floatArray = (value as OnnxTensor).floatBuffer?.let {
-                val arr = FloatArray(it.remaining())
-                it.get(arr)
-                arr
-            } ?: floatArrayOf()
-            results.add(floatArray)
-            value.close()
+        try {
+            for (value in output.values) {
+                if (value is OnnxTensor) {
+                    val buffer = value.floatBuffer
+                    if (buffer != null) {
+                        val arr = FloatArray(buffer.remaining())
+                        buffer.get(arr)
+                        results.add(arr)
+                    } else {
+                        results.add(floatArrayOf())
+                    }
+                } else {
+                    results.add(floatArrayOf())
+                }
+                value.close()
+            }
+        } finally {
+            output.close()
         }
-        output.close()
         return results
     }
 
