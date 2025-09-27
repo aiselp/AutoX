@@ -22,7 +22,7 @@ class OnnxWrapper(modelPath: String) {
                     val arr = org.json.JSONArray(value)
                     (0 until arr.length()).map { arr.getString(it) }
                 } else {
-                    value.split(Regex("[,\\n\\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
+                    value.split(Regex("[,;\\n\\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
                 }
             }
             null
@@ -33,11 +33,17 @@ class OnnxWrapper(modelPath: String) {
     }
 
     fun run(input: FloatBuffer): List<FloatArray> {
-        val inputName = session.inputNames[0]
-        // 安全获取 shape，处理 -1（动态维度）替换为 1
-        val rawShape = session.inputInfo[inputName]?.shape
-        val shape = rawShape?.map { if (it < 0L) 1L else it }?.toLongArray()
-            ?: longArrayOf(1, 3, 224, 224)
+        val inputName = session.inputNames.iterator().next()
+        
+        // 安全获取 shape，处理动态维度
+        val inputInfo = session.inputInfo
+        val tensorInfo = inputInfo[inputName]?.info as? ai.onnxruntime.TensorInfo
+        val rawShape = tensorInfo?.shape
+        val shape = if (rawShape != null) {
+            rawShape.map { if (it < 0L) 1L else it }.toLongArray()
+        } else {
+            longArrayOf(1, 3, 224, 224) // 默认shape
+        }
 
         val tensor = OnnxTensor.createTensor(env, input, shape)
         val output = session.run(mapOf(inputName to tensor))
@@ -45,12 +51,13 @@ class OnnxWrapper(modelPath: String) {
 
         val results = mutableListOf<FloatArray>()
         try {
-            for (value in output.values) {
+            for (i in 0 until output.size()) {
+                val value = output.get(i)
                 if (value is OnnxTensor) {
                     val buffer = value.floatBuffer
                     if (buffer != null) {
                         val arr = FloatArray(buffer.remaining())
-                        buffer.get(arr)
+                        buffer.duplicate().get(arr) // 使用duplicate避免影响原始buffer
                         results.add(arr)
                     } else {
                         results.add(floatArrayOf())
