@@ -1,4 +1,4 @@
-// autojs/src/main/java/com/stardust/autojs/onnx/OnnxWrapper.kt    //fix
+// autojs/src/main/java/com/stardust/autojs/onnx/OnnxWrapper.kt
 package com.stardust.autojs.onnx
 
 import ai.onnxruntime.OnnxTensor
