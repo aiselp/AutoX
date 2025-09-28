@@ -1,5 +1,7 @@
+// autojs/src/main/java/com/stardust/autojs/onnx/YoloV8PostProcessor.kt
 package com.stardust.autojs.onnx
 
+import android.util.Log
 import kotlin.math.max
 import kotlin.math.min
 
@@ -29,15 +31,7 @@ object YoloV8PostProcessor {
     )
 
     /**
-     * 处理 YOLOv8 ONNX 模型的原始输出
-     *
-     * @param outputTensor 模型输出的 FloatArray，形状应为 [numOutputs]，通常是 [84, 8400] 展平后
-     * @param inputWidth 模型输入宽度（如 640）
-     * @param inputHeight 模型输入高度（如 640）
-     * @param classNames 类别名称列表
-     * @param confThreshold 置信度阈值（默认 0.25）
-     * @param iouThreshold NMS 的 IoU 阈值（默认 0.45）
-     * @return 检测结果列表
+     * 处理 YOLOv8 ONNX 模型的原始输出 - 自适应版本
      */
     fun process(
         outputTensor: FloatArray,
@@ -47,54 +41,259 @@ object YoloV8PostProcessor {
         confThreshold: Float = 0.25f,
         iouThreshold: Float = 0.45f
     ): List<OnnxDetector.DetectionResult> {
-        // YOLOv8 输出形状: [1, 84, 8400] → 展平为 84 * 8400 = 705600
-        // 其中 84 = 4 (box) + 1 (obj) + 80 (classes)
-        val numOutputs = outputTensor.size
+        
         val numClasses = classNames.size
-        val boxDim = 4 + 1 + numClasses // 85 for COCO
-        val numBoxes = numOutputs / boxDim
-
-        if (numBoxes * boxDim != numOutputs) {
-            throw IllegalArgumentException("Output tensor size $numOutputs is not divisible by $boxDim")
-        }
+        val totalElements = outputTensor.size
+        
+        Log.d("YoloV8PostProcessor", "开始处理输出: totalElements=$totalElements, numClasses=$numClasses")
+        
+        // 自动检测输出格式
+        val (boxDim, numBoxes) = detectOutputFormat(outputTensor, numClasses, totalElements)
+        
+        Log.d("YoloV8PostProcessor", "检测到格式: boxDim=$boxDim, numBoxes=$numBoxes")
 
         val boxes = mutableListOf<DetectionBox>()
 
-        // 转置：从 [84, 8400] → 按每个 box 解析
+        // 解析每个检测框
         for (i in 0 until numBoxes) {
-            val offset = i
-            val x = outputTensor[0 * numBoxes + offset]
-            val y = outputTensor[1 * numBoxes + offset]
-            val w = outputTensor[2 * numBoxes + offset]
-            val h = outputTensor[3 * numBoxes + offset]
-            val objConf = outputTensor[4 * numBoxes + offset]
-
-            if (objConf < confThreshold) continue
-
-            // 找到最高类别置信度
-            var maxClassConf = 0f
-            var maxClassId = 0
-            for (c in 0 until numClasses) {
-                val clsConf = outputTensor[(5 + c) * numBoxes + offset]
-                val totalConf = objConf * clsConf
-                if (totalConf > maxClassConf) {
-                    maxClassConf = totalConf
-                    maxClassId = c
-                }
-            }
-
-            if (maxClassConf < confThreshold) continue
-
-            // 转换为 [x1, y1, x2, y2]（归一化坐标 → 像素坐标）
-            val x1 = (x - w / 2f) * inputWidth
-            val y1 = (y - h / 2f) * inputHeight
-            val x2 = (x + w / 2f) * inputWidth
-            val y2 = (y + h / 2f) * inputHeight
-
-            boxes.add(DetectionBox(x1, y1, x2, y2, maxClassConf, maxClassId))
+            val box = parseDetectionBox(outputTensor, i, boxDim, numClasses, inputWidth, inputHeight, confThreshold)
+            box?.let { boxes.add(it) }
         }
 
+        Log.d("YoloV8PostProcessor", "过滤后候选框数量: ${boxes.size}")
+
         // 非极大值抑制 (NMS)
+        val finalBoxes = nonMaxSuppression(boxes, iouThreshold)
+        
+        Log.d("YoloV8PostProcessor", "NMS后最终框数量: ${finalBoxes.size}")
+
+        return finalBoxes.map { box ->
+            OnnxDetector.DetectionResult(
+                label = if (box.classId < classNames.size) classNames[box.classId] else "unknown_${box.classId}",
+                score = box.confidence,
+                box = floatArrayOf(
+                    max(0f, box.x1),
+                    max(0f, box.y1),
+                    min(inputWidth.toFloat(), box.x2),
+                    min(inputHeight.toFloat(), box.y2)
+                )
+            )
+        }
+    }
+
+    /**
+     * 自动检测输出格式
+     */
+    private fun detectOutputFormat(outputTensor: FloatArray, numClasses: Int, totalElements: Int): Pair<Int, Int> {
+        // 尝试常见的YOLO输出格式
+        
+        // 格式1: YOLOv8 标准格式 (4 + num_classes)
+        val format1 = 4 + numClasses
+        if (totalElements % format1 == 0) {
+            val numBoxes = totalElements / format1
+            Log.d("YoloV8PostProcessor", "使用YOLOv8标准格式: boxDim=$format1, numBoxes=$numBoxes")
+            return Pair(format1, numBoxes)
+        }
+        
+        // 格式2: 带obj_conf的格式 (5 + num_classes)
+        val format2 = 5 + numClasses
+        if (totalElements % format2 == 0) {
+            val numBoxes = totalElements / format2
+            Log.d("YoloV8PostProcessor", "使用带obj_conf格式: boxDim=$format2, numBoxes=$numBoxes")
+            return Pair(format2, numBoxes)
+        }
+        
+        // 格式3: 旧版YOLO格式 (4 + 1 + num_classes)
+        val format3 = 4 + 1 + numClasses
+        if (totalElements % format3 == 0) {
+            val numBoxes = totalElements / format3
+            Log.d("YoloV8PostProcessor", "使用旧版YOLO格式: boxDim=$format3, numBoxes=$numBoxes")
+            return Pair(format3, numBoxes)
+        }
+        
+        // 如果都不匹配，尝试自动寻找可能的维度
+        for (dim in 4..20) {
+            if (totalElements % dim == 0) {
+                val numBoxes = totalElements / dim
+                Log.w("YoloV8PostProcessor", "自动检测格式: boxDim=$dim, numBoxes=$numBoxes")
+                return Pair(dim, numBoxes)
+            }
+        }
+        
+        throw IllegalArgumentException("无法确定输出格式: totalElements=$totalElements, numClasses=$numClasses. " +
+                "请检查模型输出维度与类别数量是否匹配")
+    }
+
+    /**
+     * 解析单个检测框
+     */
+    private fun parseDetectionBox(
+        outputTensor: FloatArray,
+        boxIndex: Int,
+        boxDim: Int,
+        numClasses: Int,
+        inputWidth: Int,
+        inputHeight: Int,
+        confThreshold: Float
+    ): DetectionBox? {
+        val offset = boxIndex * boxDim
+        
+        // 根据不同的格式解析
+        return when (boxDim) {
+            // YOLOv8 标准格式: [x, y, w, h, class_scores...]
+            4 + numClasses -> parseYOLOv8Format(outputTensor, offset, numClasses, inputWidth, inputHeight, confThreshold)
+            // 带obj_conf的格式: [x, y, w, h, obj_conf, class_scores...]
+            5 + numClasses -> parseWithObjConfFormat(outputTensor, offset, numClasses, inputWidth, inputHeight, confThreshold)
+            // 旧版YOLO格式: [x, y, w, h, obj_conf, class_scores...] 但处理方式不同
+            4 + 1 + numClasses -> parseLegacyYOLOFormat(outputTensor, offset, numClasses, inputWidth, inputHeight, confThreshold)
+            // 通用格式处理
+            else -> parseGenericFormat(outputTensor, offset, boxDim, numClasses, inputWidth, inputHeight, confThreshold)
+        }
+    }
+
+    private fun parseYOLOv8Format(
+        outputTensor: FloatArray,
+        offset: Int,
+        numClasses: Int,
+        inputWidth: Int,
+        inputHeight: Int,
+        confThreshold: Float
+    ): DetectionBox? {
+        val x = outputTensor[offset]
+        val y = outputTensor[offset + 1]
+        val w = outputTensor[offset + 2]
+        val h = outputTensor[offset + 3]
+        
+        // 找到最高类别置信度
+        var maxClassConf = 0f
+        var maxClassId = 0
+        for (c in 0 until numClasses) {
+            val clsConf = outputTensor[offset + 4 + c]
+            if (clsConf > maxClassConf) {
+                maxClassConf = clsConf
+                maxClassId = c
+            }
+        }
+
+        if (maxClassConf < confThreshold) return null
+
+        return createBox(x, y, w, h, maxClassConf, maxClassId, inputWidth, inputHeight)
+    }
+
+    private fun parseWithObjConfFormat(
+        outputTensor: FloatArray,
+        offset: Int,
+        numClasses: Int,
+        inputWidth: Int,
+        inputHeight: Int,
+        confThreshold: Float
+    ): DetectionBox? {
+        val x = outputTensor[offset]
+        val y = outputTensor[offset + 1]
+        val w = outputTensor[offset + 2]
+        val h = outputTensor[offset + 3]
+        val objConf = outputTensor[offset + 4]
+        
+        // 找到最高类别置信度
+        var maxClassConf = 0f
+        var maxClassId = 0
+        for (c in 0 until numClasses) {
+            val clsConf = outputTensor[offset + 5 + c]
+            val totalConf = objConf * clsConf
+            if (totalConf > maxClassConf) {
+                maxClassConf = totalConf
+                maxClassId = c
+            }
+        }
+
+        if (maxClassConf < confThreshold) return null
+
+        return createBox(x, y, w, h, maxClassConf, maxClassId, inputWidth, inputHeight)
+    }
+
+    private fun parseLegacyYOLOFormat(
+        outputTensor: FloatArray,
+        offset: Int,
+        numClasses: Int,
+        inputWidth: Int,
+        inputHeight: Int,
+        confThreshold: Float
+    ): DetectionBox? {
+        val x = outputTensor[offset]
+        val y = outputTensor[offset + 1]
+        val w = outputTensor[offset + 2]
+        val h = outputTensor[offset + 3]
+        val objConf = outputTensor[offset + 4]
+
+        if (objConf < confThreshold) return null
+
+        // 找到最高类别置信度
+        var maxClassConf = 0f
+        var maxClassId = 0
+        for (c in 0 until numClasses) {
+            val clsConf = outputTensor[offset + 5 + c]
+            val totalConf = objConf * clsConf
+            if (totalConf > maxClassConf) {
+                maxClassConf = totalConf
+                maxClassId = c
+            }
+        }
+
+        if (maxClassConf < confThreshold) return null
+
+        return createBox(x, y, w, h, maxClassConf, maxClassId, inputWidth, inputHeight)
+    }
+
+    private fun parseGenericFormat(
+        outputTensor: FloatArray,
+        offset: Int,
+        boxDim: Int,
+        numClasses: Int,
+        inputWidth: Int,
+        inputHeight: Int,
+        confThreshold: Float
+    ): DetectionBox? {
+        // 假设前4个是bbox坐标
+        val x = outputTensor[offset]
+        val y = outputTensor[offset + 1]
+        val w = outputTensor[offset + 2]
+        val h = outputTensor[offset + 3]
+        
+        // 在剩余的元素中找到最高的类别分数
+        var maxClassConf = 0f
+        var maxClassId = 0
+        val classStart = boxDim - numClasses
+        for (c in 0 until numClasses) {
+            if (offset + classStart + c >= outputTensor.size) break
+            val clsConf = outputTensor[offset + classStart + c]
+            if (clsConf > maxClassConf) {
+                maxClassConf = clsConf
+                maxClassId = c
+            }
+        }
+
+        if (maxClassConf < confThreshold) return null
+
+        return createBox(x, y, w, h, maxClassConf, maxClassId, inputWidth, inputHeight)
+    }
+
+    private fun createBox(
+        x: Float, y: Float, w: Float, h: Float,
+        confidence: Float, classId: Int,
+        inputWidth: Int, inputHeight: Int
+    ): DetectionBox {
+        // 转换为像素坐标 [x1, y1, x2, y2]
+        val x1 = (x - w / 2f) * inputWidth
+        val y1 = (y - h / 2f) * inputHeight
+        val x2 = (x + w / 2f) * inputWidth
+        val y2 = (y + h / 2f) * inputHeight
+
+        return DetectionBox(x1, y1, x2, y2, confidence, classId)
+    }
+
+    private fun nonMaxSuppression(boxes: List<DetectionBox>, iouThreshold: Float): List<DetectionBox> {
+        if (boxes.isEmpty()) return emptyList()
+        
         val sortedBoxes = boxes.sortedByDescending { it.confidence }
         val keep = mutableListOf<DetectionBox>()
         val suppressed = BooleanArray(sortedBoxes.size)
@@ -110,19 +309,7 @@ object YoloV8PostProcessor {
                 }
             }
         }
-
-        return keep.map { box ->
-            OnnxDetector.DetectionResult(
-                label = if (box.classId < classNames.size) classNames[box.classId] else "unknown",
-                score = box.confidence,
-                box = floatArrayOf(
-                    max(0f, box.x1),
-                    max(0f, box.y1),
-                    min(inputWidth.toFloat(), box.x2),
-                    min(inputHeight.toFloat(), box.y2)
-                )
-            )
-        }
+        return keep
     }
 
     private fun computeIoU(a: DetectionBox, b: DetectionBox): Float {
@@ -136,6 +323,10 @@ object YoloV8PostProcessor {
         val interArea = (x2 - x1) * (y2 - y1)
         val areaA = (a.x2 - a.x1) * (a.y2 - a.y1)
         val areaB = (b.x2 - b.x1) * (b.y2 - b.y1)
-        return interArea / (areaA + areaB - interArea)
+        val unionArea = areaA + areaB - interArea
+        
+        if (unionArea <= 0f) return 0f
+        
+        return interArea / unionArea
     }
 }
