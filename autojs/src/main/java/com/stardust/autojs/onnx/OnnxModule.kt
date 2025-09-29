@@ -65,7 +65,42 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             bitmap.recycle()
         }
     }
+@android.webkit.JavascriptInterface
+fun classifyImage32x32(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
+    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+    val file = File(imagePath)
+    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+    val bitmap = BitmapFactory.decodeFile(imagePath)
+        ?: throw RuntimeException("Failed to decode image: $imagePath")
+    try {
+        // 使用新的32x32预处理
+        val input = ImagePreprocessor.preprocessClassification32x32(bitmap)
+        val results = c.classify(input, topK)
+        return results.map { r ->
+            mapOf("label" to r.label, "score" to r.score.toDouble())
+        }.toTypedArray()
+    } finally {
+        bitmap.recycle()
+    }
+}
 
+@android.webkit.JavascriptInterface
+fun getClassifierOutputInfo32x32(name: String, imagePath: String): String {
+    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+    val file = File(imagePath)
+    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+    
+    val bitmap = BitmapFactory.decodeFile(imagePath)
+        ?: throw RuntimeException("Failed to decode image: $imagePath")
+    
+    try {
+        val input = ImagePreprocessor.preprocessClassification32x32(bitmap)
+        val outputInfo = c.getOutputInfo(input)
+        return org.json.JSONObject(outputInfo).toString()
+    } finally {
+        bitmap.recycle()
+    }
+}
     // === 检测器 ===
 
     @android.webkit.JavascriptInterface
