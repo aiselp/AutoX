@@ -49,7 +49,7 @@ object YoloV8PostProcessor {
         val boxDim = 4 + numClasses
         
         if (outputTensor.size % boxDim != 0) {
-            throw IllegalArgumentException("输出长度${outputTensor.size}不能被$boxDim整除")
+            throw IllegalArgumentException("输出长度 " + outputTensor.size + " 不能被 " + boxDim + " 整除")
         }
         
         val numBoxes = outputTensor.size / boxDim
