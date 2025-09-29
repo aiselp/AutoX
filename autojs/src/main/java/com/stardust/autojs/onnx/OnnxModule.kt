@@ -96,39 +96,11 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             mapOf(
                 "label" to r.label,
                 "score" to r.score.toDouble(),
-                "box" to r.box.map { it.toDouble() }.toDoubleArray()  // 修复这一行
+                "box" to r.box.map { it.toDouble() }.toDoubleArray()
             )
         }.toTypedArray()
     }
-// 在 OnnxModule.kt 中添加以下方法
-@android.webkit.JavascriptInterface
-fun setClassifierOutputType(name: String, type: String) {
-    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-    when (type.toLowerCase()) {
-        "logits" -> c.setOutputType(OnnxClassifier.OutputType.LOGITS)
-        "probabilities" -> c.setOutputType(OnnxClassifier.OutputType.PROBABILITIES)
-        "auto" -> c.setOutputType(OnnxClassifier.OutputType.AUTO_DETECT)
-        else -> throw IllegalArgumentException("Unknown output type: $type")
-    }
-}
 
-@android.webkit.JavascriptInterface
-fun getClassifierOutputInfo(name: String, imagePath: String, inputSize: Int): String {
-    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-    val file = File(imagePath)
-    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-    
-    val bitmap = BitmapFactory.decodeFile(imagePath)
-        ?: throw RuntimeException("Failed to decode image: $imagePath")
-    
-    try {
-        val input = ImagePreprocessor.preprocessClassification(bitmap, inputSize)
-        val outputInfo = c.getOutputInfo(input)
-        return org.json.JSONObject(outputInfo).toString()
-    } finally {
-        bitmap.recycle()
-    }
-}
     @android.webkit.JavascriptInterface
     fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
         val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
@@ -142,5 +114,74 @@ fun getClassifierOutputInfo(name: String, imagePath: String, inputSize: Int): St
         } finally {
             bitmap.recycle()
         }
+    }
+
+    // === 调试方法 ===
+
+    @android.webkit.JavascriptInterface
+    fun setClassifierOutputType(name: String, type: String) {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        when (type.toLowerCase()) {
+            "logits" -> c.setOutputType(OnnxClassifier.OutputType.LOGITS)
+            "probabilities" -> c.setOutputType(OnnxClassifier.OutputType.PROBABILITIES)
+            "auto" -> c.setOutputType(OnnxClassifier.OutputType.AUTO_DETECT)
+            else -> throw IllegalArgumentException("Unknown output type: $type")
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun getClassifierOutputInfo(name: String, imagePath: String, inputSize: Int): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            val input = ImagePreprocessor.preprocessClassification(bitmap, inputSize)
+            val outputInfo = c.getOutputInfo(input)
+            return org.json.JSONObject(outputInfo).toString()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun debugDetectorOutput(name: String, imagePath: String): String {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
+            val outputInfo = d.debugOutput(input)
+            return org.json.JSONObject(outputInfo).toString()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun unloadClassifier(name: String) {
+        classifiers[name]?.close()
+        classifiers.remove(name)
+    }
+
+    @android.webkit.JavascriptInterface
+    fun unloadDetector(name: String) {
+        detectors[name]?.close()
+        detectors.remove(name)
+    }
+
+    @android.webkit.JavascriptInterface
+    fun cleanup() {
+        classifiers.values.forEach { it.close() }
+        detectors.values.forEach { it.close() }
+        classifiers.clear()
+        detectors.clear()
     }
 }
