@@ -11,13 +11,41 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
 
     private var wrapper: OnnxWrapper? = null
     private var _userClassNames: List<String>? = null
+    private var _userInputSize: Int? = null  // 用户设置的输入尺寸
     private var outputType: OutputType = OutputType.AUTO_DETECT
 
     enum class OutputType {
-        LOGITS,        // 原始logits（需要softmax）
-        PROBABILITIES, // 已经是概率（不需要softmax）
-        AUTO_DETECT    // 自动检测
+        LOGITS, PROBABILITIES, AUTO_DETECT
     }
+
+    // 获取有效的输入尺寸：用户设置 > 元数据 > 默认224
+    val effectiveInputSize: Int
+        get() {
+            // 1. 优先使用用户设置的尺寸
+            _userInputSize?.let { return it }
+            
+            // 2. 尝试从模型元数据读取
+            val fromMeta = wrapper?.metadataInputSize
+            if (fromMeta != null) {
+                Log.d("OnnxClassifier", "从元数据读取输入尺寸: $fromMeta")
+                return fromMeta
+            }
+            
+            // 3. 从输入形状推断
+            val fromShape = wrapper?.inputShape
+            if (fromShape != null && fromShape.size >= 3) {
+                // 形状通常是 [batch, channels, height, width]
+                val size = fromShape[fromShape.size - 1] // 取最后一个维度作为尺寸
+                if (size > 0) {
+                    Log.d("OnnxClassifier", "从输入形状推断尺寸: $size")
+                    return size
+                }
+            }
+            
+            // 4. 默认使用224
+            Log.d("OnnxClassifier", "使用默认输入尺寸: 224")
+            return 224
+        }
 
     private val effectiveClassNames: List<String>
         get() {
@@ -29,12 +57,32 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
 
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
-        Log.d("OnnxClassifier", "模型加载完成，元数据类别: ${wrapper?.metadataClassNames}")
+        Log.d("OnnxClassifier", "模型加载完成")
+        Log.d("OnnxClassifier", "元数据类别: ${wrapper?.metadataClassNames}")
+        Log.d("OnnxClassifier", "元数据输入尺寸: ${wrapper?.metadataInputSize}")
+        Log.d("OnnxClassifier", "输入形状: ${wrapper?.inputShape?.contentToString()}")
+        Log.d("OnnxClassifier", "有效输入尺寸: $effectiveInputSize")
     }
 
     fun setClassNames(names: List<String>) {
         _userClassNames = names
         Log.d("OnnxClassifier", "设置类别名称: ${names.size} 个类别")
+    }
+
+    // 新增：设置输入尺寸
+    fun setInputSize(size: Int) {
+        _userInputSize = size
+        Log.d("OnnxClassifier", "用户设置输入尺寸: $size")
+    }
+
+    // 新增：获取输入尺寸信息
+    fun getInputSizeInfo(): Map<String, Any> {
+        return mapOf(
+            "user_set" to (_userInputSize ?: "未设置"),
+            "from_metadata" to (wrapper?.metadataInputSize ?: "无"),
+            "from_shape" to (wrapper?.inputShape?.contentToString() ?: "无"),
+            "effective_size" to effectiveInputSize
+        )
     }
 
     fun setOutputType(type: OutputType) {
