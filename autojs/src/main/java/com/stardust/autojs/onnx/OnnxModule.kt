@@ -89,32 +89,39 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     }
 
     @android.webkit.JavascriptInterface
-    fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
-        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
+    val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+    val results = d.detect(input)
+    return results.map { r ->
+        mapOf(
+            "label" to r.label,
+            "score" to r.score.toDouble(),
+            "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
+        )
+    }.toTypedArray()
+}
+
+@android.webkit.JavascriptInterface
+fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
+    val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+    val file = File(imagePath)
+    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+    val bitmap = BitmapFactory.decodeFile(imagePath)
+        ?: throw RuntimeException("Failed to decode image: $imagePath")
+    try {
+        val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
         val results = d.detect(input)
         return results.map { r ->
             mapOf(
                 "label" to r.label,
                 "score" to r.score.toDouble(),
-                "box" to r.box.map { it.toDouble() }.toDoubleArray()
+                "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
             )
         }.toTypedArray()
+    } finally {
+        bitmap.recycle()
     }
-
-    @android.webkit.JavascriptInterface
-    fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
-        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
-        val file = File(imagePath)
-        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-        val bitmap = BitmapFactory.decodeFile(imagePath)
-            ?: throw RuntimeException("Failed to decode image: $imagePath")
-        try {
-            val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
-            return detect(name, input)
-        } finally {
-            bitmap.recycle()
-        }
-    }
+}
 
     // === 调试方法 ===
 
