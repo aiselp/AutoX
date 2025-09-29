@@ -84,11 +84,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     }
 
     @android.webkit.JavascriptInterface
-    fun loadDetector(name: String, path: String, width: Int, height: Int) {
-        loadDetector(name, path, width, height, null)
-    }
-
-    @android.webkit.JavascriptInterface
 fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
     val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
     val results = d.detect(input)
