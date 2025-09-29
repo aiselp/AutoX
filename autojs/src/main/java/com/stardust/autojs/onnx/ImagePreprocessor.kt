@@ -36,21 +36,15 @@ object ImagePreprocessor {
         val result = FloatArray(3 * inputSize * inputSize)
         var idx = 0
         
-        // 尝试不同的归一化方式
+        // 方式1: 直接使用0-1范围（适用于某些自定义模型）
         for (pixel in pixels) {
             val r = (pixel shr 16 and 0xFF) / 255f
             val g = (pixel shr 8 and 0xFF) / 255f
             val b = (pixel and 0xFF) / 255f
 
-            // 方式1: 直接使用0-1范围（适用于某些自定义模型）
             result[idx++] = r
             result[idx++] = g
             result[idx++] = b
-            
-            // 如果方式1不行，可以尝试注释上面三行，使用下面的ImageNet归一化：
-            // result[idx++] = (r - 0.485f) / 0.229f
-            // result[idx++] = (g - 0.456f) / 0.224f  
-            // result[idx++] = (b - 0.406f) / 0.225f
         }
         
         Log.d("ImagePreprocessor", "分类预处理完成，输入尺寸: 32x32")
