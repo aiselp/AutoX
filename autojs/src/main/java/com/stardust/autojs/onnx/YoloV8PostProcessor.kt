@@ -85,43 +85,33 @@ object YoloV8PostProcessor {
      * 自动检测输出格式
      */
     private fun detectOutputFormat(outputTensor: FloatArray, numClasses: Int, totalElements: Int): Pair<Int, Int> {
-        // 尝试常见的YOLO输出格式
+        Log.d("YoloV8PostProcessor", "检测输出格式: totalElements=$totalElements, numClasses=$numClasses")
         
-        // 格式1: YOLOv8 标准格式 (4 + num_classes)
-        val format1 = 4 + numClasses
-        if (totalElements % format1 == 0) {
-            val numBoxes = totalElements / format1
-            Log.d("YoloV8PostProcessor", "使用YOLOv8标准格式: boxDim=$format1, numBoxes=$numBoxes")
-            return Pair(format1, numBoxes)
-        }
+        // 直接计算可能的维度
+        val candidates = listOf(
+            4 + numClasses,  // YOLOv8标准格式
+            5 + numClasses,  // 带obj_conf格式  
+            4 + 1 + numClasses // 旧版YOLO格式
+        )
         
-        // 格式2: 带obj_conf的格式 (5 + num_classes)
-        val format2 = 5 + numClasses
-        if (totalElements % format2 == 0) {
-            val numBoxes = totalElements / format2
-            Log.d("YoloV8PostProcessor", "使用带obj_conf格式: boxDim=$format2, numBoxes=$numBoxes")
-            return Pair(format2, numBoxes)
-        }
-        
-        // 格式3: 旧版YOLO格式 (4 + 1 + num_classes)
-        val format3 = 4 + 1 + numClasses
-        if (totalElements % format3 == 0) {
-            val numBoxes = totalElements / format3
-            Log.d("YoloV8PostProcessor", "使用旧版YOLO格式: boxDim=$format3, numBoxes=$numBoxes")
-            return Pair(format3, numBoxes)
-        }
-        
-        // 如果都不匹配，尝试自动寻找可能的维度
-        for (dim in 4..20) {
+        for (dim in candidates) {
             if (totalElements % dim == 0) {
                 val numBoxes = totalElements / dim
-                Log.w("YoloV8PostProcessor", "自动检测格式: boxDim=$dim, numBoxes=$numBoxes")
+                Log.d("YoloV8PostProcessor", "找到匹配格式: dim=$dim, numBoxes=$numBoxes")
                 return Pair(dim, numBoxes)
             }
         }
         
-        throw IllegalArgumentException("无法确定输出格式: totalElements=$totalElements, numClasses=$numClasses. " +
-                "请检查模型输出维度与类别数量是否匹配")
+        // 如果标准格式都不匹配，强制使用YOLOv8格式
+        val forcedDim = 4 + numClasses
+        val numBoxes = totalElements / forcedDim
+        if (numBoxes * forcedDim == totalElements) {
+            Log.w("YoloV8PostProcessor", "强制使用YOLOv8格式: dim=$forcedDim, numBoxes=$numBoxes")
+            return Pair(forcedDim, numBoxes)
+        }
+        
+        throw IllegalArgumentException("无法确定输出格式。totalElements=$totalElements, numClasses=$numClasses. " +
+                "尝试维度: ${candidates.joinToString()}")
     }
 
     /**
