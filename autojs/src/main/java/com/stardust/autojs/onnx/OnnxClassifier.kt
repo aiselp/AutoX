@@ -4,6 +4,7 @@ package com.stardust.autojs.onnx
 import android.util.Log
 import com.stardust.autojs.runtime.ScriptRuntime
 import kotlin.math.abs
+import kotlin.math.exp
 import java.nio.FloatBuffer
 
 class OnnxClassifier(private val runtime: ScriptRuntime) {
@@ -28,10 +29,12 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
 
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
+        Log.d("OnnxClassifier", "模型加载完成，元数据类别: ${wrapper?.metadataClassNames}")
     }
 
     fun setClassNames(names: List<String>) {
         _userClassNames = names
+        Log.d("OnnxClassifier", "设置类别名称: ${names.size} 个类别")
     }
 
     fun setOutputType(type: OutputType) {
@@ -49,12 +52,16 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         var sum = 0.0
         
         for (i in logits.indices) {
-            val expValue = kotlin.math.exp((logits[i] - max).toDouble())
+            val expValue = exp((logits[i] - max).toDouble())
             exps[i] = expValue.toFloat()
             sum += expValue
         }
         
-        if (sum == 0.0) return exps
+        if (sum == 0.0) {
+            // 如果sum为0，均匀分布
+            val uniform = 1.0f / logits.size
+            return FloatArray(logits.size) { uniform }
+        }
         
         for (i in exps.indices) {
             exps[i] = (exps[i] / sum).toFloat()
@@ -70,11 +77,15 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         val min = logits.minOrNull() ?: 0f
         val max = logits.maxOrNull() ?: 0f
         
-        Log.d("OnnxClassifier", "输出检测 - 最小值: $min, 最大值: $max, 总和: $sum")
+        Log.d("OnnxClassifier", "输出检测 - 最小值: $min, 最大值: $max, 总和: $sum, 长度: ${logits.size}")
         
-        // 检测标准1：值范围在[0,1]且总和接近1 → 已经是概率
-        if (min >= 0f && max <= 1f && abs(sum - 1.0f) < 0.1f) {
-            Log.d("OnnxClassifier", "检测到输出已经是概率值")
+        // 更严格的概率检测
+        val isProbRange = min >= 0f && max <= 1f
+        val sumCloseToOne = abs(sum - 1.0f) < 0.05f
+        
+        // 检测标准1：值范围在[0,1]且总和非常接近1 → 已经是概率
+        if (isProbRange && sumCloseToOne) {
+            Log.d("OnnxClassifier", "检测到输出已经是概率值 (总和: $sum)")
             return OutputType.PROBABILITIES
         }
         
@@ -84,23 +95,31 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             return OutputType.LOGITS
         }
         
-        // 检测标准3：总和远大于1 → 可能是logits
-        if (sum > 2.0f) {
-            Log.d("OnnxClassifier", "检测到输出总和较大，判断为logits")
+        // 检测标准3：如果所有值都很小但为正，也可能是logits
+        if (max < 10f && !sumCloseToOne) {
+            Log.d("OnnxClassifier", "输出值较小但总和不接近1，判断为logits")
             return OutputType.LOGITS
         }
         
-        // 默认认为是logits
-        Log.d("OnnxClassifier", "自动检测不确定，默认使用logits处理")
+        // 对于不确定的情况，添加详细日志
+        Log.d("OnnxClassifier", "自动检测不确定，详细分析:")
+        logits.take(5).forEachIndexed { i, v -> 
+            Log.d("OnnxClassifier", "  输出[$i] = $v")
+        }
+        
+        // 默认使用logits处理
         return OutputType.LOGITS
     }
 
     fun classify(input: FloatArray, topK: Int = 1): List<ClassificationResult> {
-        val logits = predict(input)
+        val rawOutput = predict(input)
+        
+        Log.d("OnnxClassifier", "原始输出长度: ${rawOutput.size}")
+        Log.d("OnnxClassifier", "原始输出前5个值: ${rawOutput.take(5).joinToString()}")
         
         // 自动检测或使用指定类型
         val currentOutputType = if (outputType == OutputType.AUTO_DETECT) {
-            detectOutputType(logits)
+            detectOutputType(rawOutput)
         } else {
             outputType
         }
@@ -108,19 +127,27 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         val probs = when (currentOutputType) {
             OutputType.LOGITS -> {
                 Log.d("OnnxClassifier", "应用softmax处理logits")
-                softmax(logits)
+                val softmaxResult = softmax(rawOutput)
+                // 验证softmax结果
+                if (softmaxResult.sum().isNaN()) {
+                    Log.e("OnnxClassifier", "Softmax结果异常，使用原始值")
+                    rawOutput
+                } else {
+                    softmaxResult
+                }
             }
             OutputType.PROBABILITIES -> {
                 Log.d("OnnxClassifier", "输出已经是概率，跳过softmax")
-                logits // 直接使用，不处理
+                rawOutput
             }
             else -> {
-                softmax(logits)
+                softmax(rawOutput)
             }
         }
         
         // 记录处理后的概率信息
-        Log.d("OnnxClassifier", "处理后概率 - 最大: ${probs.maxOrNull()}, 总和: ${probs.sum()}")
+        Log.d("OnnxClassifier", "最终概率 - 最大: ${probs.maxOrNull()}, 总和: ${probs.sum()}")
+        Log.d("OnnxClassifier", "前5个概率: ${probs.take(5).joinToString()}")
         
         val size = probs.size
         
@@ -155,6 +182,12 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         // 按置信度降序排序并取前topK个
         val sortedResults = indexed.sortedByDescending { it.second }.take(topK)
 
+        Log.d("OnnxClassifier", "Top-$topK 结果:")
+        sortedResults.forEach { (idx, score) ->
+            val label = if (idx < names.size) names[idx] else "class_$idx"
+            Log.d("OnnxClassifier", "  $label: $score")
+        }
+
         return sortedResults.map { (idx, score) ->
             ClassificationResult(
                 label = if (idx < names.size) names[idx] else "class_$idx",
@@ -177,9 +210,9 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         val detectedType = detectOutputType(logits)
         val probs = if (detectedType == OutputType.LOGITS) softmax(logits) else logits
         
-        // 修复：明确指定Map类型
         val result = mutableMapOf<String, Any>()
         result["output_type"] = detectedType.name
+        result["output_length"] = logits.size
         result["raw_output_sample"] = logits.take(5).toList()
         result["raw_output_range"] = mapOf<String, Any>(
             "min" to (logits.minOrNull() ?: 0f),
@@ -192,7 +225,7 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             "sum" to probs.sum()
         )
         
-        // 修复 top3_raw 的构建
+        // 构建 top3_raw
         val top3List = logits.mapIndexed { index, value -> 
             mapOf<String, Any>("index" to index, "value" to value) 
         }.sortedByDescending { it["value"] as Float }.take(3)
