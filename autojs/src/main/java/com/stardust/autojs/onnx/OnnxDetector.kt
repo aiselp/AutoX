@@ -1,6 +1,7 @@
 // autojs/src/main/java/com/stardust/autojs/onnx/OnnxDetector.kt
 package com.stardust.autojs.onnx
 
+import android.util.Log
 import com.stardust.autojs.runtime.ScriptRuntime
 import java.nio.FloatBuffer
 
@@ -46,5 +47,28 @@ class OnnxDetector(
             confThreshold = 0.25f,
             iouThreshold = 0.45f
         )
+    }
+
+    fun debugOutput(input: FloatArray): Map<String, Any> {
+        val w = wrapper ?: throw IllegalStateException("Model not loaded")
+        val outputs = w.run(FloatBuffer.wrap(input))
+        if (outputs.isEmpty()) {
+            throw IllegalStateException("Model returned empty output")
+        }
+        
+        val outputTensor = outputs[0]
+        return mapOf(
+            "output_size" to outputTensor.size,
+            "output_sample" to outputTensor.take(20), // 前20个值
+            "output_range" to mapOf(
+                "min" to outputTensor.minOrNull() ?: 0f,
+                "max" to outputTensor.maxOrNull() ?: 0f
+            )
+        )
+    }
+
+    fun close() {
+        wrapper?.close()
+        wrapper = null
     }
 }
