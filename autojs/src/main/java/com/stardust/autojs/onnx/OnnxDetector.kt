@@ -24,10 +24,13 @@ class OnnxDetector(
 
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
+        Log.d("OnnxDetector", "检测模型加载完成，输入尺寸: ${inputWidth}x${inputHeight}")
+        Log.d("OnnxDetector", "元数据类别: ${wrapper?.metadataClassNames}")
     }
 
     fun setClassNames(names: List<String>) {
         _userClassNames = names
+        Log.d("OnnxDetector", "设置检测类别名称: ${names.size} 个类别")
     }
 
     data class DetectionResult(val label: String, val score: Float, val box: FloatArray)
@@ -58,14 +61,21 @@ class OnnxDetector(
         
         val outputTensor = outputs[0]
         
-        // 修复：明确指定Map的键值类型
         val result = mutableMapOf<String, Any>()
         result["output_size"] = outputTensor.size
-        result["output_sample"] = outputTensor.take(20).toList() // 前20个值
+        result["output_sample"] = outputTensor.take(20).toList()
         result["output_range"] = mapOf<String, Any>(
             "min" to (outputTensor.minOrNull() ?: 0f),
             "max" to (outputTensor.maxOrNull() ?: 0f)
         )
+        
+        // 分析输出结构
+        val numClasses = effectiveClassNames.size
+        val expectedDim = 4 + numClasses
+        if (outputTensor.size % expectedDim == 0) {
+            result["detected_format"] = "YOLOv8标准格式"
+            result["num_boxes"] = outputTensor.size / expectedDim
+        }
         
         return result
     }
