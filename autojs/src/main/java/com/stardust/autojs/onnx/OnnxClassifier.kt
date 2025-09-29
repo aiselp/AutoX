@@ -177,23 +177,29 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         val detectedType = detectOutputType(logits)
         val probs = if (detectedType == OutputType.LOGITS) softmax(logits) else logits
         
-        return mapOf(
-            "output_type" to detectedType.name,
-            "raw_output_sample" to logits.take(5), // 前5个值
-            "raw_output_range" to mapOf(
-                "min" to (logits.minOrNull() ?: 0f),
-                "max" to (logits.maxOrNull() ?: 0f),
-                "sum" to logits.sum()
-            ),
-            "processed_range" to mapOf(
-                "min" to (probs.minOrNull() ?: 0f),
-                "max" to (probs.maxOrNull() ?: 0f),
-                "sum" to probs.sum()
-            ),
-            "top3_raw" to logits.mapIndexed { index, value -> 
-                mapOf("index" to index, "value" to value) 
-            }.sortedByDescending { it["value"] as Float }.take(3)
+        // 修复：明确指定Map类型
+        val result = mutableMapOf<String, Any>()
+        result["output_type"] = detectedType.name
+        result["raw_output_sample"] = logits.take(5).toList()
+        result["raw_output_range"] = mapOf<String, Any>(
+            "min" to (logits.minOrNull() ?: 0f),
+            "max" to (logits.maxOrNull() ?: 0f),
+            "sum" to logits.sum()
         )
+        result["processed_range"] = mapOf<String, Any>(
+            "min" to (probs.minOrNull() ?: 0f),
+            "max" to (probs.maxOrNull() ?: 0f),
+            "sum" to probs.sum()
+        )
+        
+        // 修复 top3_raw 的构建
+        val top3List = logits.mapIndexed { index, value -> 
+            mapOf<String, Any>("index" to index, "value" to value) 
+        }.sortedByDescending { it["value"] as Float }.take(3)
+        
+        result["top3_raw"] = top3List
+        
+        return result
     }
 
     fun close() {
