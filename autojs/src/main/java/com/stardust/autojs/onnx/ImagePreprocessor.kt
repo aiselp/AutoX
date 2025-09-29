@@ -3,6 +3,7 @@ package com.stardust.autojs.onnx
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.util.Log
 
 object ImagePreprocessor {
 
@@ -16,7 +17,7 @@ object ImagePreprocessor {
         var idx = 0
         for (pixel in pixels) {
             result[idx++] = ((pixel shr 16 and 0xFF) / 255f)
-            result[idx++] = ((pixel shr 8 and 0xFF) / 255f)
+            result[idx++] = ((pixel shr 8 and 0xFF) / 255f)  
             result[idx++] = ((pixel and 0xFF) / 255f)
         }
         return hwcToChw(result, targetHeight, targetWidth)
@@ -46,8 +47,9 @@ object ImagePreprocessor {
             val g = (pixel shr 8 and 0xFF) / 255f
             val b = (pixel and 0xFF) / 255f
 
+            // ImageNet normalization
             result[idx++] = (r - 0.485f) / 0.229f
-            result[idx++] = (g - 0.456f) / 0.224f
+            result[idx++] = (g - 0.456f) / 0.224f  
             result[idx++] = (b - 0.406f) / 0.225f
         }
         return hwcToChw(result, inputSize, inputSize)
