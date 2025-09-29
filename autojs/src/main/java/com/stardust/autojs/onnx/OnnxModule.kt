@@ -14,9 +14,15 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     // === 分类器 ===
 
     @android.webkit.JavascriptInterface
-    fun loadClassifier(name: String, path: String, classNamesJson: String? = null) {
+    fun loadClassifier(name: String, path: String, classNamesJson: String? = null, inputSize: Int = 0) {
         val classifier = OnnxClassifier(runtime)
         classifier.loadModel(path)
+        
+        // 如果用户指定了输入尺寸，则设置
+        if (inputSize > 0) {
+            classifier.setInputSize(inputSize)
+        }
+        
         if (classNamesJson != null) {
             try {
                 val arr = org.json.JSONArray(classNamesJson)
@@ -26,37 +32,56 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             }
         }
         classifiers[name] = classifier
+        
+        // 记录最终的输入尺寸
+        Log.d("OnnxModule", "分类器 '$name' 加载完成，最终输入尺寸: ${classifier.effectiveInputSize}")
     }
 
     @android.webkit.JavascriptInterface
     fun loadClassifier(name: String, path: String) {
-        loadClassifier(name, path, null)
+        loadClassifier(name, path, null, 0)
     }
 
     @android.webkit.JavascriptInterface
-    fun classify(name: String, input: FloatArray): FloatArray {
+    fun loadClassifierWithSize(name: String, path: String, inputSize: Int) {
+        loadClassifier(name, path, null, inputSize)
+    }
+
+    @android.webkit.JavascriptInterface
+    fun loadClassifierWithSizeAndNames(name: String, path: String, inputSize: Int, classNamesJson: String) {
+        loadClassifier(name, path, classNamesJson, inputSize)
+    }
+
+    // 新增：获取分类器输入尺寸信息
+    @android.webkit.JavascriptInterface
+    fun getClassifierInputSizeInfo(name: String): String {
         val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-        return c.predict(input)
+        val info = c.getInputSizeInfo()
+        return org.json.JSONObject(info).toString()
     }
 
+    // 改进的 classifyImage 方法，自动使用有效输入尺寸
     @android.webkit.JavascriptInterface
-    fun classifyWithLabel(name: String, input: FloatArray, topK: Int): Array<Map<String, Any>> {
-        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-        val results = c.classify(input, topK)
-        return results.map { r ->
-            mapOf("label" to r.label, "score" to r.score.toDouble())
-        }.toTypedArray()
-    }
-
-    @android.webkit.JavascriptInterface
-    fun classifyImage(name: String, imagePath: String, inputSize: Int, topK: Int): Array<Map<String, Any>> {
+    fun classifyImage(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
         val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
         val file = File(imagePath)
         if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
         val bitmap = BitmapFactory.decodeFile(imagePath)
             ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
         try {
-            val input = ImagePreprocessor.preprocessClassification(bitmap, inputSize)
+            val inputSize = c.effectiveInputSize
+            Log.d("OnnxModule", "分类图像，使用输入尺寸: $inputSize")
+            
+            val input = if (inputSize == 32) {
+                // 32x32 使用专用预处理
+                ImagePreprocessor.preprocessClassification32x32(bitmap)
+            } else {
+                // 其他尺寸使用通用预处理
+                ImagePreprocessor.preprocessClassification(bitmap, inputSize)
+            }
+            
             val results = c.classify(input, topK)
             return results.map { r ->
                 mapOf("label" to r.label, "score" to r.score.toDouble())
@@ -65,42 +90,87 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             bitmap.recycle()
         }
     }
-@android.webkit.JavascriptInterface
-fun classifyImage32x32(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
-    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-    val file = File(imagePath)
-    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-    val bitmap = BitmapFactory.decodeFile(imagePath)
-        ?: throw RuntimeException("Failed to decode image: $imagePath")
-    try {
-        // 使用新的32x32预处理
-        val input = ImagePreprocessor.preprocessClassification32x32(bitmap)
-        val results = c.classify(input, topK)
-        return results.map { r ->
-            mapOf("label" to r.label, "score" to r.score.toDouble())
-        }.toTypedArray()
-    } finally {
-        bitmap.recycle()
-    }
-}
 
-@android.webkit.JavascriptInterface
-fun getClassifierOutputInfo32x32(name: String, imagePath: String): String {
-    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-    val file = File(imagePath)
-    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-    
-    val bitmap = BitmapFactory.decodeFile(imagePath)
-        ?: throw RuntimeException("Failed to decode image: $imagePath")
-    
-    try {
-        val input = ImagePreprocessor.preprocessClassification32x32(bitmap)
-        val outputInfo = c.getOutputInfo(input)
-        return org.json.JSONObject(outputInfo).toString()
-    } finally {
-        bitmap.recycle()
+    // 原有的 classifyImage 方法（保持兼容性）
+    @android.webkit.JavascriptInterface
+    fun classifyImageWithSize(name: String, imagePath: String, inputSize: Int, topK: Int): Array<Map<String, Any>> {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            Log.d("OnnxModule", "分类图像，指定输入尺寸: $inputSize")
+            
+            val input = if (inputSize == 32) {
+                ImagePreprocessor.preprocessClassification32x32(bitmap)
+            } else {
+                ImagePreprocessor.preprocessClassification(bitmap, inputSize)
+            }
+            
+            val results = c.classify(input, topK)
+            return results.map { r ->
+                mapOf("label" to r.label, "score" to r.score.toDouble())
+            }.toTypedArray()
+        } finally {
+            bitmap.recycle()
+        }
     }
-}
+
+    // 改进的 getOutputInfo 方法
+    @android.webkit.JavascriptInterface
+    fun getClassifierOutputInfo(name: String, imagePath: String): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            val inputSize = c.effectiveInputSize
+            Log.d("OnnxModule", "获取输出信息，使用输入尺寸: $inputSize")
+            
+            val input = if (inputSize == 32) {
+                ImagePreprocessor.preprocessClassification32x32(bitmap)
+            } else {
+                ImagePreprocessor.preprocessClassification(bitmap, inputSize)
+            }
+            
+            val outputInfo = c.getOutputInfo(input)
+            return org.json.JSONObject(outputInfo).toString()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    // 原有的 classifyImage32x32 方法（保持兼容性）
+    @android.webkit.JavascriptInterface
+    fun classifyImage32x32(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
+        return classifyImageWithSize(name, imagePath, 32, topK)
+    }
+
+    // 原有的 getClassifierOutputInfo32x32 方法（保持兼容性）
+    @android.webkit.JavascriptInterface
+    fun getClassifierOutputInfo32x32(name: String, imagePath: String): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            val input = ImagePreprocessor.preprocessClassification32x32(bitmap)
+            val outputInfo = c.getOutputInfo(input)
+            return org.json.JSONObject(outputInfo).toString()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     // === 检测器 ===
 
     @android.webkit.JavascriptInterface
@@ -119,27 +189,13 @@ fun getClassifierOutputInfo32x32(name: String, imagePath: String): String {
     }
 
     @android.webkit.JavascriptInterface
-fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
-    val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
-    val results = d.detect(input)
-    return results.map { r ->
-        mapOf(
-            "label" to r.label,
-            "score" to r.score.toDouble(),
-            "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
-        )
-    }.toTypedArray()
-}
+    fun loadDetector(name: String, path: String, width: Int, height: Int) {
+        loadDetector(name, path, width, height, null)
+    }
 
-@android.webkit.JavascriptInterface
-fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
-    val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
-    val file = File(imagePath)
-    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-    val bitmap = BitmapFactory.decodeFile(imagePath)
-        ?: throw RuntimeException("Failed to decode image: $imagePath")
-    try {
-        val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
+    @android.webkit.JavascriptInterface
+    fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
         val results = d.detect(input)
         return results.map { r ->
             mapOf(
@@ -148,10 +204,22 @@ fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
                 "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
             )
         }.toTypedArray()
-    } finally {
-        bitmap.recycle()
     }
-}
+
+    @android.webkit.JavascriptInterface
+    fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        try {
+            val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
+            return detect(name, input)
+        } finally {
+            bitmap.recycle()
+        }
+    }
 
     // === 调试方法 ===
 
@@ -163,24 +231,6 @@ fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
             "probabilities" -> c.setOutputType(OnnxClassifier.OutputType.PROBABILITIES)
             "auto" -> c.setOutputType(OnnxClassifier.OutputType.AUTO_DETECT)
             else -> throw IllegalArgumentException("Unknown output type: $type")
-        }
-    }
-
-    @android.webkit.JavascriptInterface
-    fun getClassifierOutputInfo(name: String, imagePath: String, inputSize: Int): String {
-        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-        val file = File(imagePath)
-        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-        
-        val bitmap = BitmapFactory.decodeFile(imagePath)
-            ?: throw RuntimeException("Failed to decode image: $imagePath")
-        
-        try {
-            val input = ImagePreprocessor.preprocessClassification(bitmap, inputSize)
-            val outputInfo = c.getOutputInfo(input)
-            return org.json.JSONObject(outputInfo).toString()
-        } finally {
-            bitmap.recycle()
         }
     }
 
