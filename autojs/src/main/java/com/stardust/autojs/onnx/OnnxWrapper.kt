@@ -32,6 +32,42 @@ class OnnxWrapper(modelPath: String) {
         }
     }
 
+    // 新增：读取输入尺寸元数据
+    val metadataInputSize: Int? by lazy {
+        try {
+            val meta = session.metadata
+            val props = meta.customMetadata
+            val candidates = listOf("input_size", "imgsz", "img_size", "input_shape")
+            for (key in candidates) {
+                val value = props[key] ?: continue
+                return@lazy try {
+                    value.toInt()
+                } catch (e: NumberFormatException) {
+                    // 如果是形状字符串如 "[1,3,32,32]"，提取尺寸
+                    val shapeMatch = Regex("""\[.*?,.*?,(\d+),(\d+)\]""").find(value)
+                    shapeMatch?.groupValues?.get(1)?.toInt() ?: continue
+                }
+            }
+            null
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to read input size from model metadata", e)
+            null
+        }
+    }
+
+    // 新增：获取输入形状信息
+    val inputShape: IntArray? by lazy {
+        try {
+            val inputInfo = session.inputInfo
+            val inputName = session.inputNames.iterator().next()
+            val tensorInfo = inputInfo[inputName]?.info as? ai.onnxruntime.TensorInfo
+            tensorInfo?.shape?.map { if (it < 0L) 1L else it }?.map { it.toInt() }?.toIntArray()
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to get input shape", e)
+            null
+        }
+    }
+
     fun run(input: FloatBuffer): List<FloatArray> {
         val inputName = session.inputNames.iterator().next()
         
