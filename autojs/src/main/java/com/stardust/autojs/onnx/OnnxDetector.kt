@@ -57,14 +57,17 @@ class OnnxDetector(
         }
         
         val outputTensor = outputs[0]
-        return mapOf(
-            "output_size" to outputTensor.size,
-            "output_sample" to outputTensor.take(20), // 前20个值
-            "output_range" to mapOf(
-                "min" to outputTensor.minOrNull() ?: 0f,
-                "max" to outputTensor.maxOrNull() ?: 0f
-            )
+        
+        // 修复：明确指定Map的键值类型
+        val result = mutableMapOf<String, Any>()
+        result["output_size"] = outputTensor.size
+        result["output_sample"] = outputTensor.take(20).toList() // 前20个值
+        result["output_range"] = mapOf<String, Any>(
+            "min" to (outputTensor.minOrNull() ?: 0f),
+            "max" to (outputTensor.maxOrNull() ?: 0f)
         )
+        
+        return result
     }
 
     fun close() {
