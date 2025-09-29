@@ -11,8 +11,14 @@ object YoloV8PostProcessor {
     val defaultClassNames = listOf(
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
         "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-        "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack"
-        // ... 其他类别
+        "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
+        "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball",
+        "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket",
+        "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
+        "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair",
+        "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
+        "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
+        "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
     )
 
     data class DetectionBox(
@@ -25,7 +31,7 @@ object YoloV8PostProcessor {
     )
 
     /**
-     * 处理 YOLOv8 输出 - 完全重写版本
+     * 处理 YOLOv8 输出 - 修复版本
      */
     fun process(
         outputTensor: FloatArray,
@@ -130,19 +136,18 @@ object YoloV8PostProcessor {
         if (boxes.isEmpty()) return emptyList()
         
         // 按置信度降序排序
-        val sortedBoxes = boxes.sortedByDescending { it.confidence }
+        val sortedBoxes = boxes.sortedByDescending { it.confidence }.toMutableList()
         val selected = mutableListOf<DetectionBox>()
         
         while (sortedBoxes.isNotEmpty()) {
             // 选择置信度最高的框
-            val current = sortedBoxes.first()
+            val current = sortedBoxes.removeAt(0)
             selected.add(current)
             
-            // 移除当前框
+            // 创建新的剩余框列表
             val remaining = mutableListOf<DetectionBox>()
             
-            for (i in 1 until sortedBoxes.size) {
-                val box = sortedBoxes[i]
+            for (box in sortedBoxes) {
                 val iou = calculateIoU(current, box)
                 
                 // 如果IoU小于阈值，保留该框
