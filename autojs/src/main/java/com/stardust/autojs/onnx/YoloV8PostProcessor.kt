@@ -1,180 +1,97 @@
-// autojs/src/main/java/com/stardust/autojs/onnx/YoloV8PostProcessor.kt
+// autojs/src/main/java/com/stardust/autojs/onnx/ImagePreprocessor.kt
 package com.stardust.autojs.onnx
 
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.util.Log
-import kotlin.math.exp
-import kotlin.math.max
-import kotlin.math.min
 
-object YoloV8PostProcessor {
+object ImagePreprocessor {
 
-    val defaultClassNames = listOf(
-        "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat",
-        "traffic light", "fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat",
-        "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra", "giraffe", "backpack",
-        "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard", "sports ball",
-        "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket",
-        "bottle", "wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple",
-        "sandwich", "orange", "broccoli", "carrot", "hot dog", "pizza", "donut", "cake", "chair",
-        "couch", "potted plant", "bed", "dining table", "toilet", "tv", "laptop", "mouse",
-        "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
-        "book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
-    )
+    fun preprocessYoloV8(bitmap: Bitmap, targetWidth: Int, targetHeight: Int): FloatArray {
+        val resized = Bitmap.createScaledBitmap(bitmap, targetWidth, targetHeight, true)
+        val pixels = IntArray(targetWidth * targetHeight)
+        resized.getPixels(pixels, 0, targetWidth, 0, 0, targetWidth, targetHeight)
+        resized.recycle()
 
-    data class DetectionBox(
-        val x1: Float,
-        val y1: Float,
-        val x2: Float,
-        val y2: Float,
-        val confidence: Float,
-        val classId: Int
-    )
-
-    /**
-     * 处理 YOLOv8 输出 - 修复版本
-     */
-    fun process(
-        outputTensor: FloatArray,
-        inputWidth: Int,
-        inputHeight: Int,
-        classNames: List<String>,
-        confThreshold: Float = 0.25f,
-        iouThreshold: Float = 0.45f
-    ): List<OnnxDetector.DetectionResult> {
-        
-        Log.d("YoloV8PostProcessor", "开始处理YOLOv8输出，长度: ${outputTensor.size}")
-        
-        // YOLOv8输出格式应该是 [num_boxes, 4 + num_classes]
-        val numClasses = classNames.size
-        val boxDim = 4 + numClasses
-        
-        if (outputTensor.size % boxDim != 0) {
-            throw IllegalArgumentException("输出长度 " + outputTensor.size + " 不能被 " + boxDim + " 整除")
+        val result = FloatArray(3 * targetWidth * targetHeight)
+        var idx = 0
+        for (pixel in pixels) {
+            result[idx++] = ((pixel shr 16 and 0xFF) / 255f)
+            result[idx++] = ((pixel shr 8 and 0xFF) / 255f)  
+            result[idx++] = ((pixel and 0xFF) / 255f)
         }
-        
-        val numBoxes = outputTensor.size / boxDim
-        Log.d("YoloV8PostProcessor", "检测框数量: $numBoxes, 类别数: $numClasses")
-
-        val boxes = mutableListOf<DetectionBox>()
-        var validBoxCount = 0
-
-        for (i in 0 until numBoxes) {
-            val offset = i * boxDim
-            
-            // 解析边界框 [x_center, y_center, width, height]
-            val xCenter = outputTensor[offset]
-            val yCenter = outputTensor[offset + 1]
-            val width = outputTensor[offset + 2]
-            val height = outputTensor[offset + 3]
-            
-            // 找到最大类别分数
-            var maxClassScore = 0f
-            var maxClassId = 0
-            for (c in 0 until numClasses) {
-                val score = outputTensor[offset + 4 + c]
-                if (score > maxClassScore) {
-                    maxClassScore = score
-                    maxClassId = c
-                }
-            }
-            
-            // 关键修复：对置信度应用sigmoid
-            val confidence = sigmoid(maxClassScore)
-            
-            if (confidence < confThreshold) continue
-            
-            validBoxCount++
-            
-            // 转换为中心坐标到角点坐标
-            val x1 = xCenter - width / 2
-            val y1 = yCenter - height / 2
-            val x2 = xCenter + width / 2
-            val y2 = yCenter + height / 2
-            
-            // 裁剪到图像范围内
-            val clampedX1 = max(0f, min(x1, inputWidth.toFloat()))
-            val clampedY1 = max(0f, min(y1, inputHeight.toFloat()))
-            val clampedX2 = max(0f, min(x2, inputWidth.toFloat()))
-            val clampedY2 = max(0f, min(y2, inputHeight.toFloat()))
-            
-            // 检查框是否有效
-            val boxWidth = clampedX2 - clampedX1
-            val boxHeight = clampedY2 - clampedY1
-            if (boxWidth <= 0 || boxHeight <= 0) continue
-            
-            if (validBoxCount <= 5) {
-                Log.d("YoloV8PostProcessor", "有效框$validBoxCount: class=${classNames.getOrElse(maxClassId){"unknown"}}, conf=$confidence, box=[$clampedX1, $clampedY1, $clampedX2, $clampedY2]")
-            }
-            
-            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
-        }
-
-        Log.d("YoloV8PostProcessor", "有效检测框数量: ${boxes.size}")
-
-        // 应用NMS
-        val finalBoxes = nonMaxSuppression(boxes, iouThreshold)
-        
-        Log.d("YoloV8PostProcessor", "NMS后剩余框数量: ${finalBoxes.size}")
-
-        return finalBoxes.map { box ->
-            OnnxDetector.DetectionResult(
-                label = classNames.getOrElse(box.classId) { "unknown_${box.classId}" },
-                score = box.confidence,
-                box = floatArrayOf(box.x1, box.y1, box.x2, box.y2)
-            )
-        }
+        return hwcToChw(result, targetHeight, targetWidth)
     }
 
-    /**
-     * Sigmoid函数，用于将logits转换为概率
-     */
-    private fun sigmoid(x: Float): Float {
-        return (1.0f / (1.0f + exp(-x)))
-    }
+    // 为你的分类模型添加专用预处理（32x32输入）
+    fun preprocessClassification32x32(bitmap: Bitmap): FloatArray {
+        val inputSize = 32
+        // 直接缩放到32x32
+        val resized = Bitmap.createScaledBitmap(bitmap, inputSize, inputSize, true)
+        
+        val pixels = IntArray(inputSize * inputSize)
+        resized.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
+        resized.recycle()
 
-    private fun nonMaxSuppression(boxes: List<DetectionBox>, iouThreshold: Float): List<DetectionBox> {
-        if (boxes.isEmpty()) return emptyList()
+        val result = FloatArray(3 * inputSize * inputSize)
+        var idx = 0
         
-        // 按置信度降序排序
-        val sortedBoxes = boxes.sortedByDescending { it.confidence }.toMutableList()
-        val selected = mutableListOf<DetectionBox>()
-        
-        while (sortedBoxes.isNotEmpty()) {
-            // 选择置信度最高的框
-            val current = sortedBoxes.removeAt(0)
-            selected.add(current)
-            
-            // 创建新的剩余框列表
-            val remaining = mutableListOf<DetectionBox>()
-            
-            for (box in sortedBoxes) {
-                val iou = calculateIoU(current, box)
-                
-                // 如果IoU小于阈值，保留该框
-                if (iou < iouThreshold) {
-                    remaining.add(box)
-                }
-            }
-            
-            // 更新列表进行下一轮
-            sortedBoxes.clear()
-            sortedBoxes.addAll(remaining)
+        // 方式1: 直接使用0-1范围（适用于某些自定义模型）
+        for (pixel in pixels) {
+            val r = (pixel shr 16 and 0xFF) / 255f
+            val g = (pixel shr 8 and 0xFF) / 255f
+            val b = (pixel and 0xFF) / 255f
+
+            result[idx++] = r
+            result[idx++] = g
+            result[idx++] = b
         }
         
-        return selected
+        Log.d("ImagePreprocessor", "分类预处理完成，输入尺寸: 32x32")
+        return hwcToChw(result, inputSize, inputSize)
     }
 
-    private fun calculateIoU(box1: DetectionBox, box2: DetectionBox): Float {
-        val x1 = max(box1.x1, box2.x1)
-        val y1 = max(box1.y1, box2.y1)
-        val x2 = min(box1.x2, box2.x2)
-        val y2 = min(box1.y2, box2.y2)
-        
-        val intersection = max(0f, x2 - x1) * max(0f, y2 - y1)
-        val area1 = (box1.x2 - box1.x1) * (box1.y2 - box1.y1)
-        val area2 = (box2.x2 - box2.x1) * (box2.y2 - box2.y1)
-        val union = area1 + area2 - intersection
-        
-        return if (union > 0) intersection / union else 0f
+    // 保留原有的224x224预处理
+    fun preprocessClassification(bitmap: Bitmap, inputSize: Int = 224): FloatArray {
+        // Resize short edge to 256
+        val scale = 256f / kotlin.math.min(bitmap.width, bitmap.height)
+        val newW = (bitmap.width * scale).toInt()
+        val newH = (bitmap.height * scale).toInt()
+        val resized = Bitmap.createScaledBitmap(bitmap, newW, newH, true)
+
+        // Center crop
+        val cropX = (newW - inputSize) / 2
+        val cropY = (newH - inputSize) / 2
+        val cropped = Bitmap.createBitmap(resized, cropX, cropY, inputSize, inputSize)
+        resized.recycle()
+
+        val pixels = IntArray(inputSize * inputSize)
+        cropped.getPixels(pixels, 0, inputSize, 0, 0, inputSize, inputSize)
+        cropped.recycle()
+
+        val result = FloatArray(3 * inputSize * inputSize)
+        var idx = 0
+        for (pixel in pixels) {
+            val r = (pixel shr 16 and 0xFF) / 255f
+            val g = (pixel shr 8 and 0xFF) / 255f
+            val b = (pixel and 0xFF) / 255f
+
+            // ImageNet normalization
+            result[idx++] = (r - 0.485f) / 0.229f
+            result[idx++] = (g - 0.456f) / 0.224f  
+            result[idx++] = (b - 0.406f) / 0.225f
+        }
+        return hwcToChw(result, inputSize, inputSize)
+    }
+
+    private fun hwcToChw(hwc: FloatArray, h: Int, w: Int): FloatArray {
+        val chw = FloatArray(hwc.size)
+        val pixels = h * w
+        for (i in 0 until pixels) {
+            chw[i] = hwc[i * 3]
+            chw[pixels + i] = hwc[i * 3 + 1]
+            chw[pixels * 2 + i] = hwc[i * 3 + 2]
+        }
+        return chw
     }
 }
