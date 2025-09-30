@@ -107,16 +107,20 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         debugInfo["effective_class_names"] = c.effectiveClassNames
         debugInfo["effective_class_count"] = c.effectiveClassNames.size
         
-        // 元数据信息
+        // 元数据信息 - 修复类型问题
         val wrapper = c.getWrapperForDebug()
         debugInfo["metadata_keys"] = wrapper?.metadata?.keys ?: emptySet<String>()
-        debugInfo["metadata_imgsz"] = wrapper?.metadata?.get("imgsz")
-        debugInfo["metadata_names"] = wrapper?.metadata?.get("names")
-        debugInfo["parsed_input_size"] = wrapper?.metadataInputSize
-        debugInfo["parsed_class_names"] = wrapper?.metadataClassNames
+        
+        // 安全地处理可能为null的值
+        wrapper?.metadata?.get("imgsz")?.let { debugInfo["metadata_imgsz"] = it }
+        wrapper?.metadata?.get("names")?.let { debugInfo["metadata_names"] = it }
+        
+        // 使用安全转换处理可能为null的值
+        debugInfo["parsed_input_size"] = wrapper?.metadataInputSize?.toString() ?: "null"
+        debugInfo["parsed_class_names"] = wrapper?.metadataClassNames?.toString() ?: "null"
         
         // 输入形状
-        debugInfo["input_shape"] = wrapper?.inputShape?.contentToString()
+        debugInfo["input_shape"] = wrapper?.inputShape?.contentToString() ?: "null"
         
         return org.json.JSONObject(debugInfo).toString()
     }
