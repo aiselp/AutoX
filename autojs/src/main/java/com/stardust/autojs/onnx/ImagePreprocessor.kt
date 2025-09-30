@@ -179,6 +179,20 @@ object ImagePreprocessor {
             )
         }
         
+        // YOLOv8 目标检测模型
+        if ((description.contains("yolov8") && task == "detect") || 
+            description.contains("detect") || 
+            task == "detect") {
+            
+            Log.d("ImagePreprocessor", "检测到YOLOv8目标检测模型")
+            return PreprocessConfig(
+                inputSize = inputSize,
+                normalizationType = "none", // YOLO检测模型通常不需要归一化
+                resizeMethod = "letterbox", // 检测模型使用letterbox保持宽高比
+                pixelRange = "0_1"
+            )
+        }
+        
         // ImageNet 标准模型
         if (description.contains("imagenet") || 
             description.contains("resnet") ||
@@ -193,17 +207,6 @@ object ImagePreprocessor {
                 mean = floatArrayOf(0.485f, 0.456f, 0.406f),
                 std = floatArrayOf(0.229f, 0.224f, 0.225f),
                 pixelRange = "imagenet"
-            )
-        }
-        
-        // 目标检测模型
-        if (task == "detect" || description.contains("detect")) {
-            Log.d("ImagePreprocessor", "检测到目标检测模型")
-            return PreprocessConfig(
-                inputSize = inputSize,
-                normalizationType = "none",
-                resizeMethod = "letterbox",
-                pixelRange = "0_1"
             )
         }
         
