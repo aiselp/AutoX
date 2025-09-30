@@ -31,7 +31,7 @@ object YoloV8PostProcessor {
     )
 
     /**
-     * 处理 YOLOv8 输出 - 支持多种输出格式
+     * 处理 YOLOv8 输出
      */
     fun process(
         outputTensor: FloatArray,
@@ -42,20 +42,94 @@ object YoloV8PostProcessor {
         iouThreshold: Float = 0.45f
     ): List<OnnxDetector.DetectionResult> {
         
-        Log.d("YoloV8PostProcessor", "开始处理YOLOv8输出，长度: ${outputTensor.size}, 输入尺寸: ${inputWidth}x${inputHeight}")
+        Log.d("YoloV8PostProcessor", "开始处理YOLOv8输出，长度: ${outputTensor.size}")
+        Log.d("YoloV8PostProcessor", "输入尺寸: ${inputWidth}x${inputHeight}, 类别数: ${classNames.size}")
         
         val numClasses = classNames.size
-        Log.d("YoloV8PostProcessor", "类别数量: $numClasses")
+        val boxDim = 4 + numClasses
         
-        // 尝试不同的输出格式
-        val boxes = try {
-            detectOutputFormatAndParse(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-        } catch (e: Exception) {
-            Log.e("YoloV8PostProcessor", "解析输出失败: ${e.message}")
-            emptyList()
+        // 验证输出格式
+        if (outputTensor.size % boxDim != 0) {
+            Log.e("YoloV8PostProcessor", "输出格式不匹配: ${outputTensor.size} % $boxDim != 0")
+            return emptyList()
+        }
+        
+        val numBoxes = outputTensor.size / boxDim
+        Log.d("YoloV8PostProcessor", "检测框数量: $numBoxes, 维度: $boxDim")
+
+        val boxes = mutableListOf<DetectionBox>()
+        var validBoxCount = 0
+
+        for (i in 0 until numBoxes) {
+            val offset = i * boxDim
+            
+            try {
+                // 解析边界框 [x_center, y_center, width, height]
+                val xCenter = outputTensor[offset]
+                val yCenter = outputTensor[offset + 1]
+                val width = outputTensor[offset + 2]
+                val height = outputTensor[offset + 3]
+                
+                Log.d("YoloV8PostProcessor", "框 $i: center=($xCenter, $yCenter), size=($width, $height)")
+                
+                // 找到最大类别分数
+                var maxClassScore = -Float.MAX_VALUE
+                var maxClassId = -1
+                for (c in 0 until numClasses) {
+                    val score = outputTensor[offset + 4 + c]
+                    if (score > maxClassScore) {
+                        maxClassScore = score
+                        maxClassId = c
+                    }
+                }
+                
+                Log.d("YoloV8PostProcessor", "框 $i: 最大分数=$maxClassScore, 类别ID=$maxClassId")
+                
+                // 应用sigmoid获取置信度
+                val confidence = sigmoid(maxClassScore)
+                Log.d("YoloV8PostProcessor", "框 $i: 置信度=$confidence, 阈值=$confThreshold")
+                
+                if (confidence < confThreshold) {
+                    continue
+                }
+                
+                validBoxCount++
+                
+                // 转换为中心坐标到角点坐标
+                val x1 = xCenter - width / 2
+                val y1 = yCenter - height / 2
+                val x2 = xCenter + width / 2
+                val y2 = yCenter + height / 2
+                
+                Log.d("YoloV8PostProcessor", "框 $i: 角点坐标=($x1, $y1, $x2, $y2)")
+                
+                // 裁剪到图像范围内
+                val clampedX1 = max(0f, min(x1, inputWidth.toFloat()))
+                val clampedY1 = max(0f, min(y1, inputHeight.toFloat()))
+                val clampedX2 = max(0f, min(x2, inputWidth.toFloat()))
+                val clampedY2 = max(0f, min(y2, inputHeight.toFloat()))
+                
+                // 检查框是否有效
+                val boxWidth = clampedX2 - clampedX1
+                val boxHeight = clampedY2 - clampedY1
+                if (boxWidth <= 0 || boxHeight <= 0) {
+                    Log.d("YoloV8PostProcessor", "框 $i: 无效尺寸")
+                    continue
+                }
+                
+                if (validBoxCount <= 3) {
+                    Log.d("YoloV8PostProcessor", "有效框$validBoxCount: class=${classNames.getOrElse(maxClassId){"unknown"}}, conf=$confidence, box=[$clampedX1, $clampedY1, $clampedX2, $clampedY2]")
+                }
+                
+                boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
+                
+            } catch (e: Exception) {
+                Log.e("YoloV8PostProcessor", "解析框 $i 时出错: ${e.message}")
+                continue
+            }
         }
 
-        Log.d("YoloV8PostProcessor", "解析到的有效框数量: ${boxes.size}")
+        Log.d("YoloV8PostProcessor", "有效检测框数量: ${boxes.size}")
 
         // 应用NMS
         val finalBoxes = nonMaxSuppression(boxes, iouThreshold)
@@ -63,198 +137,18 @@ object YoloV8PostProcessor {
         Log.d("YoloV8PostProcessor", "NMS后剩余框数量: ${finalBoxes.size}")
 
         // 转换为 DetectionResult
-        return finalBoxes.map { box ->
+        val results = finalBoxes.map { box ->
+            val label = classNames.getOrElse(box.classId) { "class_${box.classId}" }
+            Log.d("YoloV8PostProcessor", "最终结果: $label - ${box.confidence}")
             OnnxDetector.DetectionResult(
-                label = classNames.getOrElse(box.classId) { "class_${box.classId}" },
+                label = label,
                 score = box.confidence,
                 box = floatArrayOf(box.x1, box.y1, box.x2, box.y2)
             )
         }
-    }
-
-    /**
-     * 检测输出格式并解析
-     */
-    private fun detectOutputFormatAndParse(
-        outputTensor: FloatArray,
-        inputWidth: Int,
-        inputHeight: Int,
-        numClasses: Int,
-        confThreshold: Float
-    ): List<DetectionBox> {
         
-        val boxes = mutableListOf<DetectionBox>()
-        
-        // 格式1: [num_boxes, 4 + num_classes] - 标准YOLOv8格式
-        val standardDim = 4 + numClasses
-        if (outputTensor.size % standardDim == 0) {
-            Log.d("YoloV8PostProcessor", "检测到标准YOLOv8格式，维度: $standardDim")
-            return parseStandardFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-        }
-        
-        // 格式2: [1, 4 + num_classes, num_boxes] - 转置格式
-        val transposedDim = outputTensor.size / (4 + numClasses)
-        if (transposedDim > 0 && transposedDim * (4 + numClasses) == outputTensor.size) {
-            Log.d("YoloV8PostProcessor", "检测到转置格式，维度: $transposedDim")
-            return parseTransposedFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-        }
-        
-        // 格式3: 尝试自动探测
-        Log.d("YoloV8PostProcessor", "尝试自动探测格式")
-        return autoDetectFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-    }
-
-    /**
-     * 解析标准格式: [num_boxes, 4 + num_classes]
-     */
-    private fun parseStandardFormat(
-        outputTensor: FloatArray,
-        inputWidth: Int,
-        inputHeight: Int,
-        numClasses: Int,
-        confThreshold: Float
-    ): List<DetectionBox> {
-        val boxes = mutableListOf<DetectionBox>()
-        val boxDim = 4 + numClasses
-        val numBoxes = outputTensor.size / boxDim
-        
-        for (i in 0 until numBoxes) {
-            val offset = i * boxDim
-            
-            // 解析边界框 [x_center, y_center, width, height]
-            val xCenter = outputTensor[offset]
-            val yCenter = outputTensor[offset + 1]
-            val width = outputTensor[offset + 2]
-            val height = outputTensor[offset + 3]
-            
-            // 找到最大类别分数
-            var maxClassScore = 0f
-            var maxClassId = 0
-            for (c in 0 until numClasses) {
-                val score = outputTensor[offset + 4 + c]
-                if (score > maxClassScore) {
-                    maxClassScore = score
-                    maxClassId = c
-                }
-            }
-            
-            val confidence = sigmoid(maxClassScore)
-            if (confidence < confThreshold) continue
-            
-            // 转换坐标
-            val x1 = xCenter - width / 2
-            val y1 = yCenter - height / 2
-            val x2 = xCenter + width / 2
-            val y2 = yCenter + height / 2
-            
-            // 裁剪到图像范围内
-            val clampedX1 = max(0f, min(x1, inputWidth.toFloat()))
-            val clampedY1 = max(0f, min(y1, inputHeight.toFloat()))
-            val clampedX2 = max(0f, min(x2, inputWidth.toFloat()))
-            val clampedY2 = max(0f, min(y2, inputHeight.toFloat()))
-            
-            // 检查框是否有效
-            val boxWidth = clampedX2 - clampedX1
-            val boxHeight = clampedY2 - clampedY1
-            if (boxWidth <= 0 || boxHeight <= 0) continue
-            
-            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
-        }
-        
-        return boxes
-    }
-
-    /**
-     * 解析转置格式: [1, 4 + num_classes, num_boxes]
-     */
-    private fun parseTransposedFormat(
-        outputTensor: FloatArray,
-        inputWidth: Int,
-        inputHeight: Int,
-        numClasses: Int,
-        confThreshold: Float
-    ): List<DetectionBox> {
-        val boxes = mutableListOf<DetectionBox>()
-        val numBoxes = outputTensor.size / (4 + numClasses)
-        
-        for (i in 0 until numBoxes) {
-            // 解析边界框
-            val xCenter = outputTensor[i]
-            val yCenter = outputTensor[i + numBoxes]
-            val width = outputTensor[i + 2 * numBoxes]
-            val height = outputTensor[i + 3 * numBoxes]
-            
-            // 找到最大类别分数
-            var maxClassScore = 0f
-            var maxClassId = 0
-            for (c in 0 until numClasses) {
-                val score = outputTensor[i + (4 + c) * numBoxes]
-                if (score > maxClassScore) {
-                    maxClassScore = score
-                    maxClassId = c
-                }
-            }
-            
-            val confidence = sigmoid(maxClassScore)
-            if (confidence < confThreshold) continue
-            
-            // 转换坐标
-            val x1 = xCenter - width / 2
-            val y1 = yCenter - height / 2
-            val x2 = xCenter + width / 2
-            val y2 = yCenter + height / 2
-            
-            // 裁剪到图像范围内
-            val clampedX1 = max(0f, min(x1, inputWidth.toFloat()))
-            val clampedY1 = max(0f, min(y1, inputHeight.toFloat()))
-            val clampedX2 = max(0f, min(x2, inputWidth.toFloat()))
-            val clampedY2 = max(0f, min(y2, inputHeight.toFloat()))
-            
-            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
-        }
-        
-        return boxes
-    }
-
-    /**
-     * 自动探测格式
-     */
-    private fun autoDetectFormat(
-        outputTensor: FloatArray,
-        inputWidth: Int,
-        inputHeight: Int,
-        numClasses: Int,
-        confThreshold: Float
-    ): List<DetectionBox> {
-        val boxes = mutableListOf<DetectionBox>()
-        
-        // 尝试探测输出形状
-        val totalElements = outputTensor.size
-        Log.d("YoloV8PostProcessor", "自动探测格式，总元素: $totalElements")
-        
-        // 常见的输出形状
-        val possibleShapes = listOf(
-            intArrayOf(1, 4 + numClasses, 8400),  // YOLOv8常见形状
-            intArrayOf(8400, 4 + numClasses),     // 标准形状
-            intArrayOf(1, 4 + numClasses, 25200), // 高分辨率
-            intArrayOf(25200, 4 + numClasses)     // 高分辨率标准形状
-        )
-        
-        for (shape in possibleShapes) {
-            val expectedSize = shape[0] * shape[1] * shape[2]
-            if (totalElements == expectedSize) {
-                Log.d("YoloV8PostProcessor", "探测到可能形状: ${shape.contentToString()}")
-                // 根据形状调用相应的解析方法
-                if (shape[0] == 1 && shape[1] == 4 + numClasses) {
-                    return parseTransposedFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-                } else if (shape[1] == 4 + numClasses) {
-                    return parseStandardFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-                }
-            }
-        }
-        
-        Log.w("YoloV8PostProcessor", "无法自动探测输出格式")
-        return emptyList()
+        Log.d("YoloV8PostProcessor", "处理完成，返回 ${results.size} 个结果")
+        return results
     }
 
     /**
@@ -266,6 +160,8 @@ object YoloV8PostProcessor {
 
     private fun nonMaxSuppression(boxes: List<DetectionBox>, iouThreshold: Float): List<DetectionBox> {
         if (boxes.isEmpty()) return emptyList()
+        
+        Log.d("YoloV8PostProcessor", "开始NMS，输入框数量: ${boxes.size}")
         
         val sortedBoxes = boxes.sortedByDescending { it.confidence }.toMutableList()
         val selected = mutableListOf<DetectionBox>()
@@ -279,12 +175,15 @@ object YoloV8PostProcessor {
                 val iou = calculateIoU(current, box)
                 if (iou < iouThreshold) {
                     remaining.add(box)
+                } else {
+                    Log.d("YoloV8PostProcessor", "NMS移除重叠框: IoU=$iou")
                 }
             }
             sortedBoxes.clear()
             sortedBoxes.addAll(remaining)
         }
         
+        Log.d("YoloV8PostProcessor", "NMS完成，输出框数量: ${selected.size}")
         return selected
     }
 
