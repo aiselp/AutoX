@@ -11,17 +11,64 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     private val classifiers = mutableMapOf<String, OnnxClassifier>()
     private val detectors = mutableMapOf<String, OnnxDetector>()
 
-    // === 分类器 - 简化接口 ===
+    // === 分类器 - 全自动接口 ===
 
-    // 最简单的加载方法 - 只需要名称和路径
+    /**
+     * 完全自动化的分类器加载 - 推荐使用
+     */
     @android.webkit.JavascriptInterface
-    fun loadClassifierAuto(name: String, path: String) {
+    fun loadClassifierFullAuto(name: String, path: String) {
         val classifier = OnnxClassifier(runtime)
-        classifier.loadModelAuto(path) // 自动从元数据读取配置
+        classifier.loadModelAuto(path) // 使用完全自动化的加载
+        
         classifiers[name] = classifier
         
         val initInfo = classifier.getInitializationInfo()
-        Log.d("OnnxModule", "分类器 '$name' 自动初始化完成: $initInfo")
+        Log.d("OnnxModule", "分类器 '$name' 全自动加载完成: $initInfo")
+    }
+
+    /**
+     * 智能分类 - 完全自动化处理
+     */
+    @android.webkit.JavascriptInterface  
+    fun classifyImageAuto(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            Log.d("OnnxModule", "开始智能分类 - 模型: $name")
+            
+            // 使用完全自动化的分类
+            val results = c.classifyAuto(bitmap, topK)
+            
+            Log.d("OnnxModule", "智能分类完成 - 结果数量: ${results.size}")
+            return results.map { r ->
+                mapOf("label" to r.label, "score" to r.score.toDouble())
+            }.toTypedArray()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 获取预处理配置信息
+     */
+    @android.webkit.JavascriptInterface
+    fun getPreprocessConfig(name: String): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val configInfo = c.getPreprocessConfigInfo()
+        return org.json.JSONObject(configInfo).toString()
+    }
+
+    // === 兼容性接口 ===
+
+    @android.webkit.JavascriptInterface
+    fun loadClassifierAuto(name: String, path: String) {
+        loadClassifierFullAuto(name, path)
     }
 
     // 原有的加载方法（保持兼容）
@@ -95,7 +142,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         return org.json.JSONObject(metadataInfo).toString()
     }
 
-    // 调试方法：获取详细的分类器状态 - 修复类型问题
+    // 调试方法：获取详细的分类器状态
     @android.webkit.JavascriptInterface
     fun debugClassifier(name: String): String {
         val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
@@ -107,22 +154,21 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         debugInfo["effective_class_names"] = c.effectiveClassNames
         debugInfo["effective_class_count"] = c.effectiveClassNames.size
         
-        // 元数据信息 - 修复类型问题
+        // 预处理配置
+        val config = c.effectivePreprocessConfig
+        debugInfo["preprocess_config"] = config.toString()
+        
+        // 元数据信息
         val wrapper = c.getWrapperForDebug()
         debugInfo["metadata_keys"] = wrapper?.metadata?.keys ?: emptySet<String>()
         
-        // 修复：安全处理可能为null的值
         wrapper?.metadata?.get("imgsz")?.let { debugInfo["metadata_imgsz"] = it }
         wrapper?.metadata?.get("names")?.let { debugInfo["metadata_names"] = it }
         
-        // 修复：将可空类型转换为非空类型
         debugInfo["parsed_input_size"] = wrapper?.metadataInputSize?.toString() ?: "null"
         debugInfo["parsed_class_names"] = wrapper?.metadataClassNames?.toString() ?: "null"
-        
-        // 修复：处理可能为null的输入形状
         debugInfo["input_shape"] = wrapper?.inputShape?.contentToString() ?: "null"
         
-        // 修复：显式类型转换
         return org.json.JSONObject(debugInfo as Map<*, *>).toString()
     }
 
@@ -143,8 +189,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             val input = if (inputSize == 32) {
                 ImagePreprocessor.preprocessClassification32x32(bitmap)
             } else if (inputSize == 128) {
-                // 可以添加128x128的专用预处理
-                ImagePreprocessor.preprocessClassification(bitmap, 128)
+                ImagePreprocessor.preprocessClassification128x128(bitmap)
             } else {
                 ImagePreprocessor.preprocessClassification(bitmap, inputSize)
             }
