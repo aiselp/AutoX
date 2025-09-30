@@ -106,8 +106,19 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
         Log.d("OnnxClassifier", "模型加载完成 - $path")
-        Log.d("OnnxClassifier", "元数据: ${wrapper?.metadata}")
-        Log.d("OnnxClassifier", "元数据类别: ${wrapper?.metadataClassNames}")
+        Log.d("OnnxClassifier", "元数据 keys: ${wrapper?.metadata?.keys}")
+        
+        // 详细记录类别名称解析过程
+        val metaClassNames = wrapper?.metadataClassNames
+        if (metaClassNames != null) {
+            Log.d("OnnxClassifier", "成功从元数据解析类别名称: $metaClassNames")
+        } else {
+            Log.w("OnnxClassifier", "无法从元数据解析类别名称")
+            // 记录原始 names 值用于调试
+            val namesValue = wrapper?.metadata?.get("names")
+            Log.w("OnnxClassifier", "原始 names 值: $namesValue")
+        }
+        
         Log.d("OnnxClassifier", "元数据输入尺寸: ${wrapper?.metadataInputSize}")
         Log.d("OnnxClassifier", "输入形状: ${wrapper?.inputShape?.contentToString()}")
         Log.d("OnnxClassifier", "有效输入尺寸: $effectiveInputSize")
