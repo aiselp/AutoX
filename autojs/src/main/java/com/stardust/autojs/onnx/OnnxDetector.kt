@@ -165,6 +165,74 @@ class OnnxDetector(
     }
 
     /**
+     * 调试方法：直接处理输出并返回详细信息
+     */
+    fun debugDetection(bitmap: android.graphics.Bitmap, confThreshold: Float = 0.25f, iouThreshold: Float = 0.45f): Map<String, Any> {
+        val input = preprocessImageAuto(bitmap)
+        val w = wrapper ?: throw IllegalStateException("Model not loaded")
+        val outputs = w.run(java.nio.FloatBuffer.wrap(input))
+        if (outputs.isEmpty()) {
+            throw IllegalStateException("Model returned empty output")
+        }
+        
+        val outputTensor = outputs[0]
+        val result = mutableMapOf<String, Any>()
+        
+        result["output_size"] = outputTensor.size
+        result["output_range"] = mapOf<String, Any>(
+            "min" to (outputTensor.minOrNull() ?: 0f),
+            "max" to (outputTensor.maxOrNull() ?: 0f)
+        )
+        
+        // 分析输出结构
+        val numClasses = effectiveClassNames.size
+        val expectedDim = 4 + numClasses
+        result["num_classes"] = numClasses
+        result["expected_dim"] = expectedDim
+        
+        if (outputTensor.size % expectedDim == 0) {
+            result["detected_format"] = "YOLOv8标准格式"
+            result["num_boxes"] = outputTensor.size / expectedDim
+        } else {
+            result["detected_format"] = "未知格式"
+        }
+        
+        // 尝试处理几个框看看
+        val sampleBoxes = mutableListOf<Map<String, Any>>()
+        val numBoxes = min(5, outputTensor.size / expectedDim)
+        
+        for (i in 0 until numBoxes) {
+            val offset = i * expectedDim
+            val boxInfo = mutableMapOf<String, Any>()
+            
+            boxInfo["index"] = i
+            boxInfo["x_center"] = outputTensor[offset]
+            boxInfo["y_center"] = outputTensor[offset + 1]
+            boxInfo["width"] = outputTensor[offset + 2]
+            boxInfo["height"] = outputTensor[offset + 3]
+            
+            // 获取类别分数
+            val classScores = mutableListOf<Float>()
+            for (c in 0 until numClasses) {
+                classScores.add(outputTensor[offset + 4 + c])
+            }
+            boxInfo["class_scores"] = classScores
+            boxInfo["max_score"] = classScores.maxOrNull() ?: 0f
+            boxInfo["confidence"] = sigmoid(classScores.maxOrNull() ?: 0f)
+            
+            sampleBoxes.add(boxInfo)
+        }
+        
+        result["sample_boxes"] = sampleBoxes
+        
+        return result
+    }
+
+    private fun sigmoid(x: Float): Float {
+        return (1.0f / (1.0f + kotlin.math.exp(-x)))
+    }
+
+    /**
      * 获取预处理配置信息
      */
     fun getPreprocessConfigInfo(): Map<String, Any> {
