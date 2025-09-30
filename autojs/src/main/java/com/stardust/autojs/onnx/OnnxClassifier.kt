@@ -17,36 +17,33 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         LOGITS, PROBABILITIES, AUTO_DETECT
     }
     private var outputType: OutputType = OutputType.AUTO_DETECT
+    
+    // 预处理配置 - 基于元数据自动创建
+    private var preprocessConfig: ImagePreprocessor.PreprocessConfig? = null
+    
+    // 获取有效的预处理配置
+    val effectivePreprocessConfig: ImagePreprocessor.PreprocessConfig
+        get() {
+            preprocessConfig?.let { return it }
+            
+            // 从模型元数据自动创建配置
+            val config = ImagePreprocessor.createConfigFromMetadata(wrapper?.metadata)
+            preprocessConfig = config
+            Log.d("OnnxClassifier", "自动创建预处理配置: $config")
+            return config
+        }
 
-    // 获取有效的输入尺寸：用户设置 > 元数据 > 输入形状 > 默认224
+    // 获取有效的输入尺寸：用户设置 > 元数据 > 默认224
     val effectiveInputSize: Int
         get() {
             // 1. 优先使用用户设置的尺寸
             _userInputSize?.let { return it }
             
-            // 2. 尝试从模型元数据读取
-            val fromMeta = wrapper?.metadataInputSize
-            if (fromMeta != null) {
-                Log.d("OnnxClassifier", "从元数据读取输入尺寸: $fromMeta")
-                return fromMeta
-            }
-            
-            // 3. 从输入形状推断
-            val fromShape = wrapper?.inputShape
-            if (fromShape != null && fromShape.size >= 3) {
-                val size = fromShape[fromShape.size - 1]
-                if (size > 0) {
-                    Log.d("OnnxClassifier", "从输入形状推断尺寸: $size")
-                    return size
-                }
-            }
-            
-            // 4. 默认使用224
-            Log.d("OnnxClassifier", "使用默认输入尺寸: 224")
-            return 224
+            // 2. 使用预处理配置中的尺寸（从元数据解析）
+            return effectivePreprocessConfig.inputSize
         }
 
-    // 获取有效的类别名称 - 修复版本
+    // 获取有效的类别名称
     val effectiveClassNames: List<String>
         get() {
             // 1. 优先使用用户设置的类别名称
@@ -66,7 +63,6 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             
             // 3. 尝试从输出维度推断
             try {
-                // 先尝试获取模型输出维度
                 val outputDim = getOutputDimension()
                 if (outputDim > 0) {
                     val autoNames = (0 until outputDim).map { "class_$it" }
@@ -81,57 +77,64 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             return emptyList()
         }
 
+    /**
+     * 完全自动化的模型加载
+     */
+    fun loadModelAuto(path: String) {
+        wrapper = OnnxWrapper(path)
+        Log.d("OnnxClassifier", "模型自动加载完成: $path")
+        
+        // 初始化预处理配置
+        val config = effectivePreprocessConfig
+        Log.d("OnnxClassifier", "自动预处理配置: $config")
+        Log.d("OnnxClassifier", "自动输入尺寸: $effectiveInputSize")
+        Log.d("OnnxClassifier", "自动类别数量: ${effectiveClassNames.size}")
+        
+        // 记录详细的元数据信息
+        wrapper?.metadata?.forEach { (key, value) ->
+            Log.d("OnnxClassifier", "元数据: $key = $value")
+        }
+    }
+
+    /**
+     * 完全自动化的图像预处理
+     */
+    fun preprocessImageAuto(bitmap: android.graphics.Bitmap): FloatArray {
+        return ImagePreprocessor.preprocessSmart(bitmap, wrapper?.metadata)
+    }
+
+    /**
+     * 完全自动化的分类
+     */
+    fun classifyAuto(bitmap: android.graphics.Bitmap, topK: Int = 1): List<ClassificationResult> {
+        val input = preprocessImageAuto(bitmap)
+        return classify(input, topK)
+    }
+
     // 获取模型输出维度
     private fun getOutputDimension(): Int {
         return try {
-            // 尝试从输入形状推断输出维度
-            wrapper?.inputShape?.let { shape ->
-                if (shape.size >= 4) {
-                    // 假设分类模型的输出是 [batch, num_classes]
-                    // 我们创建一个最小输入来探测输出维度
-                    val inputSize = effectiveInputSize
-                    val dummyInput = FloatArray(3 * inputSize * inputSize) { 0.1f }
-                    val output = predict(dummyInput)
-                    Log.d("OnnxClassifier", "探测到输出维度: ${output.size}")
-                    return output.size
-                }
-            }
-            0
+            val inputSize = effectiveInputSize
+            val dummyInput = FloatArray(3 * inputSize * inputSize) { 0.1f }
+            val output = predict(dummyInput)
+            Log.d("OnnxClassifier", "探测到输出维度: ${output.size}")
+            output.size
         } catch (e: Exception) {
             Log.w("OnnxClassifier", "Failed to get output dimension", e)
             0
         }
     }
 
+    // 原有的加载方法（保持兼容）
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
         Log.d("OnnxClassifier", "模型加载完成 - $path")
+        
+        // 记录加载信息
         Log.d("OnnxClassifier", "元数据 keys: ${wrapper?.metadata?.keys}")
-        
-        // 详细记录类别名称解析过程
-        val metaClassNames = wrapper?.metadataClassNames
-        if (metaClassNames != null) {
-            Log.d("OnnxClassifier", "成功从元数据解析类别名称: $metaClassNames")
-        } else {
-            Log.w("OnnxClassifier", "无法从元数据解析类别名称")
-            // 记录原始 names 值用于调试
-            val namesValue = wrapper?.metadata?.get("names")
-            Log.w("OnnxClassifier", "原始 names 值: $namesValue")
-        }
-        
-        Log.d("OnnxClassifier", "元数据输入尺寸: ${wrapper?.metadataInputSize}")
-        Log.d("OnnxClassifier", "输入形状: ${wrapper?.inputShape?.contentToString()}")
         Log.d("OnnxClassifier", "有效输入尺寸: $effectiveInputSize")
         Log.d("OnnxClassifier", "有效类别: $effectiveClassNames")
-    }
-
-    // 简化的加载方法 - 只需要路径
-    fun loadModelAuto(path: String) {
-        loadModel(path)
-        // 自动设置从元数据读取的类别和尺寸
-        wrapper?.metadataClassNames?.let { 
-            Log.d("OnnxClassifier", "自动设置类别名称: $it")
-        }
+        Log.d("OnnxClassifier", "预处理配置: $effectivePreprocessConfig")
     }
 
     fun setClassNames(names: List<String>) {
@@ -149,8 +152,8 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         return mapOf(
             "user_set" to (_userInputSize ?: "未设置"),
             "from_metadata" to (wrapper?.metadataInputSize ?: "无"),
-            "from_shape" to (wrapper?.inputShape?.contentToString() ?: "无"),
-            "effective_size" to effectiveInputSize
+            "effective_size" to effectiveInputSize,
+            "preprocess_config" to effectivePreprocessConfig.toString()
         )
     }
 
@@ -162,8 +165,21 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             "input_size_from_metadata" to (wrapper?.metadataInputSize != null),
             "effective_class_count" to effectiveClassNames.size,
             "effective_input_size" to effectiveInputSize,
-            "all_metadata_keys" to (wrapper?.metadata?.keys ?: emptySet()),
-            "metadata_info" to (wrapper?.getMetadataInfo() ?: emptyMap())
+            "preprocess_config" to effectivePreprocessConfig.toString(),
+            "all_metadata_keys" to (wrapper?.metadata?.keys ?: emptySet())
+        )
+    }
+
+    // 获取预处理配置信息
+    fun getPreprocessConfigInfo(): Map<String, Any> {
+        val config = effectivePreprocessConfig
+        return mapOf(
+            "input_size" to config.inputSize,
+            "normalization_type" to config.normalizationType,
+            "resize_method" to config.resizeMethod,
+            "pixel_range" to config.pixelRange,
+            "mean" to config.mean.toList(),
+            "std" to config.std.toList()
         )
     }
 
@@ -188,7 +204,6 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         }
         
         if (sum == 0.0) {
-            // 如果sum为0，均匀分布
             val uniform = 1.0f / logits.size
             return FloatArray(logits.size) { uniform }
         }
@@ -209,35 +224,25 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         
         Log.d("OnnxClassifier", "输出检测 - 最小值: $min, 最大值: $max, 总和: $sum, 长度: ${logits.size}")
         
-        // 更严格的概率检测
         val isProbRange = min >= 0f && max <= 1f
         val sumCloseToOne = abs(sum - 1.0f) < 0.05f
         
-        // 检测标准1：值范围在[0,1]且总和非常接近1 → 已经是概率
         if (isProbRange && sumCloseToOne) {
             Log.d("OnnxClassifier", "检测到输出已经是概率值 (总和: $sum)")
             return OutputType.PROBABILITIES
         }
         
-        // 检测标准2：有负值 → 可能是logits
         if (min < 0f) {
             Log.d("OnnxClassifier", "检测到输出包含负值，判断为logits")
             return OutputType.LOGITS
         }
         
-        // 检测标准3：如果所有值都很小但为正，也可能是logits
         if (max < 10f && !sumCloseToOne) {
             Log.d("OnnxClassifier", "输出值较小但总和不接近1，判断为logits")
             return OutputType.LOGITS
         }
         
-        // 对于不确定的情况，添加详细日志
-        Log.d("OnnxClassifier", "自动检测不确定，详细分析:")
-        logits.take(5).forEachIndexed { i, v -> 
-            Log.d("OnnxClassifier", "  输出[$i] = $v")
-        }
-        
-        // 默认使用logits处理
+        Log.d("OnnxClassifier", "自动检测不确定，默认使用logits")
         return OutputType.LOGITS
     }
 
@@ -247,13 +252,11 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         Log.d("OnnxClassifier", "原始输出长度: ${rawOutput.size}")
         Log.d("OnnxClassifier", "有效类别名称: $effectiveClassNames")
         
-        // 验证类别名称数量是否匹配
         if (effectiveClassNames.size != rawOutput.size) {
             Log.w("OnnxClassifier", 
                 "警告: 类别名称数量 (${effectiveClassNames.size}) 与输出维度 (${rawOutput.size}) 不匹配")
         }
         
-        // 自动检测或使用指定类型
         val currentOutputType = if (outputType == OutputType.AUTO_DETECT) {
             detectOutputType(rawOutput)
         } else {
@@ -272,13 +275,11 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             else -> softmax(rawOutput)
         }
         
-        // 创建带索引的概率列表并排序
         val indexed = mutableListOf<Pair<Int, Float>>()
         for (i in probs.indices) {
             indexed.add(Pair(i, probs[i]))
         }
         
-        // 按置信度降序排序并取前topK个
         val sortedResults = indexed.sortedByDescending { it.second }.take(topK)
 
         Log.d("OnnxClassifier", "Top-$topK 结果:")
@@ -324,7 +325,6 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             "sum" to probs.sum()
         )
         
-        // 构建 top3_raw
         val top3List = logits.mapIndexed { index, value -> 
             mapOf<String, Any>("index" to index, "value" to value) 
         }.sortedByDescending { it["value"] as Float }.take(3)
