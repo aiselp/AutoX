@@ -11,14 +11,25 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     private val classifiers = mutableMapOf<String, OnnxClassifier>()
     private val detectors = mutableMapOf<String, OnnxDetector>()
 
-    // === 分类器 ===
+    // === 分类器 - 简化接口 ===
 
+    // 最简单的加载方法 - 只需要名称和路径
+    @android.webkit.JavascriptInterface
+    fun loadClassifierAuto(name: String, path: String) {
+        val classifier = OnnxClassifier(runtime)
+        classifier.loadModelAuto(path) // 自动从元数据读取配置
+        classifiers[name] = classifier
+        
+        val initInfo = classifier.getInitializationInfo()
+        Log.d("OnnxModule", "分类器 '$name' 自动初始化完成: $initInfo")
+    }
+
+    // 原有的加载方法（保持兼容）
     @android.webkit.JavascriptInterface
     fun loadClassifier(name: String, path: String, classNamesJson: String? = null, inputSize: Int = 0) {
         val classifier = OnnxClassifier(runtime)
         classifier.loadModel(path)
         
-        // 如果用户指定了输入尺寸，则设置
         if (inputSize > 0) {
             classifier.setInputSize(inputSize)
         }
@@ -33,15 +44,22 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         }
         classifiers[name] = classifier
         
-        // 记录最终的输入尺寸
         Log.d("OnnxModule", "分类器 '$name' 加载完成，最终输入尺寸: ${classifier.effectiveInputSize}")
     }
 
+    // 两个参数的方法（保持兼容）
     @android.webkit.JavascriptInterface
     fun loadClassifier(name: String, path: String) {
         loadClassifier(name, path, null, 0)
     }
 
+    // 三个参数的方法（保持兼容）
+    @android.webkit.JavascriptInterface
+    fun loadClassifier(name: String, path: String, classNamesJson: String?) {
+        loadClassifier(name, path, classNamesJson, 0)
+    }
+
+    // 专门的尺寸设置方法
     @android.webkit.JavascriptInterface
     fun loadClassifierWithSize(name: String, path: String, inputSize: Int) {
         loadClassifier(name, path, null, inputSize)
@@ -52,7 +70,15 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         loadClassifier(name, path, classNamesJson, inputSize)
     }
 
-    // 新增：获取分类器输入尺寸信息
+    // 获取分类器初始化信息
+    @android.webkit.JavascriptInterface
+    fun getClassifierInitInfo(name: String): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val info = c.getInitializationInfo()
+        return org.json.JSONObject(info).toString()
+    }
+
+    // 获取分类器输入尺寸信息
     @android.webkit.JavascriptInterface
     fun getClassifierInputSizeInfo(name: String): String {
         val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
@@ -60,7 +86,16 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         return org.json.JSONObject(info).toString()
     }
 
-    // 改进的 classifyImage 方法，自动使用有效输入尺寸
+    // 获取分类器元数据信息
+    @android.webkit.JavascriptInterface
+    fun getClassifierMetadata(name: String): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val wrapper = c.getWrapperForDebug()
+        val metadataInfo = wrapper?.getMetadataInfo() ?: mapOf("error" to "No wrapper")
+        return org.json.JSONObject(metadataInfo).toString()
+    }
+
+    // 智能分类 - 自动使用检测到的输入尺寸
     @android.webkit.JavascriptInterface
     fun classifyImage(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
         val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
@@ -72,13 +107,14 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         
         try {
             val inputSize = c.effectiveInputSize
-            Log.d("OnnxModule", "分类图像，使用输入尺寸: $inputSize")
+            Log.d("OnnxModule", "智能分类，使用检测到的输入尺寸: $inputSize")
             
             val input = if (inputSize == 32) {
-                // 32x32 使用专用预处理
                 ImagePreprocessor.preprocessClassification32x32(bitmap)
+            } else if (inputSize == 128) {
+                // 可以添加128x128的专用预处理
+                ImagePreprocessor.preprocessClassification(bitmap, 128)
             } else {
-                // 其他尺寸使用通用预处理
                 ImagePreprocessor.preprocessClassification(bitmap, inputSize)
             }
             
