@@ -11,14 +11,14 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
 
     private var wrapper: OnnxWrapper? = null
     private var _userClassNames: List<String>? = null
-    private var _userInputSize: Int? = null  // 用户设置的输入尺寸
-    private var outputType: OutputType = OutputType.AUTO_DETECT
+    private var _userInputSize: Int? = null
 
     enum class OutputType {
         LOGITS, PROBABILITIES, AUTO_DETECT
     }
+    private var outputType: OutputType = OutputType.AUTO_DETECT
 
-    // 获取有效的输入尺寸：用户设置 > 元数据 > 默认224
+    // 获取有效的输入尺寸：用户设置 > 元数据 > 输入形状 > 默认224
     val effectiveInputSize: Int
         get() {
             // 1. 优先使用用户设置的尺寸
@@ -34,8 +34,7 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             // 3. 从输入形状推断
             val fromShape = wrapper?.inputShape
             if (fromShape != null && fromShape.size >= 3) {
-                // 形状通常是 [batch, channels, height, width]
-                val size = fromShape[fromShape.size - 1] // 取最后一个维度作为尺寸
+                val size = fromShape[fromShape.size - 1]
                 if (size > 0) {
                     Log.d("OnnxClassifier", "从输入形状推断尺寸: $size")
                     return size
@@ -47,21 +46,48 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             return 224
         }
 
-    private val effectiveClassNames: List<String>
+    // 获取有效的类别名称：用户设置 > 元数据 > 自动生成
+    val effectiveClassNames: List<String>
         get() {
             _userClassNames?.let { return it }
             val fromMeta = wrapper?.metadataClassNames
             if (!fromMeta.isNullOrEmpty()) return fromMeta
+            
+            // 如果元数据也没有，根据输出维度自动生成
+            try {
+                val outputSize = wrapper?.let { 
+                    val dummyInput = FloatArray(3 * effectiveInputSize * effectiveInputSize) { 0f }
+                    predict(dummyInput).size
+                } ?: 0
+                
+                if (outputSize > 0) {
+                    return (0 until outputSize).map { "class_$it" }
+                }
+            } catch (e: Exception) {
+                Log.w("OnnxClassifier", "Failed to auto-generate class names", e)
+            }
+            
             return emptyList()
         }
 
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
-        Log.d("OnnxClassifier", "模型加载完成")
+        Log.d("OnnxClassifier", "模型加载完成 - $path")
+        Log.d("OnnxClassifier", "元数据: ${wrapper?.metadata}")
         Log.d("OnnxClassifier", "元数据类别: ${wrapper?.metadataClassNames}")
         Log.d("OnnxClassifier", "元数据输入尺寸: ${wrapper?.metadataInputSize}")
         Log.d("OnnxClassifier", "输入形状: ${wrapper?.inputShape?.contentToString()}")
         Log.d("OnnxClassifier", "有效输入尺寸: $effectiveInputSize")
+        Log.d("OnnxClassifier", "有效类别: $effectiveClassNames")
+    }
+
+    // 简化的加载方法 - 只需要路径
+    fun loadModelAuto(path: String) {
+        loadModel(path)
+        // 自动设置从元数据读取的类别和尺寸
+        wrapper?.metadataClassNames?.let { 
+            Log.d("OnnxClassifier", "自动设置类别名称: $it")
+        }
     }
 
     fun setClassNames(names: List<String>) {
@@ -69,19 +95,31 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         Log.d("OnnxClassifier", "设置类别名称: ${names.size} 个类别")
     }
 
-    // 新增：设置输入尺寸
     fun setInputSize(size: Int) {
         _userInputSize = size
         Log.d("OnnxClassifier", "用户设置输入尺寸: $size")
     }
 
-    // 新增：获取输入尺寸信息
+    // 获取输入尺寸信息
     fun getInputSizeInfo(): Map<String, Any> {
         return mapOf(
             "user_set" to (_userInputSize ?: "未设置"),
             "from_metadata" to (wrapper?.metadataInputSize ?: "无"),
             "from_shape" to (wrapper?.inputShape?.contentToString() ?: "无"),
             "effective_size" to effectiveInputSize
+        )
+    }
+
+    // 获取完整的初始化信息
+    fun getInitializationInfo(): Map<String, Any> {
+        return mapOf(
+            "metadata_found" to !wrapper?.metadata.isNullOrEmpty(),
+            "class_names_from_metadata" to (wrapper?.metadataClassNames != null),
+            "input_size_from_metadata" to (wrapper?.metadataInputSize != null),
+            "effective_class_count" to effectiveClassNames.size,
+            "effective_input_size" to effectiveInputSize,
+            "all_metadata_keys" to (wrapper?.metadata?.keys ?: emptySet()),
+            "metadata_info" to (wrapper?.getMetadataInfo() ?: emptyMap())
         )
     }
 
@@ -199,26 +237,10 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         
         val size = probs.size
         
-        // 优先使用用户设置的类别名称，然后是模型元数据，最后是自动生成
-        val names = when {
-            !_userClassNames.isNullOrEmpty() -> {
-                if (_userClassNames!!.size == size) {
-                    _userClassNames!!
-                } else {
-                    Log.w("OnnxClassifier", "用户类别名称数量 (${_userClassNames!!.size}) 与模型输出数量 ($size) 不匹配")
-                    (0 until size).map { "class_$it" }
-                }
-            }
-            !wrapper?.metadataClassNames.isNullOrEmpty() -> {
-                val metaNames = wrapper!!.metadataClassNames!!
-                if (metaNames.size == size) {
-                    metaNames
-                } else {
-                    Log.w("OnnxClassifier", "元数据类别名称数量 (${metaNames.size}) 与模型输出数量 ($size) 不匹配")
-                    (0 until size).map { "class_$it" }
-                }
-            }
-            else -> (0 until size).map { "class_$it" }
+        // 使用有效类别名称
+        val names = effectiveClassNames
+        if (names.size != size) {
+            Log.w("OnnxClassifier", "类别名称数量 (${names.size}) 与模型输出数量 ($size) 不匹配，使用自动生成名称")
         }
 
         // 创建带索引的概率列表并排序
@@ -281,6 +303,11 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         result["top3_raw"] = top3List
         
         return result
+    }
+
+    // 用于调试的辅助方法
+    fun getWrapperForDebug(): OnnxWrapper? {
+        return wrapper
     }
 
     fun close() {
