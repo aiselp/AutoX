@@ -50,8 +50,10 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             val results = d.detectAuto(bitmap, confThreshold, iouThreshold)
             
             Log.d("OnnxModule", "智能检测完成 - 检测到 ${results.size} 个目标")
+            
+            // 转换为JavaScript可识别的格式
             return results.map { r ->
-                mapOf(
+                mutableMapOf(
                     "label" to r.label,
                     "score" to r.score.toDouble(),
                     "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
@@ -90,6 +92,26 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
         val info = d.getInputSizeInfo()
         return org.json.JSONObject(info).toString()
+    }
+
+    /**
+     * 调试检测输出
+     */
+    @android.webkit.JavascriptInterface
+    fun debugDetection(name: String, imagePath: String): String {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            val debugInfo = d.debugDetection(bitmap)
+            return org.json.JSONObject(debugInfo).toString()
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     /**
