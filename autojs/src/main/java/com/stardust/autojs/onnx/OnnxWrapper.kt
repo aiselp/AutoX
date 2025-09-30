@@ -11,51 +11,99 @@ class OnnxWrapper(modelPath: String) {
     private val env = OrtEnvironment.getEnvironment()
     private val session: OrtSession = env.createSession(modelPath)
 
+    // 增强的元数据读取
+    val metadata: Map<String, String> by lazy {
+        try {
+            val meta = session.metadata
+            meta.customMetadata ?: emptyMap()
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to read model metadata", e)
+            emptyMap()
+        }
+    }
+
+    // 读取类别名称
     val metadataClassNames: List<String>? by lazy {
         try {
-            val meta = session.metadata
-            val props = meta.customMetadata
-            val candidates = listOf("names", "labels", "class_names", "classes")
-            for (key in candidates) {
-                val value = props[key] ?: continue
-                return@lazy if (value.startsWith("[") && value.endsWith("]")) {
-                    val arr = org.json.JSONArray(value)
-                    (0 until arr.length()).map { arr.getString(it) }
-                } else {
-                    value.split(Regex("[,;\\n\\r]+")).map { it.trim() }.filter { it.isNotEmpty() }
-                }
+            // 尝试多种可能的键名
+            val nameKeys = listOf("names", "labels", "class_names", "classes")
+            for (key in nameKeys) {
+                val value = metadata[key] ?: continue
+                return@lazy parseClassNames(value)
             }
             null
         } catch (e: Exception) {
-            Log.w("OnnxWrapper", "Failed to read class names from model metadata", e)
+            Log.w("OnnxWrapper", "Failed to read class names from metadata", e)
             null
         }
     }
 
-    // 新增：读取输入尺寸元数据
+    // 读取输入尺寸
     val metadataInputSize: Int? by lazy {
         try {
-            val meta = session.metadata
-            val props = meta.customMetadata
-            val candidates = listOf("input_size", "imgsz", "img_size", "input_shape")
-            for (key in candidates) {
-                val value = props[key] ?: continue
-                return@lazy try {
-                    value.toInt()
-                } catch (e: NumberFormatException) {
-                    // 如果是形状字符串如 "[1,3,32,32]"，提取尺寸
-                    val shapeMatch = Regex("""\[.*?,.*?,(\d+),(\d+)\]""").find(value)
-                    shapeMatch?.groupValues?.get(1)?.toInt() ?: continue
-                }
+            // 尝试多种可能的键名
+            val sizeKeys = listOf("imgsz", "input_size", "img_size", "input_shape")
+            for (key in sizeKeys) {
+                val value = metadata[key] ?: continue
+                return@lazy parseInputSize(value)
             }
             null
         } catch (e: Exception) {
-            Log.w("OnnxWrapper", "Failed to read input size from model metadata", e)
+            Log.w("OnnxWrapper", "Failed to read input size from metadata", e)
             null
         }
     }
 
-    // 新增：获取输入形状信息
+    // 解析类别名称
+    private fun parseClassNames(value: String): List<String> {
+        return try {
+            if (value.startsWith("[") && value.endsWith("]")) {
+                // JSON 数组格式: ["class0", "class1", ...]
+                val arr = org.json.JSONArray(value)
+                (0 until arr.length()).map { arr.getString(it) }
+            } else if (value.startsWith("{") && value.endsWith("}")) {
+                // JSON 对象格式: {"0": "class0", "1": "class1", ...}
+                val obj = org.json.JSONObject(value)
+                (0 until obj.length()).map { obj.getString(it.toString()) }
+            } else {
+                // 逗号分隔格式: class0,class1,class2,...
+                value.split(Regex("[,;\\n\\r]+"))
+                    .map { it.trim() }
+                    .filter { it.isNotEmpty() }
+            }
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to parse class names: $value", e)
+            emptyList()
+        }
+    }
+
+    // 解析输入尺寸
+    private fun parseInputSize(value: String): Int {
+        return try {
+            when {
+                value.toIntOrNull() != null -> {
+                    // 直接是数字: 32, 128, 224, etc.
+                    value.toInt()
+                }
+                value.startsWith("[") && value.endsWith("]") -> {
+                    // 形状数组: [1,3,32,32] 或 [1,3,128,128]
+                    val shapeMatch = Regex("""\[.*?,.*?,(\d+),(\d+)\]""").find(value)
+                    shapeMatch?.groupValues?.get(1)?.toInt() ?: throw NumberFormatException("Invalid shape format")
+                }
+                value.startsWith("(") && value.endsWith(")") -> {
+                    // 元组格式: (3,32,32) 或 (3,128,128)
+                    val tupleMatch = Regex("""\(.*?,(\d+),(\d+)\)""").find(value)
+                    tupleMatch?.groupValues?.get(1)?.toInt() ?: throw NumberFormatException("Invalid tuple format")
+                }
+                else -> throw NumberFormatException("Unsupported format: $value")
+            }
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to parse input size: $value", e)
+            throw e
+        }
+    }
+
+    // 获取输入形状信息（备用方案）
     val inputShape: IntArray? by lazy {
         try {
             val inputInfo = session.inputInfo
@@ -66,6 +114,16 @@ class OnnxWrapper(modelPath: String) {
             Log.w("OnnxWrapper", "Failed to get input shape", e)
             null
         }
+    }
+
+    // 获取所有元数据信息（用于调试）
+    fun getMetadataInfo(): Map<String, Any> {
+        return mapOf(
+            "all_metadata" to metadata,
+            "class_names" to (metadataClassNames ?: "未找到"),
+            "input_size" to (metadataInputSize ?: "未找到"),
+            "input_shape" to (inputShape?.contentToString() ?: "未找到")
+        )
     }
 
     fun run(input: FloatBuffer): List<FloatArray> {
