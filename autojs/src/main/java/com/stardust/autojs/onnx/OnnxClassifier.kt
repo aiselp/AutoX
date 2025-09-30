@@ -17,40 +17,7 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         LOGITS, PROBABILITIES, AUTO_DETECT
     }
     private var outputType: OutputType = OutputType.AUTO_DETECT
-// 添加预处理配置
-    private var preprocessConfig: ImagePreprocessor.PreprocessConfig? = null
-    
-    // 获取预处理配置
-    val effectivePreprocessConfig: ImagePreprocessor.PreprocessConfig
-        get() {
-            preprocessConfig?.let { return it }
-            
-            // 自动从元数据推断配置
-            val config = ImagePreprocessor.detectConfigFromMetadata(
-                wrapper?.metadata, 
-                effectiveInputSize
-            )
-            preprocessConfig = config
-            Log.d("OnnxClassifier", "自动推断预处理配置: $config")
-            return config
-        }
 
-    // 更新加载方法
-    fun loadModel(path: String) {
-        wrapper = OnnxWrapper(path)
-        Log.d("OnnxClassifier", "模型加载完成 - $path")
-        
-        // 自动推断预处理配置
-        val config = effectivePreprocessConfig
-        Log.d("OnnxClassifier", "预处理配置: $config")
-        
-        // ... 其余日志保持不变
-    }
-
-    // 添加预处理方法
-    fun preprocessImage(bitmap: android.graphics.Bitmap): FloatArray {
-        return ImagePreprocessor.preprocessWithConfig(bitmap, effectivePreprocessConfig)
-    }
     // 获取有效的输入尺寸：用户设置 > 元数据 > 输入形状 > 默认224
     val effectiveInputSize: Int
         get() {
