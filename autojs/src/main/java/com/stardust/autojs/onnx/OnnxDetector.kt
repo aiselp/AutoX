@@ -4,6 +4,7 @@ package com.stardust.autojs.onnx
 import android.util.Log
 import com.stardust.autojs.runtime.ScriptRuntime
 import java.nio.FloatBuffer
+import kotlin.math.min
 
 class OnnxDetector(
     private val runtime: ScriptRuntime,
@@ -180,8 +181,8 @@ class OnnxDetector(
         
         result["output_size"] = outputTensor.size
         result["output_range"] = mapOf<String, Any>(
-            "min" to (outputTensor.minOrNull() ?: 0f),
-            "max" to (outputTensor.maxOrNull() ?: 0f)
+            "min" to (outputTensor.minOrNull() ?: 0f),  // 修复：使用 minOrNull()
+            "max" to (outputTensor.maxOrNull() ?: 0f)   // 修复：使用 maxOrNull()
         )
         
         // 分析输出结构
@@ -199,7 +200,7 @@ class OnnxDetector(
         
         // 尝试处理几个框看看
         val sampleBoxes = mutableListOf<Map<String, Any>>()
-        val numBoxes = min(5, outputTensor.size / expectedDim)
+        val numBoxes = kotlin.math.min(5, outputTensor.size / expectedDim)  // 修复：使用完整限定名
         
         for (i in 0 until numBoxes) {
             val offset = i * expectedDim
@@ -217,7 +218,7 @@ class OnnxDetector(
                 classScores.add(outputTensor[offset + 4 + c])
             }
             boxInfo["class_scores"] = classScores
-            boxInfo["max_score"] = classScores.maxOrNull() ?: 0f
+            boxInfo["max_score"] = classScores.maxOrNull() ?: 0f  // 修复：使用 maxOrNull()
             boxInfo["confidence"] = sigmoid(classScores.maxOrNull() ?: 0f)
             
             sampleBoxes.add(boxInfo)
@@ -287,8 +288,8 @@ class OnnxDetector(
         result["output_size"] = outputTensor.size
         result["output_sample"] = outputTensor.take(20).toList()
         result["output_range"] = mapOf<String, Any>(
-            "min" to (outputTensor.minOrNull() ?: 0f),
-            "max" to (outputTensor.maxOrNull() ?: 0f)
+            "min" to (outputTensor.minOrNull() ?: 0f),  // 修复：使用 minOrNull()
+            "max" to (outputTensor.maxOrNull() ?: 0f)   // 修复：使用 maxOrNull()
         )
         
         // 分析输出结构
