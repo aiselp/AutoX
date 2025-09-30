@@ -92,11 +92,11 @@ object ImagePreprocessor {
                 try {
                     val size = parseImageSize(value)
                     if (size > 0) {
-                        Log.d("ImagePreprocessor", "从$key解析到输入尺寸: $size")
+                        Log.d("ImagePreprocessor", "从 $key 解析到输入尺寸: $size")
                         return size
                     }
                 } catch (e: Exception) {
-                    Log.w("ImagePreprocessor", "解析$key失败: $value", e)
+                    Log.w("ImagePreprocessor", "解析 $key 失败: $value", e)
                 }
             }
         }
