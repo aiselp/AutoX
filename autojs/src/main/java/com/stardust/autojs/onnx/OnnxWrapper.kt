@@ -22,14 +22,17 @@ class OnnxWrapper(modelPath: String) {
         }
     }
 
-    // 读取类别名称
+    // 读取类别名称 - 修复版本
     val metadataClassNames: List<String>? by lazy {
         try {
-            // 尝试多种可能的键名
             val nameKeys = listOf("names", "labels", "class_names", "classes")
             for (key in nameKeys) {
                 val value = metadata[key] ?: continue
-                return@lazy parseClassNames(value)
+                val parsedNames = parseClassNames(value)
+                if (parsedNames.isNotEmpty()) {
+                    Log.d("OnnxWrapper", "从键 '$key' 解析到 ${parsedNames.size} 个类别名称")
+                    return@lazy parsedNames
+                }
             }
             null
         } catch (e: Exception) {
@@ -38,68 +41,22 @@ class OnnxWrapper(modelPath: String) {
         }
     }
 
-    // 读取输入尺寸
+    // 读取输入尺寸 - 修复版本
     val metadataInputSize: Int? by lazy {
         try {
-            // 尝试多种可能的键名
             val sizeKeys = listOf("imgsz", "input_size", "img_size", "input_shape")
             for (key in sizeKeys) {
                 val value = metadata[key] ?: continue
-                return@lazy parseInputSize(value)
+                val parsedSize = parseInputSize(value)
+                if (parsedSize > 0) {
+                    Log.d("OnnxWrapper", "从键 '$key' 解析到输入尺寸: $parsedSize")
+                    return@lazy parsedSize
+                }
             }
             null
         } catch (e: Exception) {
             Log.w("OnnxWrapper", "Failed to read input size from metadata", e)
             null
-        }
-    }
-
-    // 解析类别名称
-    private fun parseClassNames(value: String): List<String> {
-        return try {
-            if (value.startsWith("[") && value.endsWith("]")) {
-                // JSON 数组格式: ["class0", "class1", ...]
-                val arr = org.json.JSONArray(value)
-                (0 until arr.length()).map { arr.getString(it) }
-            } else if (value.startsWith("{") && value.endsWith("}")) {
-                // JSON 对象格式: {"0": "class0", "1": "class1", ...}
-                val obj = org.json.JSONObject(value)
-                (0 until obj.length()).map { obj.getString(it.toString()) }
-            } else {
-                // 逗号分隔格式: class0,class1,class2,...
-                value.split(Regex("[,;\\n\\r]+"))
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-            }
-        } catch (e: Exception) {
-            Log.w("OnnxWrapper", "Failed to parse class names: $value", e)
-            emptyList()
-        }
-    }
-
-    // 解析输入尺寸
-    private fun parseInputSize(value: String): Int {
-        return try {
-            when {
-                value.toIntOrNull() != null -> {
-                    // 直接是数字: 32, 128, 224, etc.
-                    value.toInt()
-                }
-                value.startsWith("[") && value.endsWith("]") -> {
-                    // 形状数组: [1,3,32,32] 或 [1,3,128,128]
-                    val shapeMatch = Regex("""\[.*?,.*?,(\d+),(\d+)\]""").find(value)
-                    shapeMatch?.groupValues?.get(1)?.toInt() ?: throw NumberFormatException("Invalid shape format")
-                }
-                value.startsWith("(") && value.endsWith(")") -> {
-                    // 元组格式: (3,32,32) 或 (3,128,128)
-                    val tupleMatch = Regex("""\(.*?,(\d+),(\d+)\)""").find(value)
-                    tupleMatch?.groupValues?.get(1)?.toInt() ?: throw NumberFormatException("Invalid tuple format")
-                }
-                else -> throw NumberFormatException("Unsupported format: $value")
-            }
-        } catch (e: Exception) {
-            Log.w("OnnxWrapper", "Failed to parse input size: $value", e)
-            throw e
         }
     }
 
@@ -113,6 +70,117 @@ class OnnxWrapper(modelPath: String) {
         } catch (e: Exception) {
             Log.w("OnnxWrapper", "Failed to get input shape", e)
             null
+        }
+    }
+
+    // 解析类别名称 - 增强版本
+    private fun parseClassNames(value: String): List<String> {
+        return try {
+            Log.d("OnnxWrapper", "解析类别名称: $value")
+            
+            when {
+                value.startsWith("[") && value.endsWith("]") -> {
+                    // JSON 数组格式: ["class0", "class1", ...]
+                    val arr = org.json.JSONArray(value)
+                    (0 until arr.length()).map { arr.getString(it) }
+                }
+                value.startsWith("{") && value.endsWith("}") -> {
+                    // JSON 对象格式: {"0": "class0", "1": "class1", ...}
+                    val obj = org.json.JSONObject(value)
+                    val names = mutableListOf<String>()
+                    for (i in 0 until obj.length()) {
+                        names.add(obj.getString(i.toString()))
+                    }
+                    names
+                }
+                value.contains(":") && value.contains("'") -> {
+                    // Python 字典格式: {0: '女仆', 1: '小丑', 2: '幽灵', ...}
+                    parsePythonDict(value)
+                }
+                else -> {
+                    // 逗号分隔格式: class0,class1,class2,...
+                    value.split(Regex("[,;\\n\\r]+"))
+                        .map { it.trim().removeSurrounding("'", "'").removeSurrounding("\"", "\"") }
+                        .filter { it.isNotEmpty() }
+                }
+            }.also { names ->
+                Log.d("OnnxWrapper", "解析结果: ${names.joinToString()}")
+            }
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to parse class names: $value", e)
+            emptyList()
+        }
+    }
+
+    // 解析 Python 字典格式: {0: '女仆', 1: '小丑', 2: '幽灵', ...}
+    private fun parsePythonDict(value: String): List<String> {
+        return try {
+            val pattern = Regex("""(\d+):\s*'([^']*)'""")
+            val matches = pattern.findAll(value)
+            val namesMap = mutableMapOf<Int, String>()
+            
+            for (match in matches) {
+                val index = match.groupValues[1].toInt()
+                val name = match.groupValues[2]
+                namesMap[index] = name
+            }
+            
+            // 按索引排序返回
+            namesMap.toSortedMap().values.toList()
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to parse Python dict: $value", e)
+            emptyList()
+        }
+    }
+
+    // 解析输入尺寸 - 增强版本
+    private fun parseInputSize(value: String): Int {
+        return try {
+            Log.d("OnnxWrapper", "解析输入尺寸: $value")
+            
+            when {
+                value.toIntOrNull() != null -> {
+                    // 直接是数字: 32, 128, 224, etc.
+                    value.toInt()
+                }
+                value.startsWith("[") && value.endsWith("]") -> {
+                    // 形状数组: [128, 128] 或 [1,3,32,32]
+                    if (value.contains(",")) {
+                        val numbers = value.removeSurrounding("[", "]")
+                            .split(",")
+                            .map { it.trim().toIntOrNull() }
+                            .filterNotNull()
+                        
+                        // 对于 [128, 128] 取第一个值
+                        // 对于 [1,3,32,32] 取倒数第二个值
+                        when (numbers.size) {
+                            2 -> numbers[0] // [128, 128]
+                            4 -> numbers[2] // [1,3,32,32] 取32
+                            else -> numbers.firstOrNull() ?: throw NumberFormatException("Invalid array size")
+                        }
+                    } else {
+                        value.removeSurrounding("[", "]").toInt()
+                    }
+                }
+                value.startsWith("(") && value.endsWith(")") -> {
+                    // 元组格式: (3,32,32) 或 (3,128,128)
+                    val numbers = value.removeSurrounding("(", ")")
+                        .split(",")
+                        .map { it.trim().toIntOrNull() }
+                        .filterNotNull()
+                    
+                    when (numbers.size) {
+                        3 -> numbers[1] // (3,32,32) 取32
+                        else -> numbers.firstOrNull() ?: throw NumberFormatException("Invalid tuple size")
+                    }
+                }
+                else -> throw NumberFormatException("Unsupported format: $value")
+            }.also { size ->
+                Log.d("OnnxWrapper", "解析到的尺寸: $size")
+            }
+        } catch (e: Exception) {
+            Log.w("OnnxWrapper", "Failed to parse input size: $value", e)
+            -1
         }
     }
 
@@ -151,7 +219,7 @@ class OnnxWrapper(modelPath: String) {
                     val buffer = value.floatBuffer
                     if (buffer != null) {
                         val arr = FloatArray(buffer.remaining())
-                        buffer.duplicate().get(arr) // 使用duplicate避免影响原始buffer
+                        buffer.duplicate().get(arr)
                         results.add(arr)
                     } else {
                         results.add(floatArrayOf())
