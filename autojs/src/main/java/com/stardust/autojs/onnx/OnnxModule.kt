@@ -126,34 +126,37 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         return org.json.JSONObject(debugInfo as Map<*, *>).toString()
     }
 
-    // 智能分类 - 完全自动化
-@android.webkit.JavascriptInterface
-fun classifyImage(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
-    val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-    val file = File(imagePath)
-    if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-    
-    val bitmap = BitmapFactory.decodeFile(imagePath)
-        ?: throw RuntimeException("Failed to decode image: $imagePath")
-    
-    try {
-        val inputSize = c.effectiveInputSize
-        val config = c.effectivePreprocessConfig
+    // 智能分类 - 自动使用检测到的输入尺寸
+    @android.webkit.JavascriptInterface
+    fun classifyImage(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
         
-        Log.d("OnnxModule", "智能分类 - 尺寸: $inputSize, 预处理: ${config.normalizationType}/${config.resizeMethod}")
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
         
-        // 使用智能预处理
-        val input = c.preprocessImage(bitmap)
-        
-        val results = c.classify(input, topK)
-        return results.map { r ->
-            mapOf("label" to r.label, "score" to r.score.toDouble())
-        }.toTypedArray()
-    } finally {
-        bitmap.recycle()
+        try {
+            val inputSize = c.effectiveInputSize
+            Log.d("OnnxModule", "智能分类，使用检测到的输入尺寸: $inputSize")
+            
+            val input = if (inputSize == 32) {
+                ImagePreprocessor.preprocessClassification32x32(bitmap)
+            } else if (inputSize == 128) {
+                // 可以添加128x128的专用预处理
+                ImagePreprocessor.preprocessClassification(bitmap, 128)
+            } else {
+                ImagePreprocessor.preprocessClassification(bitmap, inputSize)
+            }
+            
+            val results = c.classify(input, topK)
+            return results.map { r ->
+                mapOf("label" to r.label, "score" to r.score.toDouble())
+            }.toTypedArray()
+        } finally {
+            bitmap.recycle()
+        }
     }
-}
-
 
     // 原有的 classifyImage 方法（保持兼容性）
     @android.webkit.JavascriptInterface
