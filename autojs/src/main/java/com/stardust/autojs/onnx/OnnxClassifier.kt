@@ -46,29 +46,62 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
             return 224
         }
 
-    // 获取有效的类别名称：用户设置 > 元数据 > 自动生成
+    // 获取有效的类别名称 - 修复版本
     val effectiveClassNames: List<String>
         get() {
-            _userClassNames?.let { return it }
-            val fromMeta = wrapper?.metadataClassNames
-            if (!fromMeta.isNullOrEmpty()) return fromMeta
+            // 1. 优先使用用户设置的类别名称
+            _userClassNames?.let { 
+                if (it.isNotEmpty()) {
+                    Log.d("OnnxClassifier", "使用用户设置的类别名称: ${it.size} 个")
+                    return it
+                }
+            }
             
-            // 如果元数据也没有，根据输出维度自动生成
+            // 2. 使用元数据中的类别名称
+            val fromMeta = wrapper?.metadataClassNames
+            if (!fromMeta.isNullOrEmpty()) {
+                Log.d("OnnxClassifier", "使用元数据类别名称: ${fromMeta.size} 个")
+                return fromMeta
+            }
+            
+            // 3. 尝试从输出维度推断
             try {
-                val outputSize = wrapper?.let { 
-                    val dummyInput = FloatArray(3 * effectiveInputSize * effectiveInputSize) { 0f }
-                    predict(dummyInput).size
-                } ?: 0
-                
-                if (outputSize > 0) {
-                    return (0 until outputSize).map { "class_$it" }
+                // 先尝试获取模型输出维度
+                val outputDim = getOutputDimension()
+                if (outputDim > 0) {
+                    val autoNames = (0 until outputDim).map { "class_$it" }
+                    Log.w("OnnxClassifier", "自动生成类别名称: $autoNames")
+                    return autoNames
                 }
             } catch (e: Exception) {
                 Log.w("OnnxClassifier", "Failed to auto-generate class names", e)
             }
             
+            Log.e("OnnxClassifier", "无法确定类别名称，返回空列表")
             return emptyList()
         }
+
+    // 获取模型输出维度
+    private fun getOutputDimension(): Int {
+        return try {
+            // 尝试从输入形状推断输出维度
+            wrapper?.inputShape?.let { shape ->
+                if (shape.size >= 4) {
+                    // 假设分类模型的输出是 [batch, num_classes]
+                    // 我们创建一个最小输入来探测输出维度
+                    val inputSize = effectiveInputSize
+                    val dummyInput = FloatArray(3 * inputSize * inputSize) { 0.1f }
+                    val output = predict(dummyInput)
+                    Log.d("OnnxClassifier", "探测到输出维度: ${output.size}")
+                    return output.size
+                }
+            }
+            0
+        } catch (e: Exception) {
+            Log.w("OnnxClassifier", "Failed to get output dimension", e)
+            0
+        }
+    }
 
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
@@ -201,7 +234,13 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         val rawOutput = predict(input)
         
         Log.d("OnnxClassifier", "原始输出长度: ${rawOutput.size}")
-        Log.d("OnnxClassifier", "原始输出前5个值: ${rawOutput.take(5).joinToString()}")
+        Log.d("OnnxClassifier", "有效类别名称: $effectiveClassNames")
+        
+        // 验证类别名称数量是否匹配
+        if (effectiveClassNames.size != rawOutput.size) {
+            Log.w("OnnxClassifier", 
+                "警告: 类别名称数量 (${effectiveClassNames.size}) 与输出维度 (${rawOutput.size}) 不匹配")
+        }
         
         // 自动检测或使用指定类型
         val currentOutputType = if (outputType == OutputType.AUTO_DETECT) {
@@ -213,36 +252,15 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
         val probs = when (currentOutputType) {
             OutputType.LOGITS -> {
                 Log.d("OnnxClassifier", "应用softmax处理logits")
-                val softmaxResult = softmax(rawOutput)
-                // 验证softmax结果
-                if (softmaxResult.sum().isNaN()) {
-                    Log.e("OnnxClassifier", "Softmax结果异常，使用原始值")
-                    rawOutput
-                } else {
-                    softmaxResult
-                }
+                softmax(rawOutput)
             }
             OutputType.PROBABILITIES -> {
                 Log.d("OnnxClassifier", "输出已经是概率，跳过softmax")
                 rawOutput
             }
-            else -> {
-                softmax(rawOutput)
-            }
+            else -> softmax(rawOutput)
         }
         
-        // 记录处理后的概率信息
-        Log.d("OnnxClassifier", "最终概率 - 最大: ${probs.maxOrNull()}, 总和: ${probs.sum()}")
-        Log.d("OnnxClassifier", "前5个概率: ${probs.take(5).joinToString()}")
-        
-        val size = probs.size
-        
-        // 使用有效类别名称
-        val names = effectiveClassNames
-        if (names.size != size) {
-            Log.w("OnnxClassifier", "类别名称数量 (${names.size}) 与模型输出数量 ($size) 不匹配，使用自动生成名称")
-        }
-
         // 创建带索引的概率列表并排序
         val indexed = mutableListOf<Pair<Int, Float>>()
         for (i in probs.indices) {
@@ -254,13 +272,13 @@ class OnnxClassifier(private val runtime: ScriptRuntime) {
 
         Log.d("OnnxClassifier", "Top-$topK 结果:")
         sortedResults.forEach { (idx, score) ->
-            val label = if (idx < names.size) names[idx] else "class_$idx"
+            val label = if (idx < effectiveClassNames.size) effectiveClassNames[idx] else "class_$idx"
             Log.d("OnnxClassifier", "  $label: $score")
         }
 
         return sortedResults.map { (idx, score) ->
             ClassificationResult(
-                label = if (idx < names.size) names[idx] else "class_$idx",
+                label = if (idx < effectiveClassNames.size) effectiveClassNames[idx] else "class_$idx",
                 score = score
             )
         }
