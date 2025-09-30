@@ -11,6 +11,96 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     private val classifiers = mutableMapOf<String, OnnxClassifier>()
     private val detectors = mutableMapOf<String, OnnxDetector>()
 
+    // === 目标检测 - 全自动接口 ===
+
+    /**
+     * 完全自动化的检测器加载 - 推荐使用
+     */
+    @android.webkit.JavascriptInterface
+    fun loadDetectorFullAuto(name: String, path: String) {
+        val detector = OnnxDetector(runtime)
+        detector.loadModelAuto(path) // 使用完全自动化的加载
+        
+        detectors[name] = detector
+        
+        val initInfo = detector.getInitializationInfo()
+        Log.d("OnnxModule", "检测器 '$name' 全自动加载完成: $initInfo")
+    }
+
+    /**
+     * 智能检测 - 完全自动化处理
+     * @param name 检测器名称
+     * @param imagePath 图像路径
+     * @param confThreshold 置信度阈值 (0-1)，默认0.25，值越大检测越严格
+     * @param iouThreshold IOU阈值 (0-1)，默认0.45，值越大保留的框越多
+     */
+    @android.webkit.JavascriptInterface  
+    fun detectImageAuto(name: String, imagePath: String, confThreshold: Float = 0.25f, iouThreshold: Float = 0.45f): Array<Map<String, Any>> {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        
+        try {
+            Log.d("OnnxModule", "开始智能检测 - 模型: $name, 置信度阈值: $confThreshold, IOU阈值: $iouThreshold")
+            
+            // 使用完全自动化的检测
+            val results = d.detectAuto(bitmap, confThreshold, iouThreshold)
+            
+            Log.d("OnnxModule", "智能检测完成 - 检测到 ${results.size} 个目标")
+            return results.map { r ->
+                mapOf(
+                    "label" to r.label,
+                    "score" to r.score.toDouble(),
+                    "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
+                )
+            }.toTypedArray()
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
+    /**
+     * 获取检测器预处理配置信息
+     */
+    @android.webkit.JavascriptInterface
+    fun getDetectorPreprocessConfig(name: String): String {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val configInfo = d.getPreprocessConfigInfo()
+        return org.json.JSONObject(configInfo).toString()
+    }
+
+    /**
+     * 获取检测器初始化信息
+     */
+    @android.webkit.JavascriptInterface
+    fun getDetectorInitInfo(name: String): String {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val info = d.getInitializationInfo()
+        return org.json.JSONObject(info).toString()
+    }
+
+    /**
+     * 获取检测器输入尺寸信息
+     */
+    @android.webkit.JavascriptInterface
+    fun getDetectorInputSizeInfo(name: String): String {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val info = d.getInputSizeInfo()
+        return org.json.JSONObject(info).toString()
+    }
+
+    /**
+     * 设置检测参数
+     */
+    @android.webkit.JavascriptInterface
+    fun setDetectorParams(name: String, confThreshold: Float, iouThreshold: Float) {
+        // 这个参数会在detectImageAuto中传递，这里主要是为了接口兼容性
+        Log.d("OnnxModule", "设置检测器参数 - 置信度: $confThreshold, IOU: $iouThreshold")
+    }
+
     // === 分类器 - 全自动接口 ===
 
     /**
@@ -55,7 +145,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     }
 
     /**
-     * 获取预处理配置信息
+     * 获取分类器预处理配置信息
      */
     @android.webkit.JavascriptInterface
     fun getPreprocessConfig(name: String): String {
@@ -115,6 +205,30 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     @android.webkit.JavascriptInterface
     fun loadClassifierWithSizeAndNames(name: String, path: String, inputSize: Int, classNamesJson: String) {
         loadClassifier(name, path, classNamesJson, inputSize)
+    }
+
+    // 检测器兼容接口
+    @android.webkit.JavascriptInterface
+    fun loadDetector(name: String, path: String, width: Int, height: Int, classNamesJson: String? = null) {
+        val detector = OnnxDetector(runtime, width, height)
+        detector.loadModel(path)
+        if (classNamesJson != null) {
+            try {
+                val arr = org.json.JSONArray(classNamesJson)
+                detector.setClassNames((0 until arr.length()).map { arr.getString(it) })
+            } catch (e: Exception) {
+                throw IllegalArgumentException("Invalid classNames JSON", e)
+            }
+        }
+        detectors[name] = detector
+        
+        // 记录自动检测的信息
+        Log.d("OnnxModule", "检测器 '$name' 加载完成，用户设置: ${width}x${height}, 自动检测: ${detector.effectiveInputSize}")
+    }
+
+    @android.webkit.JavascriptInterface
+    fun loadDetector(name: String, path: String, width: Int, height: Int) {
+        loadDetector(name, path, width, height, null)
     }
 
     // 获取分类器初始化信息
@@ -231,6 +345,35 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         }
     }
 
+    // 检测方法（保持兼容）
+    @android.webkit.JavascriptInterface
+    fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val results = d.detect(input)
+        return results.map { r ->
+            mapOf(
+                "label" to r.label,
+                "score" to r.score.toDouble(),
+                "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
+            )
+        }.toTypedArray()
+    }
+
+    @android.webkit.JavascriptInterface
+    fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
+        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+        val file = File(imagePath)
+        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
+        val bitmap = BitmapFactory.decodeFile(imagePath)
+            ?: throw RuntimeException("Failed to decode image: $imagePath")
+        try {
+            val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
+            return detect(name, input)
+        } finally {
+            bitmap.recycle()
+        }
+    }
+
     // 改进的 getOutputInfo 方法
     @android.webkit.JavascriptInterface
     fun getClassifierOutputInfo(name: String, imagePath: String): String {
@@ -278,56 +421,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
             val input = ImagePreprocessor.preprocessClassification32x32(bitmap)
             val outputInfo = c.getOutputInfo(input)
             return org.json.JSONObject(outputInfo).toString()
-        } finally {
-            bitmap.recycle()
-        }
-    }
-
-    // === 检测器 ===
-
-    @android.webkit.JavascriptInterface
-    fun loadDetector(name: String, path: String, width: Int, height: Int, classNamesJson: String? = null) {
-        val detector = OnnxDetector(runtime, width, height)
-        detector.loadModel(path)
-        if (classNamesJson != null) {
-            try {
-                val arr = org.json.JSONArray(classNamesJson)
-                detector.setClassNames((0 until arr.length()).map { arr.getString(it) })
-            } catch (e: Exception) {
-                throw IllegalArgumentException("Invalid classNames JSON", e)
-            }
-        }
-        detectors[name] = detector
-    }
-
-    @android.webkit.JavascriptInterface
-    fun loadDetector(name: String, path: String, width: Int, height: Int) {
-        loadDetector(name, path, width, height, null)
-    }
-
-    @android.webkit.JavascriptInterface
-    fun detect(name: String, input: FloatArray): Array<Map<String, Any>> {
-        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
-        val results = d.detect(input)
-        return results.map { r ->
-            mapOf(
-                "label" to r.label,
-                "score" to r.score.toDouble(),
-                "box" to listOf(r.box[0].toDouble(), r.box[1].toDouble(), r.box[2].toDouble(), r.box[3].toDouble())
-            )
-        }.toTypedArray()
-    }
-
-    @android.webkit.JavascriptInterface
-    fun detectImage(name: String, imagePath: String): Array<Map<String, Any>> {
-        val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
-        val file = File(imagePath)
-        if (!file.exists()) throw IllegalArgumentException("Image not found: $imagePath")
-        val bitmap = BitmapFactory.decodeFile(imagePath)
-            ?: throw RuntimeException("Failed to decode image: $imagePath")
-        try {
-            val input = ImagePreprocessor.preprocessYoloV8(bitmap, d.inputWidth, d.inputHeight)
-            return detect(name, input)
         } finally {
             bitmap.recycle()
         }
