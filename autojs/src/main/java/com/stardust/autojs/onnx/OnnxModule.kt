@@ -95,6 +95,32 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         return org.json.JSONObject(metadataInfo).toString()
     }
 
+    // 调试方法：获取详细的分类器状态
+    @android.webkit.JavascriptInterface
+    fun debugClassifier(name: String): String {
+        val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
+        
+        val debugInfo = mutableMapOf<String, Any>()
+        
+        // 基本信息
+        debugInfo["effective_input_size"] = c.effectiveInputSize
+        debugInfo["effective_class_names"] = c.effectiveClassNames
+        debugInfo["effective_class_count"] = c.effectiveClassNames.size
+        
+        // 元数据信息
+        val wrapper = c.getWrapperForDebug()
+        debugInfo["metadata_keys"] = wrapper?.metadata?.keys ?: emptySet<String>()
+        debugInfo["metadata_imgsz"] = wrapper?.metadata?.get("imgsz")
+        debugInfo["metadata_names"] = wrapper?.metadata?.get("names")
+        debugInfo["parsed_input_size"] = wrapper?.metadataInputSize
+        debugInfo["parsed_class_names"] = wrapper?.metadataClassNames
+        
+        // 输入形状
+        debugInfo["input_shape"] = wrapper?.inputShape?.contentToString()
+        
+        return org.json.JSONObject(debugInfo).toString()
+    }
+
     // 智能分类 - 自动使用检测到的输入尺寸
     @android.webkit.JavascriptInterface
     fun classifyImage(name: String, imagePath: String, topK: Int): Array<Map<String, Any>> {
