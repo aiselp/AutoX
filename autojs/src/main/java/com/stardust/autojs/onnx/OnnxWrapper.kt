@@ -28,12 +28,16 @@ class OnnxWrapper(modelPath: String) {
             val nameKeys = listOf("names", "labels", "class_names", "classes")
             for (key in nameKeys) {
                 val value = metadata[key] ?: continue
+                Log.d("OnnxWrapper", "尝试从键 '$key' 解析类别名称: $value")
                 val parsedNames = parseClassNames(value)
                 if (parsedNames.isNotEmpty()) {
-                    Log.d("OnnxWrapper", "从键 '$key' 解析到 ${parsedNames.size} 个类别名称")
+                    Log.d("OnnxWrapper", "从键 '$key' 成功解析到 ${parsedNames.size} 个类别名称: ${parsedNames.joinToString()}")
                     return@lazy parsedNames
+                } else {
+                    Log.w("OnnxWrapper", "从键 '$key' 解析类别名称失败")
                 }
             }
+            Log.w("OnnxWrapper", "所有键都未能解析出类别名称")
             null
         } catch (e: Exception) {
             Log.w("OnnxWrapper", "Failed to read class names from metadata", e)
@@ -86,14 +90,19 @@ class OnnxWrapper(modelPath: String) {
                 }
                 value.startsWith("{") && value.endsWith("}") -> {
                     // JSON 对象格式: {"0": "class0", "1": "class1", ...}
-                    val obj = org.json.JSONObject(value)
-                    val names = mutableListOf<String>()
-                    for (i in 0 until obj.length()) {
-                        names.add(obj.getString(i.toString()))
+                    try {
+                        val obj = org.json.JSONObject(value)
+                        val names = mutableListOf<String>()
+                        for (i in 0 until obj.length()) {
+                            names.add(obj.getString(i.toString()))
+                        }
+                        names
+                    } catch (e: Exception) {
+                        Log.d("OnnxWrapper", "JSONObject解析失败，尝试Python字典格式")
+                        parsePythonDict(value)
                     }
-                    names
                 }
-                value.contains(":") && value.contains("'") -> {
+                value.contains(":") && (value.contains("'") || value.contains("\"")) -> {
                     // Python 字典格式: {0: '女仆', 1: '小丑', 2: '幽灵', ...}
                     parsePythonDict(value)
                 }
@@ -112,21 +121,78 @@ class OnnxWrapper(modelPath: String) {
         }
     }
 
-    // 解析 Python 字典格式: {0: '女仆', 1: '小丑', 2: '幽灵', ...}
+    // 解析 Python 字典格式 - 完全重写版本
     private fun parsePythonDict(value: String): List<String> {
         return try {
-            val pattern = Regex("""(\d+):\s*'([^']*)'""")
-            val matches = pattern.findAll(value)
-            val namesMap = mutableMapOf<Int, String>()
+            Log.d("OnnxWrapper", "解析Python字典: $value")
             
-            for (match in matches) {
-                val index = match.groupValues[1].toInt()
-                val name = match.groupValues[2]
-                namesMap[index] = name
+            val namesMap = mutableMapOf<Int, String>()
+            var currentIndex = -1
+            var currentName = StringBuilder()
+            var inString = false
+            var inKey = true
+            var stringQuoteChar = ' '
+            
+            // 手动解析字典格式
+            for (i in value.indices) {
+                val char = value[i]
+                
+                when {
+                    // 检测键的开始（数字）
+                    inKey && char.isDigit() -> {
+                        currentIndex = char.toString().toInt()
+                        // 处理多位数
+                        var j = i + 1
+                        while (j < value.length && value[j].isDigit()) {
+                            currentIndex = currentIndex * 10 + value[j].toString().toInt()
+                            j++
+                        }
+                        Log.d("OnnxWrapper", "找到索引: $currentIndex")
+                    }
+                    // 检测键值分隔符
+                    inKey && char == ':' -> {
+                        inKey = false
+                        Log.d("OnnxWrapper", "切换到值解析")
+                    }
+                    // 检测字符串开始
+                    !inKey && !inString && (char == '\'' || char == '"') -> {
+                        inString = true
+                        stringQuoteChar = char
+                        currentName = StringBuilder()
+                        Log.d("OnnxWrapper", "开始解析字符串值")
+                    }
+                    // 检测字符串结束
+                    !inKey && inString && char == stringQuoteChar -> {
+                        inString = false
+                        inKey = true
+                        
+                        val name = currentName.toString()
+                        if (currentIndex != -1 && name.isNotEmpty()) {
+                            namesMap[currentIndex] = name
+                            Log.d("OnnxWrapper", "添加类别: $currentIndex -> $name")
+                        }
+                        
+                        currentIndex = -1
+                        Log.d("OnnxWrapper", "完成解析字符串值")
+                    }
+                    // 在字符串中收集字符
+                    !inKey && inString -> {
+                        currentName.append(char)
+                    }
+                    // 跳过空格和逗号
+                    char.isWhitespace() || char == ',' -> {
+                        // 忽略空白和分隔符
+                    }
+                }
             }
             
+            Log.d("OnnxWrapper", "总共找到 ${namesMap.size} 个类别")
+            
             // 按索引排序返回
-            namesMap.toSortedMap().values.toList()
+            val sortedNames = namesMap.toSortedMap().values.toList()
+            Log.d("OnnxWrapper", "排序后的类别: ${sortedNames.joinToString()}")
+            
+            sortedNames
         } catch (e: Exception) {
             Log.w("OnnxWrapper", "Failed to parse Python dict: $value", e)
             emptyList()
