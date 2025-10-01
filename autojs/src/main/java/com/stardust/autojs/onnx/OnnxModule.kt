@@ -461,6 +461,16 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         }
     }
 
+/**
+ * 获取检测器元数据信息
+ */
+@android.webkit.JavascriptInterface
+fun getDetectorMetadata(name: String): String {
+    val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
+    val metadataInfo = d.getMetadataInfo()
+    return org.json.JSONObject(metadataInfo).toString()
+}
+    
     @android.webkit.JavascriptInterface
     fun debugDetectorOutput(name: String, imagePath: String): String {
         val d = detectors[name] ?: throw IllegalArgumentException("Detector $name not loaded")
