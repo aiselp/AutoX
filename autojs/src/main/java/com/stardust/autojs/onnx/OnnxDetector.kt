@@ -66,8 +66,8 @@ class OnnxDetector(
             val outputDim = try {
                 // 尝试从输出维度推断类别数量
                 val dummyInput = FloatArray(3 * effectiveInputSize * effectiveInputSize) { 0.1f }
-                val output = predict(dummyInput)
-                output.size
+                val outputs = predict(dummyInput)
+                outputs[0].size
             } catch (e: Exception) {
                 -1
             }
@@ -161,11 +161,18 @@ class OnnxDetector(
     data class DetectionResult(val label: String, val score: Float, val box: FloatArray)
 
     /**
+     * 预测方法 - 修复编译错误
+     */
+    private fun predict(input: FloatArray): List<FloatArray> {
+        val w = wrapper ?: throw IllegalStateException("Model not loaded")
+        return w.run(FloatBuffer.wrap(input))
+    }
+
+    /**
      * 使用预处理后的输入进行检测
      */
     fun detectWithInput(input: FloatArray, confThreshold: Float = 0.25f, iouThreshold: Float = 0.45f): List<DetectionResult> {
-        val w = wrapper ?: throw IllegalStateException("Model not loaded")
-        val outputs = w.run(FloatBuffer.wrap(input))
+        val outputs = predict(input)
         if (outputs.isEmpty()) {
             throw IllegalStateException("Model returned empty output")
         }
@@ -190,8 +197,7 @@ class OnnxDetector(
      */
     fun debugDetection(bitmap: android.graphics.Bitmap, confThreshold: Float = 0.25f, iouThreshold: Float = 0.45f): Map<String, Any> {
         val input = preprocessImageAuto(bitmap)
-        val w = wrapper ?: throw IllegalStateException("Model not loaded")
-        val outputs = w.run(java.nio.FloatBuffer.wrap(input))
+        val outputs = predict(input)
         if (outputs.isEmpty()) {
             throw IllegalStateException("Model returned empty output")
         }
@@ -312,8 +318,7 @@ class OnnxDetector(
     }
 
     fun debugOutput(input: FloatArray): Map<String, Any> {
-        val w = wrapper ?: throw IllegalStateException("Model not loaded")
-        val outputs = w.run(FloatBuffer.wrap(input))
+        val outputs = predict(input)
         if (outputs.isEmpty()) {
             throw IllegalStateException("Model returned empty output")
         }
