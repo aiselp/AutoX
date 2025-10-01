@@ -50,6 +50,11 @@ object YoloV8PostProcessor {
         val boxes = analyzeAndParseOutput(outputTensor, inputWidth, inputHeight, classNames.size, confThreshold)
         
         Log.d("YoloV8PostProcessor", "解析到的有效框数量: ${boxes.size}")
+        
+        // 调试：打印前几个框的信息
+        boxes.take(3).forEachIndexed { index, box ->
+            Log.d("YoloV8PostProcessor", "框${index + 1}: classId=${box.classId}, conf=${box.confidence}, box=[${box.x1}, ${box.y1}, ${box.x2}, ${box.y2}]")
+        }
 
         // 应用NMS
         val finalBoxes = nonMaxSuppression(boxes, iouThreshold)
@@ -58,7 +63,12 @@ object YoloV8PostProcessor {
 
         // 转换为 DetectionResult
         return finalBoxes.map { box ->
-            val label = classNames.getOrElse(box.classId) { "class_${box.classId}" }
+            val label = if (box.classId >= 0 && box.classId < classNames.size) {
+                classNames[box.classId]
+            } else {
+                Log.w("YoloV8PostProcessor", "无效的类别ID: ${box.classId}, 最大类别数: ${classNames.size}")
+                "class_${box.classId}"
+            }
             Log.d("YoloV8PostProcessor", "最终结果: $label - ${"%.3f".format(box.confidence)}")
             OnnxDetector.DetectionResult(
                 label = label,
