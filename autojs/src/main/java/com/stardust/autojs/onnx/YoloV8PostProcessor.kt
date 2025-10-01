@@ -44,6 +44,7 @@ object YoloV8PostProcessor {
         
         Log.d("YoloV8PostProcessor", "开始处理YOLOv8输出，长度: ${outputTensor.size}")
         Log.d("YoloV8PostProcessor", "输入尺寸: ${inputWidth}x${inputHeight}, 类别数: ${classNames.size}")
+        Log.d("YoloV8PostProcessor", "类别名称: $classNames")
         
         // 分析输出形状
         val boxes = analyzeAndParseOutput(outputTensor, inputWidth, inputHeight, classNames.size, confThreshold)
@@ -82,9 +83,9 @@ object YoloV8PostProcessor {
         Log.d("YoloV8PostProcessor", "总元素: $totalElements, 类别数: $numClasses")
         
         // YOLOv8 常见输出形状
-        // 格式1: [1, 4 + num_classes, 8400] - 最常见
-        // 格式2: [1, 84, 8400] - 80个类别 + 4个坐标
-        // 格式3: [8400, 4 + num_classes] - 转置格式
+        // 格式1: [1, 4 + num_classes, num_boxes] - 最常见
+        // 格式2: [1, 84, num_boxes] - 80个类别 + 4个坐标
+        // 格式3: [num_boxes, 4 + num_classes] - 转置格式
         
         val boxes = mutableListOf<DetectionBox>()
         
@@ -145,6 +146,12 @@ object YoloV8PostProcessor {
                     maxClassScore = score
                     maxClassId = c
                 }
+            }
+            
+            // 关键修复：确保类别ID在有效范围内
+            if (maxClassId < 0 || maxClassId >= numClasses) {
+                Log.w("YoloV8PostProcessor", "无效的类别ID: $maxClassId, 最大类别数: $numClasses")
+                continue
             }
             
             val confidence = sigmoid(maxClassScore)
@@ -208,6 +215,12 @@ object YoloV8PostProcessor {
                 }
             }
             
+            // 关键修复：确保类别ID在有效范围内
+            if (maxClassId < 0 || maxClassId >= numClasses) {
+                Log.w("YoloV8PostProcessor", "无效的类别ID: $maxClassId, 最大类别数: $numClasses")
+                continue
+            }
+            
             val confidence = sigmoid(maxClassScore)
             if (confidence < confThreshold) continue
             
@@ -243,7 +256,7 @@ object YoloV8PostProcessor {
         val boxDim = 4 + numClasses
         val numBoxes = outputTensor.size / boxDim
         
-        Log.d("YoloV8PostProcessor", "解析标准格式，检测框数量: $numBoxes")
+        Log.d("YoloV8PostProcessor", "解析标准格式，检测框数量: $numBoxes, 类别数: $numClasses")
         
         for (i in 0 until numBoxes) {
             val offset = i * boxDim
@@ -254,7 +267,7 @@ object YoloV8PostProcessor {
             val width = outputTensor[offset + 2]
             val height = outputTensor[offset + 3]
             
-            // 找到最大类别分数
+            // 找到最大类别分数和对应的类别ID
             var maxClassScore = -Float.MAX_VALUE
             var maxClassId = -1
             for (c in 0 until numClasses) {
@@ -263,6 +276,12 @@ object YoloV8PostProcessor {
                     maxClassScore = score
                     maxClassId = c
                 }
+            }
+            
+            // 关键修复：确保类别ID在有效范围内
+            if (maxClassId < 0 || maxClassId >= numClasses) {
+                Log.w("YoloV8PostProcessor", "无效的类别ID: $maxClassId, 最大类别数: $numClasses")
+                continue
             }
             
             val confidence = sigmoid(maxClassScore)
@@ -280,6 +299,15 @@ object YoloV8PostProcessor {
             val clampedX2 = max(0f, min(x2, inputWidth.toFloat()))
             val clampedY2 = max(0f, min(y2, inputHeight.toFloat()))
             
+            // 检查框是否有效
+            val boxWidth = clampedX2 - clampedX1
+            val boxHeight = clampedY2 - clampedY1
+            if (boxWidth <= 0 || boxHeight <= 0) continue
+            
+            if (boxes.size < 3) {
+                Log.d("YoloV8PostProcessor", "有效框${boxes.size + 1}: classId=$maxClassId, conf=${"%.3f".format(confidence)}, box=[${"%.1f".format(clampedX1)}, ${"%.1f".format(clampedY1)}, ${"%.1f".format(clampedX2)}, ${"%.1f".format(clampedY2)}]")
+            }
+            
             boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
         }
         
@@ -295,6 +323,8 @@ object YoloV8PostProcessor {
 
     private fun nonMaxSuppression(boxes: List<DetectionBox>, iouThreshold: Float): List<DetectionBox> {
         if (boxes.isEmpty()) return emptyList()
+        
+        Log.d("YoloV8PostProcessor", "开始NMS，输入框数量: ${boxes.size}")
         
         val sortedBoxes = boxes.sortedByDescending { it.confidence }.toMutableList()
         val selected = mutableListOf<DetectionBox>()
@@ -314,6 +344,7 @@ object YoloV8PostProcessor {
             sortedBoxes.addAll(remaining)
         }
         
+        Log.d("YoloV8PostProcessor", "NMS完成，输出框数量: ${selected.size}")
         return selected
     }
 
