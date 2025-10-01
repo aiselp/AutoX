@@ -252,13 +252,14 @@ class OnnxWrapper(modelPath: String) {
 
     // 获取所有元数据信息（用于调试）
     fun getMetadataInfo(): Map<String, Any> {
-        return mapOf(
-            "all_metadata" to metadata,
-            "class_names" to (metadataClassNames ?: "未找到"),
-            "input_size" to (metadataInputSize ?: "未找到"),
-            "input_shape" to (inputShape?.contentToString() ?: "未找到")
-        )
-    }
+    return mapOf(
+        "all_metadata" to metadata,
+        "class_names" to (metadataClassNames ?: "未找到"),
+        "input_size" to (metadataInputSize ?: "未找到"),
+        "input_shape" to (inputShape?.contentToString() ?: "未找到"),
+        "all_metadata_keys" to metadata.keys.toList()  // 修复这里
+    )
+}
 
     fun run(input: FloatBuffer): List<FloatArray> {
         val inputName = session.inputNames.iterator().next()
