@@ -44,7 +44,7 @@ class OnnxDetector(
     val effectiveInputHeight: Int
         get() = effectiveInputSize
 
-    // 获取有效的类别名称
+    // 获取有效的类别名称 - 修复版本
     val effectiveClassNames: List<String>
         get() {
             // 1. 优先使用用户设置的类别名称
@@ -58,11 +58,29 @@ class OnnxDetector(
             // 2. 使用元数据中的类别名称
             val fromMeta = wrapper?.metadataClassNames
             if (!fromMeta.isNullOrEmpty()) {
-                Log.d("OnnxDetector", "使用元数据类别名称: ${fromMeta.size} 个")
+                Log.d("OnnxDetector", "使用元数据类别名称: ${fromMeta.size} 个 - $fromMeta")
                 return fromMeta
             }
             
-            // 3. 使用默认的COCO类别名称
+            // 3. 根据类别数量生成默认名称
+            val outputDim = try {
+                // 尝试从输出维度推断类别数量
+                val dummyInput = FloatArray(3 * effectiveInputSize * effectiveInputSize) { 0.1f }
+                val output = predict(dummyInput)
+                output.size
+            } catch (e: Exception) {
+                -1
+            }
+            
+            if (outputDim > 0) {
+                val numClasses = outputDim - 4 // 减去4个坐标
+                if (numClasses > 0) {
+                    Log.w("OnnxDetector", "根据输出维度生成类别名称: $numClasses 个")
+                    return (0 until numClasses).map { "class_$it" }
+                }
+            }
+            
+            // 4. 使用默认的COCO类别名称
             Log.w("OnnxDetector", "使用默认COCO类别名称")
             return YoloV8PostProcessor.defaultClassNames
         }
@@ -79,6 +97,7 @@ class OnnxDetector(
         Log.d("OnnxDetector", "自动预处理配置: $config")
         Log.d("OnnxDetector", "自动输入尺寸: $effectiveInputSize")
         Log.d("OnnxDetector", "自动类别数量: ${effectiveClassNames.size}")
+        Log.d("OnnxDetector", "自动类别名称: $effectiveClassNames")
         
         // 记录详细的元数据信息
         wrapper?.metadata?.forEach { (key, value) ->
@@ -131,11 +150,12 @@ class OnnxDetector(
         Log.d("OnnxDetector", "检测模型加载完成，输入尺寸: ${inputWidth}x${inputHeight}")
         Log.d("OnnxDetector", "元数据类别: ${wrapper?.metadataClassNames}")
         Log.d("OnnxDetector", "自动输入尺寸: $effectiveInputSize")
+        Log.d("OnnxDetector", "自动类别名称: $effectiveClassNames")
     }
 
     fun setClassNames(names: List<String>) {
         _userClassNames = names
-        Log.d("OnnxDetector", "设置检测类别名称: ${names.size} 个类别")
+        Log.d("OnnxDetector", "设置检测类别名称: ${names.size} 个类别 - $names")
     }
 
     data class DetectionResult(val label: String, val score: Float, val box: FloatArray)
@@ -181,8 +201,8 @@ class OnnxDetector(
         
         result["output_size"] = outputTensor.size
         result["output_range"] = mapOf<String, Any>(
-            "min" to (outputTensor.minOrNull() ?: 0f),  // 修复：使用 minOrNull()
-            "max" to (outputTensor.maxOrNull() ?: 0f)   // 修复：使用 maxOrNull()
+            "min" to (outputTensor.minOrNull() ?: 0f),
+            "max" to (outputTensor.maxOrNull() ?: 0f)
         )
         
         // 分析输出结构
@@ -200,7 +220,7 @@ class OnnxDetector(
         
         // 尝试处理几个框看看
         val sampleBoxes = mutableListOf<Map<String, Any>>()
-        val numBoxes = kotlin.math.min(5, outputTensor.size / expectedDim)  // 修复：使用完整限定名
+        val numBoxes = kotlin.math.min(5, outputTensor.size / expectedDim)
         
         for (i in 0 until numBoxes) {
             val offset = i * expectedDim
@@ -218,7 +238,7 @@ class OnnxDetector(
                 classScores.add(outputTensor[offset + 4 + c])
             }
             boxInfo["class_scores"] = classScores
-            boxInfo["max_score"] = classScores.maxOrNull() ?: 0f  // 修复：使用 maxOrNull()
+            boxInfo["max_score"] = classScores.maxOrNull() ?: 0f
             boxInfo["confidence"] = sigmoid(classScores.maxOrNull() ?: 0f)
             
             sampleBoxes.add(boxInfo)
@@ -264,6 +284,22 @@ class OnnxDetector(
     }
 
     /**
+     * 获取检测器元数据信息
+     */
+    fun getMetadataInfo(): Map<String, Any> {
+        val wrapper = wrapper ?: return mapOf("error" to "No wrapper")
+        val metadataInfo = wrapper.getMetadataInfo()
+        
+        // 添加类别名称信息
+        val result = mutableMapOf<String, Any>()
+        result.putAll(metadataInfo)
+        result["effective_class_names"] = effectiveClassNames
+        result["effective_class_count"] = effectiveClassNames.size
+        
+        return result
+    }
+
+    /**
      * 获取输入尺寸信息
      */
     fun getInputSizeInfo(): Map<String, Any> {
@@ -288,8 +324,8 @@ class OnnxDetector(
         result["output_size"] = outputTensor.size
         result["output_sample"] = outputTensor.take(20).toList()
         result["output_range"] = mapOf<String, Any>(
-            "min" to (outputTensor.minOrNull() ?: 0f),  // 修复：使用 minOrNull()
-            "max" to (outputTensor.maxOrNull() ?: 0f)   // 修复：使用 maxOrNull()
+            "min" to (outputTensor.minOrNull() ?: 0f),
+            "max" to (outputTensor.maxOrNull() ?: 0f)
         )
         
         // 分析输出结构
