@@ -1,4 +1,4 @@
-// autojs/src/main/java/com/stardust/autojs/onnx/OnnxDetector.kt
+// autojjs/src/main/java/com/stardust/autojs/onnx/OnnxDetector.kt
 package com.stardust.autojs.onnx
 
 import android.util.Log
@@ -62,22 +62,17 @@ class OnnxDetector(
                 return fromMeta
             }
             
-            // 3. 根据类别数量生成默认名称
-            val outputDim = try {
-                // 尝试从输出维度推断类别数量
-                val dummyInput = FloatArray(3 * effectiveInputSize * effectiveInputSize) { 0.1f }
-                val outputs = predict(dummyInput)
-                outputs[0].size
+            // 3. 根据输出维度推断类别数量
+            val numClasses = try {
+                val outputInfo = getOutputDimensionInfo()
+                outputInfo["num_classes"] as? Int ?: -1
             } catch (e: Exception) {
                 -1
             }
             
-            if (outputDim > 0) {
-                val numClasses = outputDim - 4 // 减去4个坐标
-                if (numClasses > 0) {
-                    Log.w("OnnxDetector", "根据输出维度生成类别名称: $numClasses 个")
-                    return (0 until numClasses).map { "class_$it" }
-                }
+            if (numClasses > 0) {
+                Log.w("OnnxDetector", "根据输出维度推断类别数量: $numClasses 个")
+                return (0 until numClasses).map { "class_$it" }
             }
             
             // 4. 使用默认的COCO类别名称
@@ -106,6 +101,66 @@ class OnnxDetector(
         
         // 验证模型配置
         validateModelConfiguration()
+        
+        // 调试输出维度信息
+        val outputInfo = getOutputDimensionInfo()
+        Log.d("OnnxDetector", "输出维度信息: $outputInfo")
+    }
+
+    /**
+     * 获取输出维度信息
+     */
+    private fun getOutputDimensionInfo(): Map<String, Any> {
+        return try {
+            val inputSize = effectiveInputSize
+            val dummyInput = FloatArray(3 * inputSize * inputSize) { 0.1f }
+            val outputs = predict(dummyInput)
+            if (outputs.isEmpty()) {
+                return mapOf("error" to "No output")
+            }
+            
+            val outputTensor = outputs[0]
+            val result = mutableMapOf<String, Any>()
+            result["output_size"] = outputTensor.size
+            result["output_range"] = mapOf(
+                "min" to (outputTensor.minOrNull() ?: 0f),
+                "max" to (outputTensor.maxOrNull() ?: 0f)
+            )
+            
+            // 分析可能的输出格式
+            val numClasses = effectiveClassNames.size
+            val expectedDim = 4 + numClasses
+            
+            if (outputTensor.size % expectedDim == 0) {
+                result["detected_format"] = "YOLOv8标准格式"
+                result["num_boxes"] = outputTensor.size / expectedDim
+                result["num_classes"] = numClasses
+                result["expected_dim"] = expectedDim
+            } else if (outputTensor.size % 84 == 0) {
+                result["detected_format"] = "84维格式"
+                result["num_boxes"] = outputTensor.size / 84
+                result["num_classes"] = 80 // COCO标准
+                result["expected_dim"] = 84
+            } else {
+                result["detected_format"] = "未知格式"
+                // 尝试推断类别数量
+                for (nc in 1..1000) {
+                    if (outputTensor.size % (4 + nc) == 0) {
+                        val nb = outputTensor.size / (4 + nc)
+                        if (nb > 0 && nb < 10000) {
+                            result["inferred_num_classes"] = nc
+                            result["inferred_num_boxes"] = nb
+                            break
+                        }
+                    }
+                }
+            }
+            
+            result
+        } catch (e: Exception) {
+            Log.w("OnnxDetector", "获取输出维度信息失败", e)
+            mapOf("error" to e.message ?: "Unknown error")
+        }
     }
 
     /**
@@ -137,7 +192,7 @@ class OnnxDetector(
     }
 
     /**
-     * 完全自动化的目标检测
+     * 完全自动化的目标检测 - 修复版本
      */
     fun detectAuto(bitmap: android.graphics.Bitmap, confThreshold: Float = 0.25f, iouThreshold: Float = 0.45f): List<DetectionResult> {
         val input = preprocessImageAuto(bitmap)
@@ -148,7 +203,6 @@ class OnnxDetector(
     fun loadModel(path: String) {
         wrapper = OnnxWrapper(path)
         Log.d("OnnxDetector", "检测模型加载完成，输入尺寸: ${inputWidth}x${inputHeight}")
-        Log.d("OnnxDetector", "元数据类别: ${wrapper?.metadataClassNames}")
         Log.d("OnnxDetector", "自动输入尺寸: $effectiveInputSize")
         Log.d("OnnxDetector", "自动类别名称: $effectiveClassNames")
     }
@@ -161,7 +215,7 @@ class OnnxDetector(
     data class DetectionResult(val label: String, val score: Float, val box: FloatArray)
 
     /**
-     * 预测方法 - 修复编译错误
+     * 预测方法
      */
     private fun predict(input: FloatArray): List<FloatArray> {
         val w = wrapper ?: throw IllegalStateException("Model not loaded")
@@ -169,7 +223,7 @@ class OnnxDetector(
     }
 
     /**
-     * 使用预处理后的输入进行检测
+     * 使用预处理后的输入进行检测 - 修复版本
      */
     fun detectWithInput(input: FloatArray, confThreshold: Float = 0.25f, iouThreshold: Float = 0.45f): List<DetectionResult> {
         val outputs = predict(input)
@@ -177,6 +231,8 @@ class OnnxDetector(
             throw IllegalStateException("Model returned empty output")
         }
 
+        Log.d("OnnxDetector", "开始后处理，输出长度: ${outputs[0].size}, 类别数: ${effectiveClassNames.size}")
+        
         return YoloV8PostProcessor.process(
             outputTensor = outputs[0],
             inputWidth = effectiveInputWidth,
@@ -224,7 +280,17 @@ class OnnxDetector(
             result["detected_format"] = "未知格式"
         }
         
-        // 尝试处理几个框看看
+        // 处理并返回实际检测结果用于调试
+        val detectionResults = detectWithInput(input, confThreshold, iouThreshold)
+        result["actual_detections"] = detectionResults.map { 
+            mapOf(
+                "label" to it.label,
+                "score" to it.score,
+                "box" to it.box.toList()
+            )
+        }
+        
+        // 尝试处理几个框看看原始输出
         val sampleBoxes = mutableListOf<Map<String, Any>>()
         val numBoxes = kotlin.math.min(5, outputTensor.size / expectedDim)
         
@@ -245,7 +311,8 @@ class OnnxDetector(
             }
             boxInfo["class_scores"] = classScores
             boxInfo["max_score"] = classScores.maxOrNull() ?: 0f
-            boxInfo["confidence"] = sigmoid(classScores.maxOrNull() ?: 0f)
+            boxInfo["max_class_id"] = classScores.indexOf(classScores.maxOrNull() ?: 0f)
+            boxInfo["confidence"] = YoloV8PostProcessor.sigmoid(classScores.maxOrNull() ?: 0f)
             
             sampleBoxes.add(boxInfo)
         }
@@ -253,10 +320,6 @@ class OnnxDetector(
         result["sample_boxes"] = sampleBoxes
         
         return result
-    }
-
-    private fun sigmoid(x: Float): Float {
-        return (1.0f / (1.0f + kotlin.math.exp(-x)))
     }
 
     /**
