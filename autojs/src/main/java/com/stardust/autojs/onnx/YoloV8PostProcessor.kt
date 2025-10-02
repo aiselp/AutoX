@@ -27,7 +27,8 @@ object YoloV8PostProcessor {
         val x2: Float,
         val y2: Float,
         val confidence: Float,
-        val classId: Int
+        val classId: Int,
+        val className: String = "" // 添加类名字段用于调试
     )
 
     /**
@@ -47,13 +48,13 @@ object YoloV8PostProcessor {
         Log.d("YoloV8PostProcessor", "类别名称: $classNames")
         
         // 分析输出形状
-        val boxes = analyzeAndParseOutput(outputTensor, inputWidth, inputHeight, classNames.size, confThreshold)
+        val boxes = analyzeAndParseOutput(outputTensor, inputWidth, inputHeight, classNames.size, confThreshold, classNames)
         
         Log.d("YoloV8PostProcessor", "解析到的有效框数量: ${boxes.size}")
         
         // 调试：打印前几个框的信息
         boxes.take(3).forEachIndexed { index, box ->
-            Log.d("YoloV8PostProcessor", "框${index + 1}: classId=${box.classId}, conf=${box.confidence}, box=[${box.x1}, ${box.y1}, ${box.x2}, ${box.y2}]")
+            Log.d("YoloV8PostProcessor", "框${index + 1}: classId=${box.classId}(${box.className}), conf=${box.confidence}, box=[${box.x1}, ${box.y1}, ${box.x2}, ${box.y2}]")
         }
 
         // 应用NMS
@@ -79,61 +80,53 @@ object YoloV8PostProcessor {
     }
 
     /**
-     * 分析并解析输出
+     * 分析并解析输出 - 修复版本
      */
     private fun analyzeAndParseOutput(
         outputTensor: FloatArray,
         inputWidth: Int,
         inputHeight: Int,
         numClasses: Int,
-        confThreshold: Float
+        confThreshold: Float,
+        classNames: List<String>
     ): List<DetectionBox> {
         
         val totalElements = outputTensor.size
         Log.d("YoloV8PostProcessor", "总元素: $totalElements, 类别数: $numClasses")
         
-        // YOLOv8 常见输出形状
-        // 格式1: [1, 4 + num_classes, num_boxes] - 最常见
-        // 格式2: [1, 84, num_boxes] - 80个类别 + 4个坐标
-        // 格式3: [num_boxes, 4 + num_classes] - 转置格式
+        // 尝试不同格式的解析
+        val formats = listOf(
+            ::parseTransposedFormat,
+            ::parse84DimFormat, 
+            ::parseStandardFormat
+        )
         
-        val boxes = mutableListOf<DetectionBox>()
-        
-        // 尝试格式1: [1, 4 + num_classes, num_boxes]
-        val expectedDim1 = 4 + numClasses
-        if (totalElements % expectedDim1 == 0) {
-            val numBoxes = totalElements / expectedDim1
-            Log.d("YoloV8PostProcessor", "尝试格式1: [1, $expectedDim1, $numBoxes]")
-            return parseTransposedFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
+        for (format in formats) {
+            try {
+                val boxes = format(outputTensor, inputWidth, inputHeight, numClasses, confThreshold, classNames)
+                if (boxes.isNotEmpty()) {
+                    Log.d("YoloV8PostProcessor", "成功使用格式: ${format.name}")
+                    return boxes
+                }
+            } catch (e: Exception) {
+                Log.w("YoloV8PostProcessor", "格式 ${format.name} 解析失败: ${e.message}")
+            }
         }
         
-        // 尝试格式2: [1, 84, num_boxes] - 固定84维度
-        if (totalElements % 84 == 0) {
-            val numBoxes = totalElements / 84
-            Log.d("YoloV8PostProcessor", "尝试格式2: [1, 84, $numBoxes]")
-            return parse84DimFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-        }
-        
-        // 尝试格式3: [num_boxes, 4 + num_classes]
-        val numBoxes3 = totalElements / (4 + numClasses)
-        if (numBoxes3 * (4 + numClasses) == totalElements) {
-            Log.d("YoloV8PostProcessor", "尝试格式3: [$numBoxes3, ${4 + numClasses}]")
-            return parseStandardFormat(outputTensor, inputWidth, inputHeight, numClasses, confThreshold)
-        }
-        
-        Log.e("YoloV8PostProcessor", "无法识别输出格式")
+        Log.e("YoloV8PostProcessor", "所有格式解析失败")
         return emptyList()
     }
 
     /**
-     * 解析转置格式: [1, 4 + num_classes, num_boxes]
+     * 解析转置格式: [1, 4 + num_classes, num_boxes] - 修复版本
      */
     private fun parseTransposedFormat(
         outputTensor: FloatArray,
         inputWidth: Int,
         inputHeight: Int,
         numClasses: Int,
-        confThreshold: Float
+        confThreshold: Float,
+        classNames: List<String>
     ): List<DetectionBox> {
         val boxes = mutableListOf<DetectionBox>()
         val numBoxes = outputTensor.size / (4 + numClasses)
@@ -184,21 +177,23 @@ object YoloV8PostProcessor {
             val boxHeight = clampedY2 - clampedY1
             if (boxWidth <= 0 || boxHeight <= 0) continue
             
-            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
+            val className = if (maxClassId < classNames.size) classNames[maxClassId] else "unknown"
+            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId, className))
         }
         
         return boxes
     }
 
     /**
-     * 解析84维度格式: [1, 84, num_boxes] - YOLOv8标准格式
+     * 解析84维度格式: [1, 84, num_boxes] - YOLOv8标准格式 - 修复版本
      */
     private fun parse84DimFormat(
         outputTensor: FloatArray,
         inputWidth: Int,
         inputHeight: Int,
         numClasses: Int,
-        confThreshold: Float
+        confThreshold: Float,
+        classNames: List<String>
     ): List<DetectionBox> {
         val boxes = mutableListOf<DetectionBox>()
         val numBoxes = outputTensor.size / 84
@@ -246,21 +241,23 @@ object YoloV8PostProcessor {
             val clampedX2 = max(0f, min(x2, inputWidth.toFloat()))
             val clampedY2 = max(0f, min(y2, inputHeight.toFloat()))
             
-            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
+            val className = if (maxClassId < classNames.size) classNames[maxClassId] else "unknown"
+            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId, className))
         }
         
         return boxes
     }
 
     /**
-     * 解析标准格式: [num_boxes, 4 + num_classes]
+     * 解析标准格式: [num_boxes, 4 + num_classes] - 修复版本
      */
     private fun parseStandardFormat(
         outputTensor: FloatArray,
         inputWidth: Int,
         inputHeight: Int,
         numClasses: Int,
-        confThreshold: Float
+        confThreshold: Float,
+        classNames: List<String>
     ): List<DetectionBox> {
         val boxes = mutableListOf<DetectionBox>()
         val boxDim = 4 + numClasses
@@ -314,11 +311,13 @@ object YoloV8PostProcessor {
             val boxHeight = clampedY2 - clampedY1
             if (boxWidth <= 0 || boxHeight <= 0) continue
             
+            val className = if (maxClassId < classNames.size) classNames[maxClassId] else "unknown"
+            
             if (boxes.size < 3) {
-                Log.d("YoloV8PostProcessor", "有效框${boxes.size + 1}: classId=$maxClassId, conf=${"%.3f".format(confidence)}, box=[${"%.1f".format(clampedX1)}, ${"%.1f".format(clampedY1)}, ${"%.1f".format(clampedX2)}, ${"%.1f".format(clampedY2)}]")
+                Log.d("YoloV8PostProcessor", "有效框${boxes.size + 1}: classId=$maxClassId($className), conf=${"%.3f".format(confidence)}, box=[${"%.1f".format(clampedX1)}, ${"%.1f".format(clampedY1)}, ${"%.1f".format(clampedX2)}, ${"%.1f".format(clampedY2)}]")
             }
             
-            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId))
+            boxes.add(DetectionBox(clampedX1, clampedY1, clampedX2, clampedY2, confidence, maxClassId, className))
         }
         
         return boxes
@@ -327,7 +326,7 @@ object YoloV8PostProcessor {
     /**
      * Sigmoid函数
      */
-    private fun sigmoid(x: Float): Float {
+    fun sigmoid(x: Float): Float {
         return (1.0f / (1.0f + exp(-x)))
     }
 
