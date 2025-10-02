@@ -96,20 +96,26 @@ object YoloV8PostProcessor {
         
         // 尝试不同格式的解析
         val formats = listOf(
-            ::parseTransposedFormat,
-            ::parse84DimFormat, 
-            ::parseStandardFormat
+            { tensor: FloatArray, width: Int, height: Int, nc: Int, thresh: Float, names: List<String> -> 
+                parseTransposedFormat(tensor, width, height, nc, thresh, names) 
+            },
+            { tensor: FloatArray, width: Int, height: Int, nc: Int, thresh: Float, names: List<String> -> 
+                parse84DimFormat(tensor, width, height, nc, thresh, names) 
+            },
+            { tensor: FloatArray, width: Int, height: Int, nc: Int, thresh: Float, names: List<String> -> 
+                parseStandardFormat(tensor, width, height, nc, thresh, names) 
+            }
         )
         
         for (format in formats) {
             try {
                 val boxes = format(outputTensor, inputWidth, inputHeight, numClasses, confThreshold, classNames)
                 if (boxes.isNotEmpty()) {
-                    Log.d("YoloV8PostProcessor", "成功使用格式: ${format.name}")
+                    Log.d("YoloV8PostProcessor", "成功使用格式解析")
                     return boxes
                 }
             } catch (e: Exception) {
-                Log.w("YoloV8PostProcessor", "格式 ${format.name} 解析失败: ${e.message}")
+                Log.w("YoloV8PostProcessor", "格式解析失败: ${e.message}")
             }
         }
         
