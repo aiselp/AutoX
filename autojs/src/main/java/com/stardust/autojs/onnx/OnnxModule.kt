@@ -17,7 +17,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
      * 完全自动化的检测器加载 - 推荐使用
      */
     @android.webkit.JavascriptInterface
-    fun loadDetectorFullAuto(name: String, path: String) {
+    fun loadDetectorAuto(name: String, path: String) {
         val detector = OnnxDetector(runtime)
         detector.loadModelAuto(path) // 使用完全自动化的加载
         
@@ -129,7 +129,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
      * 完全自动化的分类器加载 - 推荐使用
      */
     @android.webkit.JavascriptInterface
-    fun loadClassifierFullAuto(name: String, path: String) {
+    fun loadClassifierAuto(name: String, path: String) {
         val classifier = OnnxClassifier(runtime)
         classifier.loadModelAuto(path) // 使用完全自动化的加载
         
@@ -174,13 +174,6 @@ class OnnxModule(private val runtime: ScriptRuntime) {
         val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
         val configInfo = c.getPreprocessConfigInfo()
         return org.json.JSONObject(configInfo).toString()
-    }
-
-    // === 兼容性接口 ===
-
-    @android.webkit.JavascriptInterface
-    fun loadClassifierAuto(name: String, path: String) {
-        loadClassifierFullAuto(name, path)
     }
 
     // 原有的加载方法（保持兼容）
