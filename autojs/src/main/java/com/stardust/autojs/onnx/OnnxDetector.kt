@@ -1,4 +1,4 @@
-// autojjs/src/main/java/com/stardust/autojs/onnx/OnnxDetector.kt
+// autojs/src/main/java/com/stardust/autojs/onnx/OnnxDetector.kt
 package com.stardust.autojs.onnx
 
 import android.util.Log
@@ -65,7 +65,7 @@ class OnnxDetector(
             // 3. 根据输出维度推断类别数量
             val numClasses = try {
                 val outputInfo = getOutputDimensionInfo()
-                outputInfo["num_classes"] as? Int ?: -1
+                (outputInfo["num_classes"] as? Int) ?: -1
             } catch (e: Exception) {
                 -1
             }
@@ -159,7 +159,7 @@ class OnnxDetector(
             result
         } catch (e: Exception) {
             Log.w("OnnxDetector", "获取输出维度信息失败", e)
-            mapOf("error" to e.message ?: "Unknown error")
+            mapOf("error" to (e.message ?: "Unknown error"))
         }
     }
 
@@ -262,7 +262,7 @@ class OnnxDetector(
         val result = mutableMapOf<String, Any>()
         
         result["output_size"] = outputTensor.size
-        result["output_range"] = mapOf<String, Any>(
+        result["output_range"] = mapOf(
             "min" to (outputTensor.minOrNull() ?: 0f),
             "max" to (outputTensor.maxOrNull() ?: 0f)
         )
@@ -292,7 +292,7 @@ class OnnxDetector(
         
         // 尝试处理几个框看看原始输出
         val sampleBoxes = mutableListOf<Map<String, Any>>()
-        val numBoxes = kotlin.math.min(5, outputTensor.size / expectedDim)
+        val numBoxes = min(5, outputTensor.size / expectedDim)
         
         for (i in 0 until numBoxes) {
             val offset = i * expectedDim
@@ -391,7 +391,7 @@ class OnnxDetector(
         val result = mutableMapOf<String, Any>()
         result["output_size"] = outputTensor.size
         result["output_sample"] = outputTensor.take(20).toList()
-        result["output_range"] = mapOf<String, Any>(
+        result["output_range"] = mapOf(
             "min" to (outputTensor.minOrNull() ?: 0f),
             "max" to (outputTensor.maxOrNull() ?: 0f)
         )
