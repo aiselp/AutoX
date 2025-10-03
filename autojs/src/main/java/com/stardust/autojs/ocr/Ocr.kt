@@ -3,7 +3,7 @@ package com.stardust.autojs.ocr
 
 import android.graphics.Bitmap
 
-class RapidOCR(
+class OCR(
     private val detModelPath: String,
     private val recModelPath: String
 ) {
