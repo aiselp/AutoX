@@ -1,7 +1,9 @@
 // autojs/src/main/java/com/stardust/autojs/ocr/Rec.kt
 package com.stardust.autojs.ocr
 
-import ai.onnxruntime.*
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.TensorInfo
 import android.graphics.Bitmap
 
 class TextRecognizer(private val modelPath: String) {
