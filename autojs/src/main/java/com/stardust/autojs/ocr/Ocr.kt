@@ -1,6 +1,9 @@
 // autojs/src/main/java/com/stardust/autojs/ocr/Ocr.kt
 package com.stardust.autojs.ocr
 
+import ai.onnxruntime.OnnxTensor
+import ai.onnxruntime.OrtEnvironment
+import ai.onnxruntime.TensorInfo
 import android.graphics.Bitmap
 
 class OCR(
