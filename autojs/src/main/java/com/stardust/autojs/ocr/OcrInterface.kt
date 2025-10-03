@@ -10,64 +10,25 @@ import java.io.FileOutputStream
 class OcrInterface {
     private var ocr: OCR? = null
     private var context: Context? = null
-    private var useCache = true // 默认使用缓存
     
     fun setContext(context: Context) {
         this.context = context
     }
     
-    // 设置是否使用缓存（默认为true）
-    fun setUseCache(useCache: Boolean) {
-        this.useCache = useCache
-    }
-    
-    // 初始化
+    // 初始化 - 始终使用缓存模式
     fun init(): Boolean {
         return try {
             if (context == null) {
                 throw IllegalStateException("Context not set. Call setContext() first.")
             }
             
-            val detModelPath: String
-            val recModelPath: String
-            
-            if (useCache) {
-                // 复制到缓存
-                val cacheDir = context!!.cacheDir
-                detModelPath = copyAssetToCache("models/det.onnx", cacheDir)
-                recModelPath = copyAssetToCache("models/rec.onnx", cacheDir)
-                println("使用缓存模式：模型已复制到缓存目录")
-            } else {
-                // 直接使用assets路径（如果ONNX支持）
-                detModelPath = "asset://models/det.onnx"
-                recModelPath = "asset://models/rec.onnx"
-                println("使用直接模式：尝试从assets直接读取")
-            }
-            
-            ocr = OCR(detModelPath, recModelPath)
-            println("OCR初始化成功，词汇表大小: ${ocr!!.getVocabSize()}")
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // 如果直接模式失败，回退到缓存模式
-            if (!useCache) {
-                println("直接模式失败，尝试缓存模式")
-                return initWithCache()
-            }
-            false
-        }
-    }
-    
-    // 使用缓存模式初始化
-    private fun initWithCache(): Boolean {
-        return try {
-            useCache = true
             val cacheDir = context!!.cacheDir
             val detModelPath = copyAssetToCache("models/det.onnx", cacheDir)
             val recModelPath = copyAssetToCache("models/rec.onnx", cacheDir)
             
             ocr = OCR(detModelPath, recModelPath)
-            println("缓存模式初始化成功")
+            
+            println("OCR初始化成功，词汇表大小: ${ocr!!.getVocabSize()}")
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -75,68 +36,41 @@ class OcrInterface {
         }
     }
     
+    // 复制assets文件到缓存
     private fun copyAssetToCache(assetPath: String, cacheDir: File): String {
         return try {
             val outputFile = File(cacheDir, "ocr_${File(assetPath).name}")
             
-            // 检查文件是否已存在且是最新的
-            if (outputFile.exists() && isAssetNewer(assetPath, outputFile)) {
-                println("模型文件已存在且是最新的: ${outputFile.name}")
+            // 如果文件已存在，直接使用（避免重复复制）
+            if (outputFile.exists()) {
+                println("使用已缓存的模型文件: ${outputFile.name}")
                 return outputFile.absolutePath
             }
             
+            // 复制文件到缓存
             val inputStream = context!!.assets.open(assetPath)
             FileOutputStream(outputFile).use { output ->
                 inputStream.copyTo(output)
             }
             inputStream.close()
             
-            println("模型文件已复制到缓存: ${outputFile.name}")
+            println("模型文件已复制到缓存: ${outputFile.name} (${outputFile.length() / 1024 / 1024}MB)")
             outputFile.absolutePath
         } catch (e: Exception) {
             throw RuntimeException("复制模型文件失败: $assetPath", e)
         }
     }
     
-    // 检查assets中的文件是否比缓存文件新
-    private fun isAssetNewer(assetPath: String, cacheFile: File): Boolean {
-        // 这里简化处理，实际可以根据文件修改时间判断
-        // 对于assets，我们假设APK安装后不会改变，所以缓存文件总是有效的
-        return true
-    }
-    
-    // 清理缓存
-    fun clearCache(): Boolean {
-        return try {
-            val cacheDir = context!!.cacheDir
-            val modelFiles = cacheDir.listFiles { file -> 
-                file.name.startsWith("ocr_") && file.name.endsWith(".onnx")
-            }
-            
-            modelFiles?.forEach { it.delete() }
-            println("已清理 ${modelFiles?.size ?: 0} 个模型缓存文件")
-            true
-        } catch (e: Exception) {
-            e.printStackTrace()
-            false
-        }
-    }
-    
-    // 获取缓存信息
-    fun getCacheInfo(): String {
-        val cacheDir = context!!.cacheDir
-        val modelFiles = cacheDir.listFiles { file -> 
-            file.name.startsWith("ocr_") && file.name.endsWith(".onnx")
-        }
-        
-        return "缓存模式: $useCache, 缓存文件数: ${modelFiles?.size ?: 0}"
-    }
-    
-    // 其他方法保持不变...
+    // OCR识别方法
     fun recognize(bitmap: Bitmap): Array<Array<Any>> {
         val results = ocr?.ocr(bitmap) ?: return emptyArray()
+        
         return results.map { result ->
-            arrayOf(result.box.toTypedArray(), result.text, result.confidence)
+            arrayOf(
+                result.box.toTypedArray(),
+                result.text,
+                result.confidence
+            )
         }.toTypedArray()
     }
     
@@ -147,6 +81,7 @@ class OcrInterface {
             bitmap.recycle()
             results
         } else {
+            console.error("无法加载图片文件: $imagePath")
             emptyArray()
         }
     }
@@ -155,16 +90,56 @@ class OcrInterface {
         return try {
             val imageBytes = android.util.Base64.decode(base64Data, android.util.Base64.DEFAULT)
             val bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
-            val results = recognize(bitmap)
-            bitmap?.recycle()
-            results
+            if (bitmap != null) {
+                val results = recognize(bitmap)
+                bitmap.recycle()
+                results
+            } else {
+                console.error("Base64数据解码失败")
+                emptyArray()
+            }
         } catch (e: Exception) {
-            e.printStackTrace()
+            console.error("Base64识别失败: ${e.message}")
             emptyArray()
         }
     }
     
+    // 获取OCR状态信息
+    fun getStatus(): String {
+        return if (ocr != null) {
+            "OCR已初始化，词汇表大小: ${ocr!!.getVocabSize()}"
+        } else {
+            "OCR未初始化"
+        }
+    }
+    
+    // 清理缓存（可选）
+    fun clearCache(): Boolean {
+        return try {
+            val cacheDir = context!!.cacheDir
+            val modelFiles = cacheDir.listFiles { file -> 
+                file.name.startsWith("ocr_") && file.name.endsWith(".onnx")
+            }
+            
+            var deletedCount = 0
+            modelFiles?.forEach { 
+                if (it.delete()) {
+                    deletedCount++
+                }
+            }
+            
+            println("已清理 $deletedCount 个模型缓存文件")
+            true
+        } catch (e: Exception) {
+            console.error("清理缓存失败: ${e.message}")
+            false
+        }
+    }
+    
+    // 释放资源
     fun release() {
         ocr?.close()
+        ocr = null
+        println("OCR资源已释放")
     }
 }
