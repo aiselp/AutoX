@@ -1,4 +1,5 @@
-package com.rapidocr
+// autojs/src/main/java/com/stardust/autojs/ocr/Rec.kt
+package com.stardust.autojs.ocr
 
 import ai.onnxruntime.*
 import android.graphics.Bitmap
