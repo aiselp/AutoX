@@ -1,4 +1,5 @@
-package com.rapidocr
+// autojs/src/main/java/com/stardust/autojs/ocr/OcrInterface.kt
+package com.stardust.autojs.ocr
 
 import android.content.Context
 import android.graphics.Bitmap
