@@ -17,6 +17,7 @@ class OCR(
     private fun loadModels() {
         detector = DBDetector(detModelPath)
         recognizer = TextRecognizer(recModelPath)
+        println("模型加载完成 - 检测器: ${detector != null}, 识别器: ${recognizer != null}")
     }
     
     fun ocr(bitmap: Bitmap): List<OCRResult> {
@@ -25,8 +26,9 @@ class OCR(
         try {
             // 1. 文本检测
             val boxes = detector!!.detect(bitmap)
+            println("检测到 ${boxes.size} 个文本区域")
             
-            for (box in boxes) {
+            for ((index, box) in boxes.withIndex()) {
                 // 2. 文本区域裁剪
                 val textBitmap = cropTextBox(bitmap, box)
                 
@@ -35,12 +37,13 @@ class OCR(
                 
                 if (text.isNotEmpty()) {
                     results.add(OCRResult(box, text, 0.9f))
+                    println("区域 ${index + 1}: $text")
                 }
                 
                 textBitmap.recycle()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            console.error("OCR处理失败: ${e.message}")
         }
         
         return results
@@ -55,6 +58,7 @@ class OCR(
         return if (width > 0 && height > 0) {
             Bitmap.createBitmap(bitmap, x, y, width, height)
         } else {
+            // 如果裁剪区域无效，返回原图（避免崩溃）
             bitmap
         }
     }
@@ -66,11 +70,29 @@ class OCR(
     fun close() {
         detector?.close()
         recognizer?.close()
+        println("OCR模型已关闭")
     }
     
     data class OCRResult(
         val box: FloatArray,
         val text: String,
         val confidence: Float
-    )
+    ) {
+        override fun equals(other: Any?): Boolean {
+            if (this === other) return true
+            if (javaClass != other?.javaClass) return false
+            other as OCRResult
+            if (!box.contentEquals(other.box)) return false
+            if (text != other.text) return false
+            if (confidence != other.confidence) return false
+            return true
+        }
+        
+        override fun hashCode(): Int {
+            var result = box.contentHashCode()
+            result = 31 * result + text.hashCode()
+            result = 31 * result + confidence.hashCode()
+            return result
+        }
+    }
 }
