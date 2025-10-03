@@ -7,8 +7,8 @@ import android.graphics.BitmapFactory
 import java.io.File
 import java.io.FileOutputStream
 
-class RapidOCRInterface {
-    private var rapidOCR: RapidOCR? = null
+class OcrInterface {
+    private var ocr: OCR? = null
     private var context: Context? = null
     
     fun setContext(context: Context) {
@@ -26,9 +26,9 @@ class RapidOCRInterface {
             val detModelPath = copyAssetToCache("models/det.onnx", cacheDir)
             val recModelPath = copyAssetToCache("models/rec.onnx", cacheDir)
             
-            rapidOCR = RapidOCR(detModelPath, recModelPath)
+            ocr = OCR(detModelPath, recModelPath)
             
-            println("OCR初始化成功，词汇表大小: ${rapidOCR!!.getVocabSize()}")
+            println("OCR初始化成功，词汇表大小: ${ocr!!.getVocabSize()}")
             true
         } catch (e: Exception) {
             e.printStackTrace()
@@ -53,7 +53,7 @@ class RapidOCRInterface {
     }
     
     fun recognize(bitmap: Bitmap): Array<Array<Any>> {
-        val results = rapidOCR?.ocr(bitmap) ?: return emptyArray()
+        val results = ocr?.ocr(bitmap) ?: return emptyArray()
         
         return results.map { result ->
             arrayOf(
@@ -89,6 +89,6 @@ class RapidOCRInterface {
     }
     
     fun release() {
-        rapidOCR?.close()
+        ocr?.close()
     }
 }
