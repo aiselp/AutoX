@@ -23,7 +23,7 @@ jobs:
         with:
           node-version: 20.x
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v5
 
       - run: chmod 777 ./gradlew
 
