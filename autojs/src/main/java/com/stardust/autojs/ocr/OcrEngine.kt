@@ -22,7 +22,6 @@ import com.stardust.autojs.runtime.ScriptRuntime
 import android.util.Log
 
 
-@android.webkit.JavascriptInterface
 class OcrEngine(context: Context) : Closeable {
 
     private val assetManager: AssetManager = context.assets
