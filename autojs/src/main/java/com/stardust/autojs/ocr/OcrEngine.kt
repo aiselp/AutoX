@@ -5,9 +5,7 @@ import ai.onnxruntime.OrtEnvironment
 import android.content.Context
 import android.content.res.AssetManager
 import android.graphics.Bitmap
-import com.stardust.autojs.ocr.OcrResult
-import com.stardust.autojs.ocr.ScaleParam
-import com.orhanobut.logger.Logger
+import android.util.Log
 import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.android.Utils.matToBitmap
@@ -18,12 +16,10 @@ import org.opencv.core.TickMeter
 import org.opencv.imgproc.Imgproc.*
 import java.io.Closeable
 import java.lang.Integer.max
-import com.stardust.autojs.runtime.ScriptRuntime
-import android.util.Log
-
 
 class OcrEngine(context: Context) : Closeable {
 
+    private val TAG = "OcrEngine"
     private val assetManager: AssetManager = context.assets
 
     private val ortEnv by lazy { OrtEnvironment.getEnvironment() }
@@ -36,9 +32,9 @@ class OcrEngine(context: Context) : Closeable {
 
     init {
         if (OpenCVLoader.initDebug()) {
-            Log.i("OpenCV library found inside package.")
+            Log.i(TAG, "OpenCV library found inside package.")
         } else {
-            Logger.e("Internal OpenCV library not found.")
+            Log.e(TAG, "Internal OpenCV library not found.")
             throw UnsatisfiedLinkError("Internal OpenCV library not found.")
         }
     }
@@ -47,19 +43,6 @@ class OcrEngine(context: Context) : Closeable {
         ortEnv.close()
     }
 
-    /**
-     * 进行一次完整识别.
-     * 一次完整识别包括3个步骤：1检测(det)，2方向分类(cls)，3识别(rec)
-     * @param bmp 输入的图片
-     * @param scaleUp 放大使能；禁用时只进行图片缩小，不进行放大；启用时，原图长边小于maxSideLen时会放大，原图长边大于maxSideLen时会缩小
-     * @param maxSideLen 长边缩放(单位像素)，把原始图片以长边为基准等比例缩放，用于减少检测(det)耗时，0代表不缩放，如果原始图片长边小于32，则缩放到32
-     * @param padding 增加白边(单位像素)，太靠近边缘的文字检测(det)效果不佳，通过增加此值来提升识别率
-     * @param boxScoreThresh 文字框置信度门限，检测(det)没有正确框出所有文字时，减小此值
-     * @param boxThresh 用于过滤检测过程中的噪点
-     * @param unClipRatio 文字框大小倍率，越大时单个文字框越大
-     * @param doCls 文字方向分类，只有图片倒置的情况下(旋转90~270度的图片)，才需要启用此项
-     * @param mostCls 文字方向投票(关闭时每行方向独立，开启时以最大概率作为全文方向)，当禁用文字方向分类时，此项也不起作用
-     */
     @android.webkit.JavascriptInterface
     fun detect(
         bmp: Bitmap,
@@ -71,17 +54,17 @@ class OcrEngine(context: Context) : Closeable {
         unClipRatio: Float = 1.5f,
         doCls: Boolean = true,
         mostCls: Boolean = true
-    ): OcrResult {
-        Log.i("=====Prepare=====")
-        Log.i("Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
+    ): String {
+        Log.i(TAG, "=====Prepare=====")
+        Log.i(TAG, "Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
 
-        Log.i("---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
+        Log.i(TAG, "---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
         val inputRGBA = Mat(bmp.width, bmp.height, CvType.CV_8UC4)
         Utils.bitmapToMat(bmp, inputRGBA)
         val inputBGR = Mat()
         cvtColor(inputRGBA, inputBGR, COLOR_RGBA2BGR)
 
-        Log.i("---------- step: Resize ----------")
+        Log.i(TAG, "---------- step: Resize ----------")
         val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
         var resize = if (scaleUp) {
             //支持放大和缩小
@@ -91,16 +74,23 @@ class OcrEngine(context: Context) : Closeable {
             if (maxSideLen <= 0 || originMaxSide < maxSideLen) originMaxSide else maxSideLen
         }
         resize += 2 * padding
-        Log.i("resize=$resize")
+        Log.i(TAG, "resize=$resize")
         val paddingRect = Rect(padding, padding, inputBGR.cols(), inputBGR.rows())
         val paddingSrc = makePadding(inputBGR, padding)
         val s = getScaleParam(paddingSrc, resize)
-        Log.i("$s")
+        Log.i(TAG, "$s")
 
         val ocrResult = fullDetect(paddingSrc, paddingRect, s, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
-        Log.i(ocrResult.toString())
+        Log.i(TAG, ocrResult.toString())
 
-        return ocrResult
+        // 返回 JSON 字符串
+        return """{
+            "text": "${ocrResult.text}",
+            "fullTime": ${ocrResult.fullTime},
+            "detTime": ${ocrResult.detTime},
+            "recTime": ${ocrResult.recTime},
+            "clsTime": ${ocrResult.clsTime}
+        }"""
     }
 
     private fun fullDetect(
@@ -116,28 +106,27 @@ class OcrEngine(context: Context) : Closeable {
         val fullTickMeter = TickMeter().apply { start() }
         val textBoxPaddingImg = src.clone()
         val thickness = getThickness(src)
-        Log.i("=====Start detect=====")
+        Log.i(TAG, "=====Start detect=====")
 
         val detTickMeter = TickMeter().apply { start() }
-        Log.i("---------- step: Get DetResults ----------")
+        Log.i(TAG, "---------- step: Get DetResults ----------")
         val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
         detTickMeter.stop()
 
-        Log.i("---------- step: Draw TextBoxes ----------")
+        Log.i(TAG, "---------- step: Draw TextBoxes ----------")
         drawTextBoxes(textBoxPaddingImg, detResults, thickness)
 
-        Log.i("---------- step: Get PartMats ----------")
+        Log.i(TAG, "---------- step: Get PartMats ----------")
         val partMats = getPartMats(src, detResults)
 
         val clsTickMeter = TickMeter().apply { start() }
         val clsResults = if (doCls) {
-            Log.i("---------- step: Get ClsResults ----------")
+            Log.i(TAG, "---------- step: Get ClsResults ----------")
             val results = cls.getClsResults(partMats)
             if (mostCls) {
                 results.map {
                     val sum = results.map { it.index }.sum().toFloat()
                     val halfPercent = results.size.toFloat() / 2.0F
-                    //Log.i("sum=$sum,halfPercent=$halfPercent")
                     val mostAngleIndex = if (sum < halfPercent) 0 else 1
                     it.copy(index = mostAngleIndex)
                 }
@@ -146,7 +135,7 @@ class OcrEngine(context: Context) : Closeable {
         clsTickMeter.stop()
 
         val clsPartMats = if (doCls) {
-            Log.i("---------- step: Rotate partImages ----------")
+            Log.i(TAG, "---------- step: Rotate partImages ----------")
             partMats.mapIndexed { index, mat ->
                 if (clsResults[index].index == 1) {
                     matRotateClockWise180(mat)
@@ -155,11 +144,11 @@ class OcrEngine(context: Context) : Closeable {
         } else partMats
 
         val recTickMeter = TickMeter().apply { start() }
-        Log.i("---------- step: Get RecResults ----------")
+        Log.i(TAG, "---------- step: Get RecResults ----------")
         val recResults = rec.getRecResults(clsPartMats)
         recTickMeter.stop()
 
-        Log.i("---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
+        Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
         val outRGBA = Mat()
         cvtColor(textBoxPaddingImg.submat(paddingRect), outRGBA, COLOR_BGR2RGBA)
         val boxImage = Bitmap.createBitmap(
@@ -182,11 +171,9 @@ class OcrEngine(context: Context) : Closeable {
         )
     }
 
-
     companion object {
-        // PP-OCRv5 模型文件
         private const val DET_NAME = "ch_PP-OCRv5_det_infer.onnx"
-        private const val CLS_NAME = "ch_ppocr_mobile_v2.0_cls_infer.onnx"  // 分类器可以继续使用v2版本
+        private const val CLS_NAME = "ch_ppocr_mobile_v2.0_cls_infer.onnx"
         private const val REC_NAME = "ch_PP-OCRv5_rec_infer.onnx"
         private const val KEYS_NAME = "ppocr_keys_v1.txt"
     }
