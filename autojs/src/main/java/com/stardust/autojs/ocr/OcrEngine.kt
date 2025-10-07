@@ -19,6 +19,7 @@ import org.opencv.imgproc.Imgproc.*
 import java.io.Closeable
 import java.lang.Integer.max
 import com.stardust.autojs.runtime.ScriptRuntime
+import android.util.Log
 
 
 @android.webkit.JavascriptInterface
@@ -36,7 +37,7 @@ class OcrEngine(context: Context) : Closeable {
 
     init {
         if (OpenCVLoader.initDebug()) {
-            Logger.i("OpenCV library found inside package.")
+            Log.i("OpenCV library found inside package.")
         } else {
             Logger.e("Internal OpenCV library not found.")
             throw UnsatisfiedLinkError("Internal OpenCV library not found.")
@@ -72,16 +73,16 @@ class OcrEngine(context: Context) : Closeable {
         doCls: Boolean = true,
         mostCls: Boolean = true
     ): OcrResult {
-        Logger.i("=====Prepare=====")
-        Logger.i("Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
+        Log.i("=====Prepare=====")
+        Log.i("Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
 
-        Logger.i("---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
+        Log.i("---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
         val inputRGBA = Mat(bmp.width, bmp.height, CvType.CV_8UC4)
         Utils.bitmapToMat(bmp, inputRGBA)
         val inputBGR = Mat()
         cvtColor(inputRGBA, inputBGR, COLOR_RGBA2BGR)
 
-        Logger.i("---------- step: Resize ----------")
+        Log.i("---------- step: Resize ----------")
         val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
         var resize = if (scaleUp) {
             //支持放大和缩小
@@ -91,14 +92,14 @@ class OcrEngine(context: Context) : Closeable {
             if (maxSideLen <= 0 || originMaxSide < maxSideLen) originMaxSide else maxSideLen
         }
         resize += 2 * padding
-        Logger.i("resize=$resize")
+        Log.i("resize=$resize")
         val paddingRect = Rect(padding, padding, inputBGR.cols(), inputBGR.rows())
         val paddingSrc = makePadding(inputBGR, padding)
         val s = getScaleParam(paddingSrc, resize)
-        Logger.i("$s")
+        Log.i("$s")
 
         val ocrResult = fullDetect(paddingSrc, paddingRect, s, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
-        Logger.i(ocrResult.toString())
+        Log.i(ocrResult.toString())
 
         return ocrResult
     }
@@ -116,28 +117,28 @@ class OcrEngine(context: Context) : Closeable {
         val fullTickMeter = TickMeter().apply { start() }
         val textBoxPaddingImg = src.clone()
         val thickness = getThickness(src)
-        Logger.i("=====Start detect=====")
+        Log.i("=====Start detect=====")
 
         val detTickMeter = TickMeter().apply { start() }
-        Logger.i("---------- step: Get DetResults ----------")
+        Log.i("---------- step: Get DetResults ----------")
         val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
         detTickMeter.stop()
 
-        Logger.i("---------- step: Draw TextBoxes ----------")
+        Log.i("---------- step: Draw TextBoxes ----------")
         drawTextBoxes(textBoxPaddingImg, detResults, thickness)
 
-        Logger.i("---------- step: Get PartMats ----------")
+        Log.i("---------- step: Get PartMats ----------")
         val partMats = getPartMats(src, detResults)
 
         val clsTickMeter = TickMeter().apply { start() }
         val clsResults = if (doCls) {
-            Logger.i("---------- step: Get ClsResults ----------")
+            Log.i("---------- step: Get ClsResults ----------")
             val results = cls.getClsResults(partMats)
             if (mostCls) {
                 results.map {
                     val sum = results.map { it.index }.sum().toFloat()
                     val halfPercent = results.size.toFloat() / 2.0F
-                    //Logger.i("sum=$sum,halfPercent=$halfPercent")
+                    //Log.i("sum=$sum,halfPercent=$halfPercent")
                     val mostAngleIndex = if (sum < halfPercent) 0 else 1
                     it.copy(index = mostAngleIndex)
                 }
@@ -146,7 +147,7 @@ class OcrEngine(context: Context) : Closeable {
         clsTickMeter.stop()
 
         val clsPartMats = if (doCls) {
-            Logger.i("---------- step: Rotate partImages ----------")
+            Log.i("---------- step: Rotate partImages ----------")
             partMats.mapIndexed { index, mat ->
                 if (clsResults[index].index == 1) {
                     matRotateClockWise180(mat)
@@ -155,11 +156,11 @@ class OcrEngine(context: Context) : Closeable {
         } else partMats
 
         val recTickMeter = TickMeter().apply { start() }
-        Logger.i("---------- step: Get RecResults ----------")
+        Log.i("---------- step: Get RecResults ----------")
         val recResults = rec.getRecResults(clsPartMats)
         recTickMeter.stop()
 
-        Logger.i("---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
+        Log.i("---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
         val outRGBA = Mat()
         cvtColor(textBoxPaddingImg.submat(paddingRect), outRGBA, COLOR_BGR2RGBA)
         val boxImage = Bitmap.createBitmap(
