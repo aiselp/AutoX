@@ -1,146 +1,72 @@
-// autojs/src/main/java/com/stardust/autojs/ocr/Rec.kt
+//autojs/src/main/java/com/stardust/autojs/ocr/Rec.kt
 package com.stardust.autojs.ocr
 
 import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
-import ai.onnxruntime.TensorInfo
-import android.graphics.Bitmap
+import android.content.res.AssetManager
+import com.stardust.autojs.ocr.RecResult
+import org.opencv.core.Mat
+import org.opencv.core.Size
+import org.opencv.imgproc.Imgproc.resize
+import java.util.*
 
-class TextRecognizer(private val modelPath: String) {
-    private var session: OrtSession? = null
-    private var environment: OrtEnvironment? = null
-    private var vocab: List<String> = listOf()
-    
-    private val inputSize = intArrayOf(1, 3, 48, 320)
-    private val mean = floatArrayOf(0.5f, 0.5f, 0.5f)
-    private val std = floatArrayOf(0.5f, 0.5f, 0.5f)
-    
-    init {
-        try {
-            environment = OrtEnvironment.getEnvironment()
-            val sessionOptions = OrtSession.SessionOptions()
-            sessionOptions.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPTS)
-            session = environment!!.createSession(modelPath, sessionOptions)
-            
-            // 从模型元数据读取词汇表
-            loadVocabFromMetadata()
-        } catch (e: Exception) {
-            e.printStackTrace()
-        }
+class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelName: String, keysName: String) {
+
+    private val session by lazy {
+        val model = assetManager.open(modelName, AssetManager.ACCESS_UNKNOWN).readBytes()
+        ortEnv.createSession(model)
     }
-    
-    private fun loadVocabFromMetadata() {
-        try {
-            val metadata = session!!.metadata
-            val customMetadata = metadata.customMetadata
-            
-            // 从character字段读取词汇表
-            val vocabStr = customMetadata["character"] ?: ""
-            
-            if (vocabStr.isNotEmpty()) {
-                // 按换行符分割词汇表
-                vocab = vocabStr.split('\n', '\r')
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                
-                println("从模型元数据加载词汇表成功，大小: ${vocab.size}")
-            } else {
-                throw RuntimeException("模型元数据中没有找到词汇表")
+
+    private val keys by lazy {
+        val reader = assetManager.open(keysName, AssetManager.ACCESS_UNKNOWN).bufferedReader()
+        reader.lineSequence().toMutableList().apply {
+            add(0, "#")
+            add(" ")
+        }.toList()
+    }
+
+    private fun scoreToTextLine(outputData: List<FloatArray>): RecResult {
+        val sb = StringBuilder()
+        val scores: MutableList<Float> = mutableListOf()
+        var lastIndex = 0
+        outputData.forEach {
+            val max = it.withIndex().maxBy { it.value }
+            if (max.index in 1 until keys.size && max.index != lastIndex) {
+                sb.append(keys[max.index])
+                scores.add(max.value)
             }
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // 使用精简备选词汇表
-            vocab = getFallbackVocab()
-            println("使用备选词汇表，大小: ${vocab.size}")
+            lastIndex = max.index
         }
+        return RecResult(sb.toString(), scores)
     }
-    
-    private fun getFallbackVocab(): List<String> {
-        // 极简备选词汇表
-        return listOf("blank") + 
-               ('!'..'~').map { it.toString() } +
-               listOf("的", "一", "是", "在", "不", "了", "有", "和", "人", "这")
-    }
-    
-    fun getVocab(): List<String> = vocab
-    fun getVocabSize(): Int = vocab.size
-    
-    fun recognize(bitmap: Bitmap): String {
-        val input = preprocess(bitmap)
-        return runRecognition(input)
-    }
-    
-    private fun preprocess(bitmap: Bitmap): FloatArray {
-        val resizedBitmap = Bitmap.createScaledBitmap(bitmap, inputSize[3], inputSize[2], true)
-        val inputData = FloatArray(inputSize[1] * inputSize[2] * inputSize[3])
+
+    fun getRecResult(src: Mat): RecResult {
+        val scale = dstHeight / src.rows()
+        val dstWidth = (src.cols() * scale).toInt().toDouble()
+        val srcResize = Mat()
+        resize(src, srcResize, Size(dstWidth, dstHeight))
         
-        val intValues = IntArray(resizedBitmap.width * resizedBitmap.height)
-        resizedBitmap.getPixels(intValues, 0, resizedBitmap.width, 0, 0, 
-                               resizedBitmap.width, resizedBitmap.height)
+        // PP-OCRv5 识别模型预处理参数
+        val inputTensorValues = substractMeanNormalize(srcResize, meanValues, normValues)
+        val inputShape = longArrayOf(1, srcResize.channels().toLong(), srcResize.rows().toLong(), srcResize.cols().toLong())
+        val inputName = session.inputNames.iterator().next()
         
-        var pixel = 0
-        for (y in 0 until resizedBitmap.height) {
-            for (x in 0 until resizedBitmap.width) {
-                val value = intValues[pixel++]
-                
-                inputData[y * resizedBitmap.width + x] = 
-                    ((value and 0xFF) / 255.0f - mean[2]) / std[2]
-                inputData[resizedBitmap.width * resizedBitmap.height + y * resizedBitmap.width + x] = 
-                    ((value shr 8 and 0xFF) / 255.0f - mean[1]) / std[1]
-                inputData[2 * resizedBitmap.width * resizedBitmap.height + y * resizedBitmap.width + x] = 
-                    ((value shr 16 and 0xFF) / 255.0f - mean[0]) / std[0]
+        OnnxTensor.createTensor(ortEnv, inputTensorValues, inputShape).use { inputTensor ->
+            session.run(Collections.singletonMap(inputName, inputTensor)).use { output ->
+                val onnxValue = output.first().value
+                val values = onnxValue.value as Array<Array<FloatArray>>
+                val outputData = values.flatMap { a -> a.flatMap { b -> listOf(b) } }
+                return scoreToTextLine(outputData)
             }
         }
-        
-        if (resizedBitmap != bitmap) {
-            resizedBitmap.recycle()
-        }
-        
-        return inputData
     }
-    
-    private fun runRecognition(inputData: FloatArray): String {
-        val inputName = session!!.inputNames.iterator().next()
-        
-        val inputTensor = OnnxTensor.createTensor(
-            environment!!,
-            inputData,
-            longArrayOf(inputSize[0], inputSize[1].toLong(), inputSize[2].toLong(), inputSize[3].toLong())
-        )
-        
-        val results = session!!.run(mapOf(inputName to inputTensor))
-        val outputTensor = results[0].value as Array<Array<FloatArray>>
-        
-        val sequence = outputTensor[0]
-        val text = decodeText(sequence)
-        
-        inputTensor.close()
-        results.close()
-        
-        return text
-    }
-    
-    private fun decodeText(sequence: Array<FloatArray>): String {
-        val text = StringBuilder()
-        var lastIndex = -1
-        
-        for (frame in sequence) {
-            val maxIndex = frame.indices.maxByOrNull { frame[it] } ?: 0
-            
-            if (maxIndex != 0 && maxIndex != lastIndex) {
-                if (maxIndex < vocab.size) {
-                    text.append(vocab[maxIndex])
-                }
-            }
-            lastIndex = maxIndex
-        }
-        
-        return text.toString()
-    }
-    
-    fun close() {
-        session?.close()
-        environment?.close()
+
+    fun getRecResults(mats: List<Mat>): List<RecResult> = mats.map { getRecResult(it) }
+
+    companion object {
+        private const val dstHeight = 48.0
+        // PP-OCRv5 识别模型预处理参数
+        private val meanValues = floatArrayOf(0.5F * 255F, 0.5F * 255F, 0.5F * 255F)
+        private val normValues = floatArrayOf(1.0F / 0.5F / 255.0F, 1.0F / 0.5F / 255.0F, 1.0F / 0.5F / 255.0F)
     }
 }
