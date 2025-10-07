@@ -167,42 +167,59 @@ internal fun boxScoreFast(boxes: Array<Point>, pred: Mat): Float {
     return score.`val`[0].toFloat()
 }
 
-internal fun unClip(box: Array<Point>, unClipRatio: Float): RotatedRect {
-    val distance = getContourArea(box, unClipRatio)
-    val path = Path().apply {
-        addAll(box.map { de.lighti.clipper.Point.LongPoint(it.x.toLong(), it.y.toLong()) })
-    }
-    val offset = ClipperOffset()
-    offset.addPath(path, Clipper.JoinType.ROUND, Clipper.EndType.CLOSED_POLYGON)
-    val soln = Paths()
-    offset.execute(soln, distance.toDouble())
-
-    val points = soln.flatten().map { Point(it.x.toDouble(), it.y.toDouble()) }.toTypedArray()
-
-    return if (points.isEmpty()) {
-        RotatedRect(Point(0.0, 0.0), Size(1.0, 1.0), 0.0)
-    } else {
-        minAreaRect(MatOfPoint2f(*points))
-    }
+internal fun unClip(box: Array<org.opencv.core.Point>, unClipRatio: Float): org.opencv.core.RotatedRect {
+    // 简化的多边形扩展实现，不使用 Clipper 库
+    val points = box.toList()
+    val area = polygonArea(points)
+    val length = polygonPerimeter(points)
+    
+    val distance = area * unClipRatio / length
+    
+    // 简单的向外扩展每个点
+    val expandedPoints = points.map { point ->
+        val center = org.opencv.core.Point(
+            points.map { it.x }.average(),
+            points.map { it.y }.average()
+        )
+        val direction = org.opencv.core.Point(point.x - center.x, point.y - center.y)
+        val norm = Math.sqrt(direction.x * direction.x + direction.y * direction.y)
+        if (norm > 0) {
+            org.opencv.core.Point(
+                point.x + direction.x / norm * distance,
+                point.y + direction.y / norm * distance
+            )
+        } else {
+            point
+        }
+    }.toTypedArray()
+    
+    return org.opencv.imgproc.Imgproc.minAreaRect(org.opencv.core.MatOfPoint2f(*expandedPoints))
 }
 
-internal fun getContourArea(box: Array<Point>, unClipRatio: Float): Float {
-    val size = box.size
+// 添加多边形面积计算
+private fun polygonArea(points: List<org.opencv.core.Point>): Double {
     var area = 0.0
-    var dist = 0.0
-    for (i in 0 until size) {
-        area += box[i].x * box[(i + 1) % size].y -
-                box[i].y * box[(i + 1) % size].x
-        dist += Math.sqrt(
-            (box[i].x - box[(i + 1) % size].x) *
-                    (box[i].x - box[(i + 1) % size].x) +
-                    (box[i].y - box[(i + 1) % size].y) *
-                    (box[i].y - box[(i + 1) % size].y)
+    val n = points.size
+    for (i in 0 until n) {
+        val j = (i + 1) % n
+        area += points[i].x * points[j].y
+        area -= points[j].x * points[i].y
+    }
+    return abs(area) / 2.0
+}
+
+// 添加多边形周长计算
+private fun polygonPerimeter(points: List<org.opencv.core.Point>): Double {
+    var perimeter = 0.0
+    val n = points.size
+    for (i in 0 until n) {
+        val j = (i + 1) % n
+        perimeter += Math.sqrt(
+            (points[i].x - points[j].x) * (points[i].x - points[j].x) +
+            (points[i].y - points[j].y) * (points[i].y - points[j].y)
         )
     }
-    area = Math.abs(area / 2.0)
-
-    return area.toFloat() * unClipRatio / dist.toFloat()
+    return perimeter
 }
 
 internal fun drawTextBoxes(boxImg: Mat, textBoxes: List<DetResult>, thickness: Int) {
