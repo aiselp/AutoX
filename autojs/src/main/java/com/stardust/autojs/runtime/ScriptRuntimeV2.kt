@@ -57,7 +57,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     val onnx: OnnxModule = OnnxModule(this)
 
     @ScriptVariable
-    val ocr: OcrEngine = OcrEngine(this)
+    val ocr: OcrEngine = OcrEngine(context)
 
     @ScriptVariable
     val plugins: Plugins = Plugins(uiHandler.context, this)
