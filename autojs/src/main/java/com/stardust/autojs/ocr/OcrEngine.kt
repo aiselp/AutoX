@@ -43,6 +43,43 @@ class OcrEngine(context: Context) : Closeable {
         ortEnv.close()
     }
 
+    // 主要的重载方法 - 接受 ImageWrapper
+    @android.webkit.JavascriptInterface
+    fun detect(imageWrapper: com.stardust.autojs.core.image.ImageWrapper): String {
+        return detect(imageWrapper, true, 1920, 50, 0.3f, 0.6f, 1.5f, true, true)
+    }
+
+    // 重载方法 - 接受 ImageWrapper 和完整参数
+    @android.webkit.JavascriptInterface
+    fun detect(
+        imageWrapper: com.stardust.autojs.core.image.ImageWrapper,
+        scaleUp: Boolean,
+        maxSideLen: Int,
+        padding: Int,
+        boxScoreThresh: Float,
+        boxThresh: Float,
+        unClipRatio: Float,
+        doCls: Boolean,
+        mostCls: Boolean
+    ): String {
+        Log.i(TAG, "=====Prepare from ImageWrapper=====")
+        Log.i(TAG, "ImageWrapper size: ${imageWrapper.width}x${imageWrapper.height}")
+        
+        try {
+            val bitmap = imageWrapper.bitmap
+            if (bitmap == null) {
+                Log.e(TAG, "ImageWrapper bitmap is null")
+                return """{"error": "ImageWrapper bitmap is null", "success": false}"""
+            }
+            
+            return detect(bitmap, scaleUp, maxSideLen, padding, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
+        } catch (e: Exception) {
+            Log.e(TAG, "detect from ImageWrapper error: ${e.message}")
+            return """{"error": "ImageWrapper conversion failed: ${e.message}", "success": false}"""
+        }
+    }
+
+    // 原有的 Bitmap 方法
     @android.webkit.JavascriptInterface
     fun detect(
         bmp: Bitmap,
@@ -55,7 +92,7 @@ class OcrEngine(context: Context) : Closeable {
         doCls: Boolean = true,
         mostCls: Boolean = true
     ): String {
-        Log.i(TAG, "=====Prepare=====")
+        Log.i(TAG, "=====Prepare from Bitmap=====")
         Log.i(TAG, "Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
 
         Log.i(TAG, "---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
@@ -85,12 +122,51 @@ class OcrEngine(context: Context) : Closeable {
 
         // 返回 JSON 字符串
         return """{
-            "text": "${ocrResult.text}",
+            "text": "${ocrResult.text.replace("\"", "\\\"")}",
             "fullTime": ${ocrResult.fullTime},
             "detTime": ${ocrResult.detTime},
             "recTime": ${ocrResult.recTime},
-            "clsTime": ${ocrResult.clsTime}
+            "clsTime": ${ocrResult.clsTime},
+            "success": true
         }"""
+    }
+
+    // 添加其他便捷方法
+    @android.webkit.JavascriptInterface
+    fun detectFromBase64(base64Image: String): String {
+        return detectFromBase64(base64Image, true, 1920, 50, 0.3f, 0.6f, 1.5f, true, true)
+    }
+
+    @android.webkit.JavascriptInterface
+    fun detectFromBase64(
+        base64Image: String,
+        scaleUp: Boolean,
+        maxSideLen: Int,
+        padding: Int,
+        boxScoreThresh: Float,
+        boxThresh: Float,
+        unClipRatio: Float,
+        doCls: Boolean,
+        mostCls: Boolean
+    ): String {
+        try {
+            Log.i(TAG, "=====Prepare from Base64=====")
+            val imageBytes = android.util.Base64.decode(base64Image, android.util.Base64.DEFAULT)
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.size)
+            if (bitmap == null) {
+                return """{"error": "Base64 decode failed", "success": false}"""
+            }
+            return detect(bitmap, scaleUp, maxSideLen, padding, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
+        } catch (e: Exception) {
+            Log.e(TAG, "detectFromBase64 error: ${e.message}")
+            return """{"error": "Base64 processing failed: ${e.message}", "success": false}"""
+        }
+    }
+
+    @android.webkit.JavascriptInterface
+    fun detectSimple(imageWrapper: com.stardust.autojs.core.image.ImageWrapper): String {
+        // 简化的调用，使用默认参数
+        return detect(imageWrapper)
     }
 
     private fun fullDetect(
