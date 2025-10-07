@@ -269,8 +269,72 @@ class OcrEngine(context: Context) : Closeable {
         doCls: Boolean,
         mostCls: Boolean
     ): OcrResult {
-        // 这部分代码保持不变
-        // ... 原有实现 ...
+        val fullTickMeter = TickMeter().apply { start() }
+        val textBoxPaddingImg = src.clone()
+        val thickness = getThickness(src)
+        Log.i(TAG, "=====Start detect=====")
+
+        val detTickMeter = TickMeter().apply { start() }
+        Log.i(TAG, "---------- step: Get DetResults ----------")
+        val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
+        detTickMeter.stop()
+
+        Log.i(TAG, "---------- step: Draw TextBoxes ----------")
+        drawTextBoxes(textBoxPaddingImg, detResults, thickness)
+
+        Log.i(TAG, "---------- step: Get PartMats ----------")
+        val partMats = getPartMats(src, detResults)
+
+        val clsTickMeter = TickMeter().apply { start() }
+        val clsResults = if (doCls) {
+            Log.i(TAG, "---------- step: Get ClsResults ----------")
+            val results = cls.getClsResults(partMats)
+            if (mostCls) {
+                results.map {
+                    val sum = results.map { it.index }.sum().toFloat()
+                    val halfPercent = results.size.toFloat() / 2.0F
+                    val mostAngleIndex = if (sum < halfPercent) 0 else 1
+                    it.copy(index = mostAngleIndex)
+                }
+            } else results
+        } else emptyList()
+        clsTickMeter.stop()
+
+        val clsPartMats = if (doCls) {
+            Log.i(TAG, "---------- step: Rotate partImages ----------")
+            partMats.mapIndexed { index, mat ->
+                if (clsResults[index].index == 1) {
+                    matRotateClockWise180(mat)
+                } else mat
+            }
+        } else partMats
+
+        val recTickMeter = TickMeter().apply { start() }
+        Log.i(TAG, "---------- step: Get RecResults ----------")
+        val recResults = rec.getRecResults(clsPartMats)
+        recTickMeter.stop()
+
+        Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
+        val outRGBA = Mat()
+        cvtColor(textBoxPaddingImg.submat(paddingRect), outRGBA, COLOR_BGR2RGBA)
+        val boxImage = Bitmap.createBitmap(
+            outRGBA.cols(), outRGBA.rows(), Bitmap.Config.ARGB_8888
+        )
+        matToBitmap(outRGBA, boxImage)
+
+        val text = recResults.joinToString(separator = "\n") { it.text }
+        fullTickMeter.stop()
+        return OcrResult(
+            detResults = detResults,
+            detTime = detTickMeter.timeMilli,
+            clsResults = clsResults,
+            clsTime = clsTickMeter.timeMilli,
+            recResults = recResults,
+            recTime = recTickMeter.timeMilli,
+            boxImage = boxImage,
+            fullTime = fullTickMeter.timeMilli,
+            text = text,
+        )
     }
 
     companion object {
