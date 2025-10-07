@@ -2,13 +2,6 @@
 package com.stardust.autojs.ocr
 
 import androidx.core.math.MathUtils
-import com.stardust.autojs.ocr.DetPoint
-import com.stardust.autojs.ocr.DetResult
-import com.stardust.autojs.ocr.ScaleParam
-import de.lighti.clipper.Clipper
-import de.lighti.clipper.ClipperOffset
-import de.lighti.clipper.Path
-import de.lighti.clipper.Paths
 import org.opencv.core.*
 import org.opencv.core.Core.*
 import org.opencv.core.CvType.CV_8UC1
@@ -16,6 +9,8 @@ import org.opencv.core.Mat.zeros
 import org.opencv.imgproc.Imgproc.*
 import java.nio.FloatBuffer
 import kotlin.math.max
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 
 internal fun getScaleParam(src: Mat, targetSize: Int): ScaleParam {
@@ -167,7 +162,7 @@ internal fun boxScoreFast(boxes: Array<Point>, pred: Mat): Float {
     return score.`val`[0].toFloat()
 }
 
-internal fun unClip(box: Array<org.opencv.core.Point>, unClipRatio: Float): org.opencv.core.RotatedRect {
+internal fun unClip(box: Array<Point>, unClipRatio: Float): RotatedRect {
     // 简化的多边形扩展实现，不使用 Clipper 库
     val points = box.toList()
     val area = polygonArea(points)
@@ -177,14 +172,14 @@ internal fun unClip(box: Array<org.opencv.core.Point>, unClipRatio: Float): org.
     
     // 简单的向外扩展每个点
     val expandedPoints = points.map { point ->
-        val center = org.opencv.core.Point(
+        val center = Point(
             points.map { it.x }.average(),
             points.map { it.y }.average()
         )
-        val direction = org.opencv.core.Point(point.x - center.x, point.y - center.y)
-        val norm = Math.sqrt(direction.x * direction.x + direction.y * direction.y)
+        val direction = Point(point.x - center.x, point.y - center.y)
+        val norm = sqrt(direction.x * direction.x + direction.y * direction.y)
         if (norm > 0) {
-            org.opencv.core.Point(
+            Point(
                 point.x + direction.x / norm * distance,
                 point.y + direction.y / norm * distance
             )
@@ -193,11 +188,11 @@ internal fun unClip(box: Array<org.opencv.core.Point>, unClipRatio: Float): org.
         }
     }.toTypedArray()
     
-    return org.opencv.imgproc.Imgproc.minAreaRect(org.opencv.core.MatOfPoint2f(*expandedPoints))
+    return minAreaRect(MatOfPoint2f(*expandedPoints))
 }
 
 // 添加多边形面积计算
-private fun polygonArea(points: List<org.opencv.core.Point>): Double {
+private fun polygonArea(points: List<Point>): Double {
     var area = 0.0
     val n = points.size
     for (i in 0 until n) {
@@ -209,12 +204,12 @@ private fun polygonArea(points: List<org.opencv.core.Point>): Double {
 }
 
 // 添加多边形周长计算
-private fun polygonPerimeter(points: List<org.opencv.core.Point>): Double {
+private fun polygonPerimeter(points: List<Point>): Double {
     var perimeter = 0.0
     val n = points.size
     for (i in 0 until n) {
         val j = (i + 1) % n
-        perimeter += Math.sqrt(
+        perimeter += sqrt(
             (points[i].x - points[j].x) * (points[i].x - points[j].x) +
             (points[i].y - points[j].y) * (points[i].y - points[j].y)
         )
@@ -231,7 +226,6 @@ internal fun drawTextBoxes(boxImg: Mat, textBoxes: List<DetResult>, thickness: I
         line(boxImg, box.points[3].toCvPoint(), box.points[0].toCvPoint(), color, thickness)
     }
 }
-
 
 internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
     val points = box.map { it.toCvPoint() }
@@ -250,12 +244,14 @@ internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
         points[i].y -= top
     }
 
-    val imgCropWidth = Math.sqrt(
-        Math.pow(points[0].x - points[1].x, 2.0) + Math.pow(points[0].y - points[1].y, 2.0)
+    val imgCropWidth = sqrt(
+        (points[0].x - points[1].x) * (points[0].x - points[1].x) + 
+        (points[0].y - points[1].y) * (points[0].y - points[1].y)
     )
 
-    val imgCropHeight = Math.sqrt(
-        Math.pow(points[0].x - points[3].x, 2.0) + Math.pow(points[0].y - points[3].y, 2.0)
+    val imgCropHeight = sqrt(
+        (points[0].x - points[3].x) * (points[0].x - points[3].x) + 
+        (points[0].y - points[3].y) * (points[0].y - points[3].y)
     )
 
     val ptsDst = arrayOf(
