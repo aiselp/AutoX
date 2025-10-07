@@ -40,6 +40,7 @@ import java.io.PrintWriter
 import java.io.StringReader
 import java.io.StringWriter
 import com.stardust.autojs.onnx.OnnxModule
+import com.stardust.autojs.ocr.OcrEngine
 
 
 class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
@@ -54,6 +55,9 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
 
     @ScriptVariable
     val onnx: OnnxModule = OnnxModule(this)
+
+    @ScriptVariable
+    val ocr: OcrEngine = OcrEngine(this)
 
     @ScriptVariable
     val plugins: Plugins = Plugins(uiHandler.context, this)
