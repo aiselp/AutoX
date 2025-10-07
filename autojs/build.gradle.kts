@@ -92,7 +92,7 @@ dependencies {
     implementation("cz.adaptech:tesseract4android:4.1.1")
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
-    implementation("com.github.skiedrowski:android.clipper:1.0.0")
+    implementation("com.arsvechkareva:clipper:1.0.0")
 
 }
 tasks.register<Exec>("buildV7Api") {
