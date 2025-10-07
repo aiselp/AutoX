@@ -18,7 +18,10 @@ import org.opencv.core.TickMeter
 import org.opencv.imgproc.Imgproc.*
 import java.io.Closeable
 import java.lang.Integer.max
+import com.stardust.autojs.runtime.ScriptRuntime
 
+
+@JsExport
 class OcrEngine(context: Context) : Closeable {
 
     private val assetManager: AssetManager = context.assets
@@ -57,6 +60,7 @@ class OcrEngine(context: Context) : Closeable {
      * @param doCls 文字方向分类，只有图片倒置的情况下(旋转90~270度的图片)，才需要启用此项
      * @param mostCls 文字方向投票(关闭时每行方向独立，开启时以最大概率作为全文方向)，当禁用文字方向分类时，此项也不起作用
      */
+    @JsExport
     fun detect(
         bmp: Bitmap,
         scaleUp: Boolean = true,
