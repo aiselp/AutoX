@@ -280,7 +280,7 @@ class OcrEngine(context: Context) : Closeable {
             return detect(bitmap, 
                 scaleUp = true,
                 maxSideLen = 800,      // 限制最大尺寸
-                padding = 10,          // 最小padding
+                padding = 0,          // 最小padding
                 boxScoreThresh = 0.2f, // 降低检测阈值
                 boxThresh = 0.4f,      // 降低框阈值
                 unClipRatio = 1.8f,    // 增加unclip比例
