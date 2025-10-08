@@ -165,97 +165,95 @@ class OcrEngine(context: Context) : Closeable {
     }
 
     // 原有的 Bitmap 方法 - 使用官方推荐参数作为默认值
-    @android.webkit.JavascriptInterface
-    fun detect(
-        bmp: Bitmap,
-        scaleUp: Boolean = true,
-        maxSideLen: Int = 960,        // 官方推荐 resize_long: 960
-        padding: Int = 0,             // 官方配置无padding
-        boxScoreThresh: Float = 0.3f, // 官方 thresh: 0.3
-        boxThresh: Float = 0.6f,      // 官方 box_thresh: 0.6
-        unClipRatio: Float = 1.5f,    // 官方 unclip_ratio: 1.5
-        doCls: Boolean = true,
-        mostCls: Boolean = true
-    ): String {
-        Log.i(TAG, "=====Prepare from Bitmap=====")
-        
-        // 检查初始化状态
-        if (!isInitialized) {
-            return """{"error": "OCR Engine not initialized: $initError", "success": false}"""
-        }
-        
-        Log.i(TAG, "Input bitmap size: ${bmp.width}x${bmp.height}")
-        Log.i(TAG, "Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
-
-        try {
-            Log.i(TAG, "---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
-            val inputRGBA = Mat(bmp.width, bmp.height, CvType.CV_8UC4)
-            Utils.bitmapToMat(bmp, inputRGBA)
-            val inputBGR = Mat()
-            cvtColor(inputRGBA, inputBGR, COLOR_RGBA2BGR)
-
-            Log.i(TAG, "---------- step: Resize ----------")
-            val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
-            
-            // 智能图像尺寸分类处理
-            val imageType = when {
-                originMaxSide < 300 -> "SMALL"
-                originMaxSide > 1500 -> "LARGE"
-                else -> "MEDIUM"
-            }
-            
-            Log.i(TAG, "Image type: $imageType, size: $originMaxSide")
-            
-            // 根据图像类型优化参数，但保持官方参数为核心
-            val (optimizedMaxSideLen, optimizedPadding) = when (imageType) {
-                "SMALL" -> Pair(
-                    min(maxSideLen, 800),  // 小图限制最大尺寸
-                    max(padding, 10)       // 小图保持最小padding
-                )
-                "LARGE" -> Pair(
-                    if (maxSideLen <= 0) 2560 else maxSideLen,  // 大图允许更大尺寸
-                    padding                                    // 保持原padding
-                )
-                else -> Pair(maxSideLen, padding)              // 中等图片使用原参数
-            }
-            
-            var resize = if (scaleUp) {
-                //支持放大和缩小
-                if (optimizedMaxSideLen <= 0) originMaxSide else optimizedMaxSideLen
-            } else {
-                //仅支持缩小
-                if (optimizedMaxSideLen <= 0 || originMaxSide < optimizedMaxSideLen) originMaxSide else optimizedMaxSideLen
-            }
-            resize += 2 * optimizedPadding
-            
-            Log.i(TAG, "Optimized params - maxSideLen: $optimizedMaxSideLen, padding: $optimizedPadding, resize=$resize")
-            
-            val paddingRect = Rect(optimizedPadding, optimizedPadding, inputBGR.cols(), inputBGR.rows())
-            val paddingSrc = makePadding(inputBGR, optimizedPadding)
-            val s = getScaleParam(paddingSrc, resize)
-            Log.i(TAG, "$s")
-
-            val ocrResult = fullDetect(paddingSrc, paddingRect, s, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
-            Log.i(TAG, "OCR completed, detected ${ocrResult.detResults.size} boxes, text length: ${ocrResult.text.length}")
-
-            // 返回 JSON 字符串
-            return """{
-                "text": "${ocrResult.text.replace("\"", "\\\"")}",
-                "textWithCoordinates": "${ocrResult.textWithCoordinates.replace("\"", "\\\"")}",
-                "textBlocks": ${ocrResult.textBlocksJson},
-                "fullTime": ${ocrResult.fullTime},
-                "detTime": ${ocrResult.detTime},
-                "recTime": ${ocrResult.recTime},
-                "clsTime": ${ocrResult.clsTime},
-                "detectedBoxes": ${ocrResult.detResults.size},
-                "imageType": "$imageType",
-                "success": true
-            }"""
-        } catch (e: Exception) {
-            Log.e(TAG, "OCR detection error: ${e.message}", e)
-            return """{"error": "OCR processing failed: ${e.message}", "success": false}"""
-        }
+   @android.webkit.JavascriptInterface
+fun detect(
+    bmp: Bitmap,
+    scaleUp: Boolean = true,
+    maxSideLen: Int = 960,        // 官方推荐 resize_long: 960
+    padding: Int = 0,             // 官方配置无padding
+    boxScoreThresh: Float = 0.3f, // 官方 thresh: 0.3
+    boxThresh: Float = 0.6f,      // 官方 box_thresh: 0.6
+    unClipRatio: Float = 1.5f,    // 官方 unclip_ratio: 1.5
+    doCls: Boolean = true,
+    mostCls: Boolean = true
+): String {
+    Log.i(TAG, "=====Prepare from Bitmap=====")
+    
+    // 检查初始化状态
+    if (!isInitialized) {
+        return """{"error": "OCR Engine not initialized: $initError", "success": false}"""
     }
+    
+    Log.i(TAG, "Input bitmap size: ${bmp.width}x${bmp.height}")
+    Log.i(TAG, "Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
+
+    try {
+        Log.i(TAG, "---------- step: input Bitmap -> Mat(RGBA) -> Mat(BGR) ----------")
+        val inputRGBA = Mat(bmp.width, bmp.height, CvType.CV_8UC4)
+        Utils.bitmapToMat(bmp, inputRGBA)
+        val inputBGR = Mat()
+        cvtColor(inputRGBA, inputBGR, COLOR_RGBA2BGR)
+
+        Log.i(TAG, "---------- step: Resize ----------")
+        val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
+        
+        // 智能图像尺寸分类处理
+        val imageType = when {
+            originMaxSide < 300 -> "SMALL"
+            originMaxSide > 1500 -> "LARGE"
+            else -> "MEDIUM"
+        }
+        
+        Log.i(TAG, "Image type: $imageType, size: $originMaxSide")
+        
+        // 根据图像类型优化参数，但保持官方参数为核心
+        val optimizedMaxSideLen = when (imageType) {
+            "SMALL" -> min(maxSideLen, 800)  // 小图限制最大尺寸
+            "LARGE" -> if (maxSideLen <= 0) 2560 else maxSideLen  // 大图允许更大尺寸
+            else -> maxSideLen              // 中等图片使用原参数
+        }
+        
+        var resize = if (scaleUp) {
+            //支持放大和缩小
+            if (optimizedMaxSideLen <= 0) originMaxSide else optimizedMaxSideLen
+        } else {
+            //仅支持缩小
+            if (optimizedMaxSideLen <= 0 || originMaxSide < optimizedMaxSideLen) originMaxSide else optimizedMaxSideLen
+        }
+        
+        // 确保 resize 尺寸是32的倍数
+        if (resize % 32 != 0) {
+            resize = (resize + 31) / 32 * 32
+        }
+        
+        Log.i(TAG, "Optimized maxSideLen: $optimizedMaxSideLen, final resize: $resize")
+        
+        val paddingRect = Rect(padding, padding, inputBGR.cols(), inputBGR.rows())
+        val paddingSrc = makePadding(inputBGR, padding)
+        val s = getScaleParam(paddingSrc, resize)
+        Log.i(TAG, "Scale param: $s")
+
+        val ocrResult = fullDetect(paddingSrc, paddingRect, s, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
+        Log.i(TAG, "OCR completed, detected ${ocrResult.detResults.size} boxes, text length: ${ocrResult.text.length}")
+
+        // 返回 JSON 字符串
+        return """{
+            "text": "${ocrResult.text.replace("\"", "\\\"")}",
+            "textWithCoordinates": "${ocrResult.textWithCoordinates.replace("\"", "\\\"")}",
+            "textBlocks": ${ocrResult.textBlocksJson},
+            "fullTime": ${ocrResult.fullTime},
+            "detTime": ${ocrResult.detTime},
+            "recTime": ${ocrResult.recTime},
+            "clsTime": ${ocrResult.clsTime},
+            "detectedBoxes": ${ocrResult.detResults.size},
+            "imageType": "$imageType",
+            "success": true
+        }"""
+    } catch (e: Exception) {
+        Log.e(TAG, "OCR detection error: ${e.message}", e)
+        return """{"error": "OCR processing failed: ${e.message}", "success": false}"""
+    }
+}
 
     // 添加专门的小图片检测方法
     @android.webkit.JavascriptInterface
