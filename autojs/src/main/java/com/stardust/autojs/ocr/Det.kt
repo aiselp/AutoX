@@ -22,9 +22,15 @@ class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
     @OptIn(ExperimentalUnsignedTypes::class)
     fun getDetResults(src: Mat, s: ScaleParam, boxScoreThresh: Float, boxThresh: Float, unClipRatio: Float): List<DetResult> {
         val srcResize = Mat()
-        Imgproc.resize(src, srcResize, Size(s.dstWidth.toDouble(), s.dstHeight.toDouble()))
+        // 使用官方推荐的 resize_long: 960
+        val resizeLong = 960
+        val scale = resizeLong.toFloat() / max(src.cols(), src.rows()).toFloat()
+        val dstWidth = (src.cols() * scale).toInt()
+        val dstHeight = (src.rows() * scale).toInt()
+        
+        Imgproc.resize(src, srcResize, Size(dstWidth.toDouble(), dstHeight.toDouble()))
 
-        // PP-OCRv5 使用新的预处理参数
+        // 使用官方预处理参数
         val inputTensorValues = substractMeanNormalize(srcResize, meanValues, normValues)
         val inputShape = longArrayOf(1, srcResize.channels().toLong(), srcResize.rows().toLong(), srcResize.cols().toLong())
         val inputName = session.inputNames.iterator().next()
@@ -129,7 +135,8 @@ class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
     }
 
     companion object {
-        // PP-OCRv5 检测模型预处理参数
+        // 使用官方预处理参数
+        // mean: [0.485, 0.456, 0.406], std: [0.229, 0.224, 0.225]
         private val meanValues = floatArrayOf(0.485F * 255F, 0.456F * 255F, 0.406F * 255F)
         private val normValues = floatArrayOf(1.0F / 0.229F / 255.0F, 1.0F / 0.224F / 255.0F, 1.0F / 0.225F / 255.0F)
     }
