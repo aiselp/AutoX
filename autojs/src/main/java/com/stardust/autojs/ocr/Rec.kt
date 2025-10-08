@@ -12,6 +12,7 @@ import java.util.*
 import org.opencv.core.Core
 import org.opencv.core.Scalar
 import org.opencv.core.Rect
+import kotlin.math.min
 
 class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelName: String, keysName: String) {
 
@@ -33,12 +34,12 @@ class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
         val scores: MutableList<Float> = mutableListOf()
         var lastIndex = 0
         outputData.forEach {
-            val max = it.withIndex().maxBy { it.value }
-            if (max.index in 1 until keys.size && max.index != lastIndex) {
+            val max = it.withIndex().maxByOrNull { it.value }
+            if (max != null && max.index in 1 until keys.size && max.index != lastIndex) {
                 sb.append(keys[max.index])
                 scores.add(max.value)
             }
-            lastIndex = max.index
+            lastIndex = max?.index ?: 0
         }
         return RecResult(sb.toString(), scores)
     }
@@ -55,7 +56,7 @@ class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
         resize(src, srcResize, Size(dstWidth, targetHeight))
         
         // 如果宽度超过320，进行裁剪；如果不足，进行填充
-        val finalWidth = min(dstWidth.toInt(), targetWidth.toInt())
+        val finalWidth = min(dstWidth, targetWidth).toInt()
         val finalMat = Mat(targetHeight.toInt(), targetWidth.toInt(), srcResize.type(), Scalar(0.0, 0.0, 0.0))
         
         if (dstWidth <= targetWidth) {
