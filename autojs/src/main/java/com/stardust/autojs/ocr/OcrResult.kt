@@ -1,4 +1,3 @@
-//autojs/src/main/java/com/stardust/autojs/ocr/OcrResult.kt
 package com.stardust.autojs.ocr
 
 import android.graphics.Bitmap
@@ -17,6 +16,9 @@ data class OcrResult(
     val fullTime: Double,
     val boxImage: Bitmap,
     val text: String,
+    // 新增字段
+    val textWithCoordinates: String = "",
+    val textBlocks: List<Map<String, Any>> = emptyList()
 ) : Parcelable
 
 @Parcelize
