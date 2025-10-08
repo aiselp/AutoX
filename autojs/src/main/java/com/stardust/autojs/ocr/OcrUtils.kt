@@ -11,6 +11,7 @@ import java.nio.FloatBuffer
 import kotlin.math.max
 import kotlin.math.abs
 import kotlin.math.sqrt
+import android.util.Log
 
 
 internal fun getScaleParam(src: Mat, targetSize: Int): ScaleParam {
@@ -228,6 +229,12 @@ internal fun drawTextBoxes(boxImg: Mat, textBoxes: List<DetResult>, thickness: I
 }
 
 internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
+    // 添加边界检查
+    if (box.size != 4) {
+        Log.e("OCR", "Invalid box points: ${box.size}")
+        return Mat()
+    }
+    
     val points = box.map { it.toCvPoint() }
 
     val collectX = arrayOf(box[0].x, box[1].x, box[2].x, box[3].x)
@@ -237,57 +244,109 @@ internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
     val top = collectY.min()
     val bottom = collectY.max()
 
-    val imgCrop = src.submat(Rect(left, top, right - left, bottom - top))
-
-    for (i in points.indices) {
-        points[i].x -= left
-        points[i].y -= top
+    // 添加边界检查
+    if (left >= right || top >= bottom) {
+        Log.e("OCR", "Invalid box coordinates: left=$left, right=$right, top=$top, bottom=$bottom")
+        return Mat()
     }
 
-    val imgCropWidth = sqrt(
-        (points[0].x - points[1].x) * (points[0].x - points[1].x) + 
-        (points[0].y - points[1].y) * (points[0].y - points[1].y)
-    )
+    val width = right - left
+    val height = bottom - top
 
-    val imgCropHeight = sqrt(
-        (points[0].x - points[3].x) * (points[0].x - points[3].x) + 
-        (points[0].y - points[3].y) * (points[0].y - points[3].y)
-    )
+    // 检查裁剪区域是否有效
+    if (width <= 0 || height <= 0 || left < 0 || top < 0 || 
+        left + width > src.cols() || top + height > src.rows()) {
+        Log.e("OCR", "Invalid crop region: left=$left, top=$top, width=$width, height=$height, src=${src.cols()}x${src.rows()}")
+        return Mat()
+    }
 
-    val ptsDst = arrayOf(
-        Point(0.0, 0.0),
-        Point(imgCropWidth, 0.0),
-        Point(imgCropWidth, imgCropHeight),
-        Point(0.0, imgCropHeight)
-    )
+    try {
+        val imgCrop = src.submat(Rect(left, top, width, height))
 
-    val ptsSrc = arrayOf(
-        Point(points[0].x, points[0].y),
-        Point(points[1].x, points[1].y),
-        Point(points[2].x, points[2].y),
-        Point(points[3].x, points[3].y),
-    )
-    val transformation = getPerspectiveTransform(MatOfPoint2f(*ptsSrc), MatOfPoint2f(*ptsDst))
+        // 如果裁剪的图像为空，返回空矩阵
+        if (imgCrop.empty()) {
+            Log.e("OCR", "Cropped image is empty")
+            return Mat()
+        }
 
-    val partImg = Mat()
-    warpPerspective(
-        imgCrop, partImg, transformation,
-        Size(imgCropWidth, imgCropHeight),
-        BORDER_REPLICATE
-    );
+        val adjustedPoints = points.map { point ->
+            Point(point.x - left, point.y - top)
+        }
 
-    return if (partImg.rows() >= partImg.cols() * 1.5) {
-        val srcCopy = Mat(partImg.rows(), partImg.cols(), partImg.depth())
-        transpose(partImg, srcCopy)
-        flip(srcCopy, srcCopy, 0)
-        srcCopy
-    } else {
-        partImg
+        val imgCropWidth = sqrt(
+            (adjustedPoints[0].x - adjustedPoints[1].x) * (adjustedPoints[0].x - adjustedPoints[1].x) + 
+            (adjustedPoints[0].y - adjustedPoints[1].y) * (adjustedPoints[0].y - adjustedPoints[1].y)
+        )
+
+        val imgCropHeight = sqrt(
+            (adjustedPoints[0].x - adjustedPoints[3].x) * (adjustedPoints[0].x - adjustedPoints[3].x) + 
+            (adjustedPoints[0].y - adjustedPoints[3].y) * (adjustedPoints[0].y - adjustedPoints[3].y)
+        )
+
+        // 检查变换后的尺寸是否有效
+        if (imgCropWidth <= 0 || imgCropHeight <= 0) {
+            Log.e("OCR", "Invalid transformed dimensions: width=$imgCropWidth, height=$imgCropHeight")
+            return imgCrop
+        }
+
+        val ptsDst = arrayOf(
+            Point(0.0, 0.0),
+            Point(imgCropWidth, 0.0),
+            Point(imgCropWidth, imgCropHeight),
+            Point(0.0, imgCropHeight)
+        )
+
+        val ptsSrc = arrayOf(
+            Point(adjustedPoints[0].x, adjustedPoints[0].y),
+            Point(adjustedPoints[1].x, adjustedPoints[1].y),
+            Point(adjustedPoints[2].x, adjustedPoints[2].y),
+            Point(adjustedPoints[3].x, adjustedPoints[3].y),
+        )
+        
+        val transformation = getPerspectiveTransform(MatOfPoint2f(*ptsSrc), MatOfPoint2f(*ptsDst))
+
+        val partImg = Mat()
+        warpPerspective(
+            imgCrop, partImg, transformation,
+            Size(imgCropWidth, imgCropHeight),
+            BORDER_REPLICATE
+        )
+
+        // 检查变换后的图像是否有效
+        if (partImg.empty()) {
+            Log.e("OCR", "Transformed image is empty")
+            return imgCrop
+        }
+
+        return if (partImg.rows() >= partImg.cols() * 1.5) {
+            val srcCopy = Mat(partImg.rows(), partImg.cols(), partImg.depth())
+            transpose(partImg, srcCopy)
+            flip(srcCopy, srcCopy, 0)
+            srcCopy
+        } else {
+            partImg
+        }
+    } catch (e: Exception) {
+        Log.e("OCR", "Error in getRotateCropImage: ${e.message}")
+        return Mat()
     }
 }
 
 internal fun getPartMats(src: Mat, detResults: List<DetResult>): List<Mat> {
-    return detResults.map { getRotateCropImage(src, it.points) }
+    return detResults.mapNotNull { detResult ->
+        try {
+            val cropImage = getRotateCropImage(src, detResult.points)
+            if (cropImage.empty()) {
+                Log.w("OCR", "Skipping empty crop image for detResult: $detResult")
+                null
+            } else {
+                cropImage
+            }
+        } catch (e: Exception) {
+            Log.e("OCR", "Error processing detResult: ${e.message}")
+            null
+        }
+    }
 }
 
 internal fun matRotateClockWise180(src: Mat): Mat {
