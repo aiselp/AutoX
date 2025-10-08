@@ -11,6 +11,7 @@ import com.stardust.autojs.ocr.ScaleParam
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.util.*
+import kotlin.math.max
 
 class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelName: String) {
 
@@ -24,7 +25,8 @@ class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
         val srcResize = Mat()
         // 使用官方推荐的 resize_long: 960
         val resizeLong = 960
-        val scale = resizeLong.toFloat() / max(src.cols(), src.rows()).toFloat()
+        val maxDimension = max(src.cols(), src.rows())
+        val scale = resizeLong.toFloat() / maxDimension.toFloat()
         val dstWidth = (src.cols() * scale).toInt()
         val dstHeight = (src.rows() * scale).toInt()
         
