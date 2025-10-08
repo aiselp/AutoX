@@ -5,6 +5,7 @@ import ai.onnxruntime.OnnxTensor
 import ai.onnxruntime.OrtEnvironment
 import ai.onnxruntime.TensorInfo
 import android.content.res.AssetManager
+import android.util.Log
 import com.stardust.autojs.ocr.DetPoint
 import com.stardust.autojs.ocr.DetResult
 import com.stardust.autojs.ocr.ScaleParam
@@ -12,6 +13,8 @@ import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
 import java.util.*
 import kotlin.math.max
+import kotlin.math.abs
+import kotlin.math.sqrt
 
 class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelName: String) {
 
@@ -120,15 +123,61 @@ class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
                 continue
 
             val detPoints = clipMinBoxes.map { point ->
-                val x = point.x / s.ratioWidth
-                val y = point.y / s.ratioHeight
-                val ptX = Math.min(Math.max(x.toInt(), 0), s.srcWidth - 1)
-                val ptY = Math.min(Math.max(y.toInt(), 0), s.srcHeight - 1)
+                // 修正坐标映射，确保在原始图像范围内
+                var x = point.x / s.ratioWidth
+                var y = point.y / s.ratioHeight
+                
+                // 添加边界安全检查
+                x = x.coerceIn(0.0, s.srcWidth - 1.0)
+                y = y.coerceIn(0.0, s.srcHeight - 1.0)
+                
+                // 确保坐标是整数且不越界
+                val ptX = x.toInt().coerceIn(0, s.srcWidth - 1)
+                val ptY = y.toInt().coerceIn(0, s.srcHeight - 1)
                 DetPoint(ptX, ptY)
             }
-            rsBoxes.add(DetResult(detPoints, boxScore))
+            
+            // 添加检测框有效性检查
+            if (isValidDetBox(detPoints, s.srcWidth, s.srcHeight)) {
+                rsBoxes.add(DetResult(detPoints, boxScore))
+            }
         }
         return rsBoxes.asReversed()
+    }
+
+    // 添加检测框有效性检查函数
+    private fun isValidDetBox(points: List<DetPoint>, srcWidth: Int, srcHeight: Int): Boolean {
+        // 检查点数量
+        if (points.size != 4) return false
+        
+        // 检查每个点是否在图像范围内
+        points.forEach { point ->
+            if (point.x < 0 || point.x >= srcWidth || point.y < 0 || point.y >= srcHeight) {
+                Log.w("OCR", "Invalid detection point: (${point.x}, ${point.y}) in image ${srcWidth}x${srcHeight}")
+                return false
+            }
+        }
+        
+        // 检查框的面积是否合理
+        val area = calculatePolygonArea(points)
+        if (area < 10.0) { // 最小面积阈值
+            Log.w("OCR", "Detection box too small: area=$area")
+            return false
+        }
+        
+        return true
+    }
+
+    // 计算多边形面积
+    private fun calculatePolygonArea(points: List<DetPoint>): Double {
+        var area = 0.0
+        val n = points.size
+        for (i in 0 until n) {
+            val j = (i + 1) % n
+            area += points[i].x * points[j].y
+            area -= points[j].x * points[i].y
+        }
+        return abs(area) / 2.0
     }
 
     companion object {
