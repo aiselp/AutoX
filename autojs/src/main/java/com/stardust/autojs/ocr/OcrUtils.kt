@@ -261,8 +261,8 @@ internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
     val safeMargin = 2 // 2像素的安全边界
     left = max(0.0, left - safeMargin)
     top = max(0.0, top - safeMargin)
-    right = minOf(right + safeMargin, src.cols() - 1.0)  // 修复：使用 minOf 而不是 min
-    bottom = minOf(bottom + safeMargin, src.rows() - 1.0) // 修复：使用 minOf 而不是 min
+    right = minOf(right + safeMargin, src.cols() - 1.0)
+    bottom = minOf(bottom + safeMargin, src.rows() - 1.0)
     
     val width = (right - left).toInt()
     val height = (bottom - top).toInt()
@@ -278,8 +278,8 @@ internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
         // 安全调整
         val adjustedLeft = left.coerceIn(0.0, src.cols() - 1.0)
         val adjustedTop = top.coerceIn(0.0, src.rows() - 1.0)
-        val adjustedWidth = minOf(width, src.cols() - adjustedLeft.toInt())  // 修复：使用 minOf
-        val adjustedHeight = minOf(height, src.rows() - adjustedTop.toInt()) // 修复：使用 minOf
+        val adjustedWidth = minOf(width, src.cols() - adjustedLeft.toInt())
+        val adjustedHeight = minOf(height, src.rows() - adjustedTop.toInt())
         
         if (adjustedWidth <= 0 || adjustedHeight <= 0) {
             return Mat()
@@ -317,23 +317,25 @@ private fun distance(p1: Point, p2: Point): Double {
 }
 
 internal fun getPartMats(src: Mat, detResults: List<DetResult>): List<Mat> {
-    return detResults.mapIndexed { index, detResult ->
+    val result = mutableListOf<Mat>()
+    
+    detResults.forEachIndexed { index, detResult ->
         try {
             Log.d("OCR", "Processing detResult $index: points=${detResult.points.map { "(${it.x},${it.y})" }}, score=${detResult.score}")
             
             val cropImage = getRotateCropImage(src, detResult.points)
-            if (cropImage.empty()) {
-                Log.w("OCR", "Empty crop image for detResult $index")
-                null
-            } else {
+            if (!cropImage.empty()) {
                 Log.d("OCR", "Successfully cropped image $index: ${cropImage.cols()}x${cropImage.rows()}")
-                cropImage
+                result.add(cropImage)
+            } else {
+                Log.w("OCR", "Empty crop image for detResult $index")
             }
         } catch (e: Exception) {
             Log.e("OCR", "Error processing detResult $index: ${e.message}")
-            null
         }
     }
+    
+    return result
 }
 
 internal fun matRotateClockWise180(src: Mat): Mat {
@@ -355,5 +357,5 @@ internal fun adjustToDst(src: Mat, dstWidth: Double, dstHeight: Double): Mat {
         val rect = Rect(0, 0, dstWidth.toInt(), dstHeight.toInt())
         srcResize.submat(rect).copyTo(srcFit)
     }
-    return srcFit;
+    return srcFit
 }
