@@ -16,6 +16,8 @@ import org.opencv.core.TickMeter
 import org.opencv.imgproc.Imgproc.*
 import java.io.Closeable
 import java.lang.Integer.max
+import org.json.JSONArray
+import org.json.JSONObject
 
 class OcrEngine(context: Context) : Closeable {
 
@@ -210,7 +212,7 @@ class OcrEngine(context: Context) : Closeable {
             return """{
                 "text": "${ocrResult.text.replace("\"", "\\\"")}",
                 "textWithCoordinates": "${ocrResult.textWithCoordinates.replace("\"", "\\\"")}",
-                "textBlocks": ${ocrResult.textBlocks},
+                "textBlocks": ${ocrResult.textBlocksJson},
                 "fullTime": ${ocrResult.fullTime},
                 "detTime": ${ocrResult.detTime},
                 "recTime": ${ocrResult.recTime},
@@ -318,26 +320,32 @@ class OcrEngine(context: Context) : Closeable {
 
         // 创建包含坐标信息的文本结果
         val textWithCoordinates = StringBuilder()
-        val textBlocks = mutableListOf<Map<String, Any>>()
+        val textBlocksJsonArray = JSONArray()
         
         for (i in recResults.indices) {
             if (i < detResults.size) {
                 val recResult = recResults[i]
                 val detResult = detResults[i]
                 
-                // 构建带坐标的文本块
-                val textBlock = mapOf(
-                    "text" to recResult.text,
-                    "score" to recResult.charScores.average().toFloat(),
-                    "coordinates" to detResult.points.map { point ->
+                // 构建JSON对象
+                val textBlockJson = JSONObject().apply {
+                    put("text", recResult.text)
+                    put("score", recResult.charScores.average().toFloat())
+                    put("det_score", detResult.score)
+                    
+                    val coordinatesArray = JSONArray()
+                    detResult.points.forEach { point ->
                         // 调整坐标，去除padding
                         val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
                         val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
-                        mapOf("x" to adjustedX, "y" to adjustedY)
-                    },
-                    "det_score" to detResult.score
-                )
-                textBlocks.add(textBlock)
+                        coordinatesArray.put(JSONObject().apply {
+                            put("x", adjustedX)
+                            put("y", adjustedY)
+                        })
+                    }
+                    put("coordinates", coordinatesArray)
+                }
+                textBlocksJsonArray.put(textBlockJson)
                 
                 textWithCoordinates.append("${recResult.text} [")
                 textWithCoordinates.append(detResult.points.joinToString(";") { 
@@ -369,7 +377,7 @@ class OcrEngine(context: Context) : Closeable {
             fullTime = fullTickMeter.timeMilli,
             text = text,
             textWithCoordinates = textWithCoordinates.toString(),
-            textBlocks = textBlocks
+            textBlocksJson = textBlocksJsonArray.toString()
         )
     }
 
