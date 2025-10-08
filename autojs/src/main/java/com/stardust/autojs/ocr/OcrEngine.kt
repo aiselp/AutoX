@@ -331,170 +331,178 @@ fun detect(
     }
 
     private fun fullDetect(
-        src: Mat,
-        paddingRect: Rect,
-        s: ScaleParam,
-        boxScoreThresh: Float,
-        boxThresh: Float,
-        unClipRatio: Float,
-        doCls: Boolean,
-        mostCls: Boolean
-    ): OcrResult {
-        val fullTickMeter = TickMeter().apply { start() }
-        val textBoxPaddingImg = src.clone()
-        val thickness = getThickness(src)
-        Log.i(TAG, "=====Start detect=====")
-        Log.i(TAG, "Source image size: ${src.cols()}x${src.rows()}, scale param: $s")
+    src: Mat,
+    paddingRect: Rect,
+    s: ScaleParam,
+    boxScoreThresh: Float,
+    boxThresh: Float,
+    unClipRatio: Float,
+    doCls: Boolean,
+    mostCls: Boolean
+): OcrResult {
+    val fullTickMeter = TickMeter().apply { start() }
+    val textBoxPaddingImg = src.clone()
+    val thickness = getThickness(src)
+    Log.i(TAG, "=====Start detect=====")
+    Log.i(TAG, "Source image size: ${src.cols()}x${src.rows()}, scale param: $s")
 
-        val detTickMeter = TickMeter().apply { start() }
-        Log.i(TAG, "---------- step: Get DetResults ----------")
-        
-        // 使用官方推荐的参数，不进行动态调整以保持一致性
-        Log.i(TAG, "Using official params - boxThresh: $boxThresh, boxScoreThresh: $boxScoreThresh, unClipRatio: $unClipRatio")
-        
-        val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
-        detTickMeter.stop()
+    val detTickMeter = TickMeter().apply { start() }
+    Log.i(TAG, "---------- step: Get DetResults ----------")
+    
+    // 使用官方推荐的参数，不进行动态调整以保持一致性
+    Log.i(TAG, "Using official params - boxThresh: $boxThresh, boxScoreThresh: $boxScoreThresh, unClipRatio: $unClipRatio")
+    
+    val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
+    detTickMeter.stop()
 
-        Log.i(TAG, "Detected ${detResults.size} text boxes")
+    Log.i(TAG, "Detected ${detResults.size} text boxes")
 
-        // 过滤低质量的检测框
-        val filteredDetResults = detResults.filter { it.score > boxScoreThresh }
-        if (filteredDetResults.size < detResults.size) {
-            Log.i(TAG, "Filtered out ${detResults.size - filteredDetResults.size} low score boxes")
-        }
-
-        Log.i(TAG, "---------- step: Draw TextBoxes ----------")
-        drawTextBoxes(textBoxPaddingImg, filteredDetResults, thickness)
-
-        Log.i(TAG, "---------- step: Get PartMats ----------")
-        val partMats = getPartMats(src, filteredDetResults)
-        Log.i(TAG, "Successfully cropped ${partMats.size} part images")
-
-        // 检查裁剪的图像是否有效
-        partMats.forEachIndexed { index, mat ->
-            if (mat.empty()) {
-                Log.w(TAG, "Part image $index is empty")
-            } else {
-                Log.i(TAG, "Part image $index size: ${mat.cols()}x${mat.rows()}")
-            }
-        }
-
-        val clsTickMeter = TickMeter().apply { start() }
-        val clsResults = if (doCls && partMats.isNotEmpty()) {
-            Log.i(TAG, "---------- step: Get ClsResults ----------")
-            val results = cls.getClsResults(partMats)
-            if (mostCls) {
-                results.map {
-                    val sum = results.map { it.index }.sum().toFloat()
-                    val halfPercent = results.size.toFloat() / 2.0F
-                    val mostAngleIndex = if (sum < halfPercent) 0 else 1
-                    it.copy(index = mostAngleIndex)
-                }
-            } else results
-        } else emptyList()
-        clsTickMeter.stop()
-
-        val clsPartMats = if (doCls && clsResults.isNotEmpty()) {
-            Log.i(TAG, "---------- step: Rotate partImages ----------")
-            partMats.mapIndexed { index, mat ->
-                if (index < clsResults.size && clsResults[index].index == 1) {
-                    matRotateClockWise180(mat)
-                } else mat
-            }
-        } else partMats
-
-        val recTickMeter = TickMeter().apply { start() }
-        Log.i(TAG, "---------- step: Get RecResults ----------")
-        val recResults = rec.getRecResults(clsPartMats)
-        recTickMeter.stop()
-
-        Log.i(TAG, "Recognized ${recResults.size} text results")
-
-        // 修复：确保detResults和recResults对应关系正确
-        val validDetResults = mutableListOf<DetResult>()
-        val validRecResults = mutableListOf<RecResult>()
-        
-        // 只处理成功裁剪和识别的部分
-        for (i in partMats.indices) {
-            if (i < recResults.size && i < filteredDetResults.size && !partMats[i].empty()) {
-                validDetResults.add(filteredDetResults[i])
-                validRecResults.add(recResults[i])
-            }
-        }
-
-        Log.i(TAG, "Valid results: ${validRecResults.size}")
-
-        // 创建包含坐标信息的文本结果
-        val textWithCoordinates = StringBuilder()
-        val textBlocksJsonArray = JSONArray()
-        
-        for (i in validRecResults.indices) {
-            val recResult = validRecResults[i]
-            val detResult = validDetResults[i]
-            
-            // 过滤空文本和低置信度结果
-            if (recResult.text.isNotBlank() && recResult.charScores.isNotEmpty() && 
-                recResult.charScores.average() > 0.5f) {
-                
-                // 构建JSON对象
-                val textBlockJson = JSONObject().apply {
-                    put("text", recResult.text)
-                    put("score", recResult.charScores.average().toFloat())
-                    put("det_score", detResult.score)
-                    
-                    val coordinatesArray = JSONArray()
-                    detResult.points.forEach { point ->
-                        // 调整坐标，去除padding
-                        val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
-                        val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
-                        coordinatesArray.put(JSONObject().apply {
-                            put("x", adjustedX)
-                            put("y", adjustedY)
-                        })
-                    }
-                    put("coordinates", coordinatesArray)
-                }
-                textBlocksJsonArray.put(textBlockJson)
-                
-                textWithCoordinates.append("${recResult.text} [")
-                textWithCoordinates.append(detResult.points.joinToString(";") { 
-                    "(${it.x - paddingRect.x},${it.y - paddingRect.y})" 
-                })
-                textWithCoordinates.append("]\n")
-            }
-        }
-
-        Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
-        val outRGBA = Mat()
-        cvtColor(textBoxPaddingImg.submat(paddingRect), outRGBA, COLOR_BGR2RGBA)
-        val boxImage = Bitmap.createBitmap(
-            outRGBA.cols(), outRGBA.rows(), Bitmap.Config.ARGB_8888
-        )
-        matToBitmap(outRGBA, boxImage)
-
-        // 修复：使用有效的识别结果构建文本
-        val text = validRecResults
-            .filter { it.text.isNotBlank() && it.charScores.isNotEmpty() && it.charScores.average() > 0.5f }
-            .joinToString(separator = "\n") { it.text }
-        fullTickMeter.stop()
-        
-        Log.i(TAG, "Final text: $text")
-        Log.i(TAG, "Text with coordinates length: ${textWithCoordinates.length}")
-        
-        return OcrResult(
-            detResults = validDetResults,
-            detTime = detTickMeter.timeMilli,
-            clsResults = clsResults,
-            clsTime = clsTickMeter.timeMilli,
-            recResults = validRecResults,
-            recTime = recTickMeter.timeMilli,
-            boxImage = boxImage,
-            fullTime = fullTickMeter.timeMilli,
-            text = text,
-            textWithCoordinates = textWithCoordinates.toString(),
-            textBlocksJson = textBlocksJsonArray.toString()
-        )
+    // 过滤低质量的检测框
+    val filteredDetResults = detResults.filter { it.score > boxScoreThresh }
+    if (filteredDetResults.size < detResults.size) {
+        Log.i(TAG, "Filtered out ${detResults.size - filteredDetResults.size} low score boxes")
     }
+
+    Log.i(TAG, "---------- step: Draw TextBoxes ----------")
+    drawTextBoxes(textBoxPaddingImg, filteredDetResults, thickness)
+
+    Log.i(TAG, "---------- step: Get PartMats ----------")
+    val partMats = getPartMats(src, filteredDetResults)
+    Log.i(TAG, "Successfully cropped ${partMats.size} part images")
+
+    // 检查裁剪的图像是否有效
+    partMats.forEachIndexed { index, mat ->
+        if (mat.empty()) {
+            Log.w(TAG, "Part image $index is empty")
+        } else {
+            Log.i(TAG, "Part image $index size: ${mat.cols()}x${mat.rows()}")
+        }
+    }
+
+    val clsTickMeter = TickMeter().apply { start() }
+    val clsResults = if (doCls && partMats.isNotEmpty()) {
+        Log.i(TAG, "---------- step: Get ClsResults ----------")
+        val results = cls.getClsResults(partMats)
+        if (mostCls) {
+            results.map {
+                val sum = results.map { it.index }.sum().toFloat()
+                val halfPercent = results.size.toFloat() / 2.0F
+                val mostAngleIndex = if (sum < halfPercent) 0 else 1
+                it.copy(index = mostAngleIndex)
+            }
+        } else results
+    } else emptyList()
+    clsTickMeter.stop()
+
+    val clsPartMats = if (doCls && clsResults.isNotEmpty()) {
+        Log.i(TAG, "---------- step: Rotate partImages ----------")
+        partMats.mapIndexed { index, mat ->
+            if (index < clsResults.size && clsResults[index].index == 1) {
+                matRotateClockWise180(mat)
+            } else mat
+        }
+    } else partMats
+
+    val recTickMeter = TickMeter().apply { start() }
+    Log.i(TAG, "---------- step: Get RecResults ----------")
+    val recResults = rec.getRecResults(clsPartMats)
+    recTickMeter.stop()
+
+    Log.i(TAG, "Recognized ${recResults.size} text results")
+
+    // 修复：确保detResults和recResults对应关系正确
+    val validDetResults = mutableListOf<DetResult>()
+    val validRecResults = mutableListOf<RecResult>()
+    
+    // 只处理成功裁剪和识别的部分
+    for (i in partMats.indices) {
+        if (i < recResults.size && i < filteredDetResults.size && !partMats[i].empty()) {
+            validDetResults.add(filteredDetResults[i])
+            validRecResults.add(recResults[i])
+        }
+    }
+
+    Log.i(TAG, "Valid results: ${validRecResults.size}")
+
+    // 创建包含坐标信息的文本结果
+    val textWithCoordinates = StringBuilder()
+    val textBlocksJsonArray = JSONArray()
+    
+    for (i in validRecResults.indices) {
+        val recResult = validRecResults[i]
+        val detResult = validDetResults[i]
+        
+        // 过滤空文本和低置信度结果
+        if (recResult.text.isNotBlank() && recResult.charScores.isNotEmpty() && 
+            recResult.charScores.average() > 0.5f) {
+            
+            // 修正坐标：减去padding并确保在原始图像范围内
+            val adjustedCoordinates = detResult.points.map { point ->
+                var adjustedX = point.x - paddingRect.x
+                var adjustedY = point.y - paddingRect.y
+                
+                // 确保坐标在原始图像范围内
+                adjustedX = adjustedX.coerceIn(0, s.srcWidth - 1)
+                adjustedY = adjustedY.coerceIn(0, s.srcHeight - 1)
+                
+                DetPoint(adjustedX, adjustedY)
+            }
+            
+            val textBlockJson = JSONObject().apply {
+                put("text", recResult.text)
+                put("score", recResult.charScores.average().toFloat())
+                put("det_score", detResult.score)
+                
+                val coordinatesArray = JSONArray()
+                adjustedCoordinates.forEach { point ->
+                    coordinatesArray.put(JSONObject().apply {
+                        put("x", point.x)
+                        put("y", point.y)
+                    })
+                }
+                put("coordinates", coordinatesArray)
+            }
+            textBlocksJsonArray.put(textBlockJson)
+            
+            textWithCoordinates.append("${recResult.text} [")
+            textWithCoordinates.append(adjustedCoordinates.joinToString(";") { 
+                "(${it.x},${it.y})" 
+            })
+            textWithCoordinates.append("]\n")
+        }
+    }
+
+    Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
+    val outRGBA = Mat()
+    cvtColor(textBoxPaddingImg.submat(paddingRect), outRGBA, COLOR_BGR2RGBA)
+    val boxImage = Bitmap.createBitmap(
+        outRGBA.cols(), outRGBA.rows(), Bitmap.Config.ARGB_8888
+    )
+    matToBitmap(outRGBA, boxImage)
+
+    // 修复：使用有效的识别结果构建文本
+    val text = validRecResults
+        .filter { it.text.isNotBlank() && it.charScores.isNotEmpty() && it.charScores.average() > 0.5f }
+        .joinToString(separator = "\n") { it.text }
+    fullTickMeter.stop()
+    
+    Log.i(TAG, "Final text: $text")
+    Log.i(TAG, "Text with coordinates length: ${textWithCoordinates.length}")
+    
+    return OcrResult(
+        detResults = validDetResults,
+        detTime = detTickMeter.timeMilli,
+        clsResults = clsResults,
+        clsTime = clsTickMeter.timeMilli,
+        recResults = validRecResults,
+        recTime = recTickMeter.timeMilli,
+        boxImage = boxImage,
+        fullTime = fullTickMeter.timeMilli,
+        text = text,
+        textWithCoordinates = textWithCoordinates.toString(),
+        textBlocksJson = textBlocksJsonArray.toString()
+    )
+}
 
     companion object {
         // 添加模型目录常量
