@@ -1,3 +1,4 @@
+//autojs/src/main/java/com/stardust/autojs/ocr/OcrResult.kt
 package com.stardust.autojs.ocr
 
 import android.graphics.Bitmap
