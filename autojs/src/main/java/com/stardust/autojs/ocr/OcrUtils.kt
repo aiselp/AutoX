@@ -35,8 +35,7 @@ internal fun getScaleParam(src: Mat, targetSize: Int): ScaleParam {
         dstWidth = (srcWidth.toFloat() * scale).toInt()
     }
     
-    // 确保尺寸是32的倍数（检测模型要求）
-    // 这里使用向上取整到最近的32的倍数，避免形状不匹配
+    // 确保尺寸是32的倍数
     if (dstWidth % 32 != 0) {
         dstWidth = (dstWidth + 31) / 32 * 32
     }
@@ -237,121 +236,101 @@ internal fun drawTextBoxes(boxImg: Mat, textBoxes: List<DetResult>, thickness: I
 }
 
 internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
-    // 添加边界检查
     if (box.size != 4) {
         Log.e("OCR", "Invalid box points: ${box.size}")
         return Mat()
     }
     
+    // 记录原始信息用于调试
+    Log.d("OCR", "Original box points: ${box.map { "(${it.x},${it.y})" }}")
+    Log.d("OCR", "Source image size: ${src.cols()}x${src.rows()}")
+    
+    // 第一步：安全地计算裁剪区域
     val points = box.map { it.toCvPoint() }
 
-    val collectX = arrayOf(box[0].x, box[1].x, box[2].x, box[3].x)
-    val collectY = arrayOf(box[0].y, box[1].y, box[2].y, box[3].y)
-    val left = collectX.min()
-    val right = collectX.max()
-    val top = collectY.min()
-    val bottom = collectY.max()
-
-    // 添加边界检查
-    if (left >= right || top >= bottom) {
-        Log.e("OCR", "Invalid box coordinates: left=$left, right=$right, top=$top, bottom=$bottom")
+    // 计算边界框，添加安全边界
+    val collectX = box.map { it.x }
+    val collectY = box.map { it.y }
+    
+    var left = collectX.min().toDouble()
+    var right = collectX.max().toDouble()
+    var top = collectY.min().toDouble()
+    var bottom = collectY.max().toDouble()
+    
+    // 添加安全边界，防止裁切
+    val safeMargin = 2 // 2像素的安全边界
+    left = max(0.0, left - safeMargin)
+    top = max(0.0, top - safeMargin)
+    right = min(src.cols() - 1.0, right + safeMargin)
+    bottom = min(src.rows() - 1.0, bottom + safeMargin)
+    
+    val width = (right - left).toInt()
+    val height = (bottom - top).toInt()
+    
+    // 严格的边界检查
+    if (width <= 0 || height <= 0) {
+        Log.e("OCR", "Invalid crop dimensions: width=$width, height=$height")
         return Mat()
     }
-
-    val width = right - left
-    val height = bottom - top
-
-    // 检查裁剪区域是否有效
-    if (width <= 0 || height <= 0 || left < 0 || top < 0 || 
-        left + width > src.cols() || top + height > src.rows()) {
-        Log.e("OCR", "Invalid crop region: left=$left, top=$top, width=$width, height=$height, src=${src.cols()}x${src.rows()}")
-        return Mat()
+    
+    if (left < 0 || top < 0 || left + width > src.cols() || top + height > src.rows()) {
+        Log.e("OCR", "Crop region out of bounds: left=$left, top=$top, width=$width, height=$height")
+        // 安全调整
+        val adjustedLeft = left.coerceIn(0.0, src.cols() - 1.0)
+        val adjustedTop = top.coerceIn(0.0, src.rows() - 1.0)
+        val adjustedWidth = min(width, src.cols() - adjustedLeft.toInt())
+        val adjustedHeight = min(height, src.rows() - adjustedTop.toInt())
+        
+        if (adjustedWidth <= 0 || adjustedHeight <= 0) {
+            return Mat()
+        }
+        
+        return try {
+            src.submat(Rect(adjustedLeft.toInt(), adjustedTop.toInt(), adjustedWidth, adjustedHeight))
+        } catch (e: Exception) {
+            Log.e("OCR", "Safe crop failed: ${e.message}")
+            Mat()
+        }
     }
-
+    
     try {
-        val imgCrop = src.submat(Rect(left, top, width, height))
-
-        // 如果裁剪的图像为空，返回空矩阵
+        // 直接裁剪，不进行透视变换（避免复杂的坐标计算错误）
+        val imgCrop = src.submat(Rect(left.toInt(), top.toInt(), width, height))
+        
         if (imgCrop.empty()) {
             Log.e("OCR", "Cropped image is empty")
             return Mat()
         }
-
-        val adjustedPoints = points.map { point ->
-            Point(point.x - left, point.y - top)
-        }
-
-        val imgCropWidth = sqrt(
-            (adjustedPoints[0].x - adjustedPoints[1].x) * (adjustedPoints[0].x - adjustedPoints[1].x) + 
-            (adjustedPoints[0].y - adjustedPoints[1].y) * (adjustedPoints[0].y - adjustedPoints[1].y)
-        )
-
-        val imgCropHeight = sqrt(
-            (adjustedPoints[0].x - adjustedPoints[3].x) * (adjustedPoints[0].x - adjustedPoints[3].x) + 
-            (adjustedPoints[0].y - adjustedPoints[3].y) * (adjustedPoints[0].y - adjustedPoints[3].y)
-        )
-
-        // 检查变换后的尺寸是否有效
-        if (imgCropWidth <= 0 || imgCropHeight <= 0) {
-            Log.e("OCR", "Invalid transformed dimensions: width=$imgCropWidth, height=$imgCropHeight")
-            return imgCrop
-        }
-
-        val ptsDst = arrayOf(
-            Point(0.0, 0.0),
-            Point(imgCropWidth, 0.0),
-            Point(imgCropWidth, imgCropHeight),
-            Point(0.0, imgCropHeight)
-        )
-
-        val ptsSrc = arrayOf(
-            Point(adjustedPoints[0].x, adjustedPoints[0].y),
-            Point(adjustedPoints[1].x, adjustedPoints[1].y),
-            Point(adjustedPoints[2].x, adjustedPoints[2].y),
-            Point(adjustedPoints[3].x, adjustedPoints[3].y),
-        )
         
-        val transformation = getPerspectiveTransform(MatOfPoint2f(*ptsSrc), MatOfPoint2f(*ptsDst))
-
-        val partImg = Mat()
-        warpPerspective(
-            imgCrop, partImg, transformation,
-            Size(imgCropWidth, imgCropHeight),
-            BORDER_REPLICATE
-        )
-
-        // 检查变换后的图像是否有效
-        if (partImg.empty()) {
-            Log.e("OCR", "Transformed image is empty")
-            return imgCrop
-        }
-
-        return if (partImg.rows() >= partImg.cols() * 1.5) {
-            val srcCopy = Mat(partImg.rows(), partImg.cols(), partImg.depth())
-            transpose(partImg, srcCopy)
-            flip(srcCopy, srcCopy, 0)
-            srcCopy
-        } else {
-            partImg
-        }
+        Log.d("OCR", "Successfully cropped: ${imgCrop.cols()}x${imgCrop.rows()}")
+        return imgCrop
+        
     } catch (e: Exception) {
-        Log.e("OCR", "Error in getRotateCropImage: ${e.message}")
+        Log.e("OCR", "Error in simple crop: ${e.message}")
         return Mat()
     }
 }
 
+// 计算两点间距离
+private fun distance(p1: Point, p2: Point): Double {
+    return sqrt((p1.x - p2.x) * (p1.x - p2.x) + (p1.y - p2.y) * (p1.y - p2.y))
+}
+
 internal fun getPartMats(src: Mat, detResults: List<DetResult>): List<Mat> {
-    return detResults.mapNotNull { detResult ->
+    return detResults.mapIndexed { index, detResult ->
         try {
+            Log.d("OCR", "Processing detResult $index: points=${detResult.points.map { "(${it.x},${it.y})" }}, score=${detResult.score}")
+            
             val cropImage = getRotateCropImage(src, detResult.points)
             if (cropImage.empty()) {
-                Log.w("OCR", "Skipping empty crop image for detResult: $detResult")
+                Log.w("OCR", "Empty crop image for detResult $index")
                 null
             } else {
+                Log.d("OCR", "Successfully cropped image $index: ${cropImage.cols()}x${cropImage.rows()}")
                 cropImage
             }
         } catch (e: Exception) {
-            Log.e("OCR", "Error processing detResult: ${e.message}")
+            Log.e("OCR", "Error processing detResult $index: ${e.message}")
             null
         }
     }
