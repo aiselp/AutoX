@@ -261,8 +261,8 @@ internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
     val safeMargin = 2 // 2像素的安全边界
     left = max(0.0, left - safeMargin)
     top = max(0.0, top - safeMargin)
-    right = min(src.cols() - 1.0, right + safeMargin)
-    bottom = min(src.rows() - 1.0, bottom + safeMargin)
+    right = minOf(right + safeMargin, src.cols() - 1.0)  // 修复：使用 minOf 而不是 min
+    bottom = minOf(bottom + safeMargin, src.rows() - 1.0) // 修复：使用 minOf 而不是 min
     
     val width = (right - left).toInt()
     val height = (bottom - top).toInt()
@@ -278,8 +278,8 @@ internal fun getRotateCropImage(src: Mat, box: List<DetPoint>): Mat {
         // 安全调整
         val adjustedLeft = left.coerceIn(0.0, src.cols() - 1.0)
         val adjustedTop = top.coerceIn(0.0, src.rows() - 1.0)
-        val adjustedWidth = min(width, src.cols() - adjustedLeft.toInt())
-        val adjustedHeight = min(height, src.rows() - adjustedTop.toInt())
+        val adjustedWidth = minOf(width, src.cols() - adjustedLeft.toInt())  // 修复：使用 minOf
+        val adjustedHeight = minOf(height, src.rows() - adjustedTop.toInt()) // 修复：使用 minOf
         
         if (adjustedWidth <= 0 || adjustedHeight <= 0) {
             return Mat()
