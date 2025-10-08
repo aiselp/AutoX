@@ -23,14 +23,9 @@ class Det(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
     @OptIn(ExperimentalUnsignedTypes::class)
     fun getDetResults(src: Mat, s: ScaleParam, boxScoreThresh: Float, boxThresh: Float, unClipRatio: Float): List<DetResult> {
         val srcResize = Mat()
-        // 使用官方推荐的 resize_long: 960
-        val resizeLong = 960
-        val maxDimension = max(src.cols(), src.rows())
-        val scale = resizeLong.toFloat() / maxDimension.toFloat()
-        val dstWidth = (src.cols() * scale).toInt()
-        val dstHeight = (src.rows() * scale).toInt()
         
-        Imgproc.resize(src, srcResize, Size(dstWidth.toDouble(), dstHeight.toDouble()))
+        // 使用 ScaleParam 中的尺寸，确保与模型兼容
+        Imgproc.resize(src, srcResize, Size(s.dstWidth.toDouble(), s.dstHeight.toDouble()))
 
         // 使用官方预处理参数
         val inputTensorValues = substractMeanNormalize(srcResize, meanValues, normValues)
