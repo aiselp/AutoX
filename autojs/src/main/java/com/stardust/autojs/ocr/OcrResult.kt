@@ -17,9 +17,9 @@ data class OcrResult(
     val fullTime: Double,
     val boxImage: Bitmap,
     val text: String,
-    // 新增字段
+    // 新增字段 - 使用基本类型和Parcelable类型
     val textWithCoordinates: String = "",
-    val textBlocks: List<Map<String, Any>> = emptyList()
+    val textBlocksJson: String = "" // 将复杂对象序列化为JSON字符串
 ) : Parcelable
 
 @Parcelize
@@ -37,7 +37,7 @@ data class DetResult(
 data class ClsResult(
     val index: Int,
     val score: Float,
-) : Parcelable {
+) : Pararcelable {
     val indexDirection: String get() = if (index == 0) "↑" else "↓"
 }
 
@@ -45,4 +45,19 @@ data class ClsResult(
 data class RecResult(
     val text: String,
     val charScores: List<Float>,
+) : Parcelable
+
+// 新增数据类用于文本块信息
+@Parcelize
+data class TextBlock(
+    val text: String,
+    val score: Float,
+    val coordinates: List<Coordinate>,
+    val detScore: Float
+) : Parcelable
+
+@Parcelize
+data class Coordinate(
+    val x: Int,
+    val y: Int
 ) : Parcelable
