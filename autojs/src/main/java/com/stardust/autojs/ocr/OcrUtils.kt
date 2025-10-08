@@ -23,28 +23,30 @@ internal fun getScaleParam(src: Mat, targetSize: Int): ScaleParam {
 
     var scale = 1.0F
 
-    // 修复：确保最小尺寸
-    val minTargetSize = max(targetSize, 32) // 最小32像素
+    // 使用官方策略：按长边缩放
+    val maxSide = max(srcWidth, srcHeight)
+    scale = targetSize.toFloat() / maxSide.toFloat()
     
-    if (dstWidth > dstHeight) {
-        scale = minTargetSize.toFloat() / dstWidth.toFloat()
-        dstWidth = minTargetSize
-        dstHeight = (dstHeight.toFloat() * scale).toInt()
+    if (maxSide == srcWidth) {
+        dstWidth = targetSize
+        dstHeight = (srcHeight.toFloat() * scale).toInt()
     } else {
-        scale = minTargetSize.toFloat() / dstHeight.toFloat()
-        dstHeight = minTargetSize
-        dstWidth = (dstWidth.toFloat() * scale).toInt()
+        dstHeight = targetSize
+        dstWidth = (srcWidth.toFloat() * scale).toInt()
     }
     
-    // 确保尺寸是32的倍数
+    // 确保尺寸是32的倍数（检测模型要求）
+    // 这里使用向上取整到最近的32的倍数，避免形状不匹配
     if (dstWidth % 32 != 0) {
-        dstWidth = (dstWidth / 32) * 32
-        dstWidth = max(dstWidth, 32)
+        dstWidth = (dstWidth + 31) / 32 * 32
     }
     if (dstHeight % 32 != 0) {
-        dstHeight = (dstHeight / 32) * 32
-        dstHeight = max(dstHeight, 32)
+        dstHeight = (dstHeight + 31) / 32 * 32
     }
+    
+    // 确保最小尺寸
+    dstWidth = max(dstWidth, 32)
+    dstHeight = max(dstHeight, 32)
     
     val scaleWidth = dstWidth.toFloat() / srcWidth.toFloat()
     val scaleHeight = dstHeight.toFloat() / srcHeight.toFloat()
