@@ -1,4 +1,3 @@
-//autojs/src/main/java/com/stardust/autojs/ocr/OcrEngine.kt
 package com.stardust.autojs.ocr
 
 import ai.onnxruntime.OrtEnvironment
@@ -209,6 +208,8 @@ class OcrEngine(context: Context) : Closeable {
             // 返回 JSON 字符串
             return """{
                 "text": "${ocrResult.text.replace("\"", "\\\"")}",
+                "textWithCoordinates": "${ocrResult.textWithCoordinates.replace("\"", "\\\"")}",
+                "textBlocks": ${ocrResult.textBlocks},
                 "fullTime": ${ocrResult.fullTime},
                 "detTime": ${ocrResult.detTime},
                 "recTime": ${ocrResult.recTime},
@@ -286,7 +287,7 @@ class OcrEngine(context: Context) : Closeable {
         val partMats = getPartMats(src, detResults)
 
         val clsTickMeter = TickMeter().apply { start() }
-        val clsResults = if (doCls) {
+        val clsResults = if (doCls && partMats.isNotEmpty()) {
             Log.i(TAG, "---------- step: Get ClsResults ----------")
             val results = cls.getClsResults(partMats)
             if (mostCls) {
@@ -300,10 +301,10 @@ class OcrEngine(context: Context) : Closeable {
         } else emptyList()
         clsTickMeter.stop()
 
-        val clsPartMats = if (doCls) {
+        val clsPartMats = if (doCls && clsResults.isNotEmpty()) {
             Log.i(TAG, "---------- step: Rotate partImages ----------")
             partMats.mapIndexed { index, mat ->
-                if (clsResults[index].index == 1) {
+                if (index < clsResults.size && clsResults[index].index == 1) {
                     matRotateClockWise180(mat)
                 } else mat
             }
@@ -313,6 +314,37 @@ class OcrEngine(context: Context) : Closeable {
         Log.i(TAG, "---------- step: Get RecResults ----------")
         val recResults = rec.getRecResults(clsPartMats)
         recTickMeter.stop()
+
+        // 创建包含坐标信息的文本结果
+        val textWithCoordinates = StringBuilder()
+        val textBlocks = mutableListOf<Map<String, Any>>()
+        
+        for (i in recResults.indices) {
+            if (i < detResults.size) {
+                val recResult = recResults[i]
+                val detResult = detResults[i]
+                
+                // 构建带坐标的文本块
+                val textBlock = mapOf(
+                    "text" to recResult.text,
+                    "score" to recResult.charScores.average().toFloat(),
+                    "coordinates" to detResult.points.map { point ->
+                        // 调整坐标，去除padding
+                        val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
+                        val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
+                        mapOf("x" to adjustedX, "y" to adjustedY)
+                    },
+                    "det_score" to detResult.score
+                )
+                textBlocks.add(textBlock)
+                
+                textWithCoordinates.append("${recResult.text} [")
+                textWithCoordinates.append(detResult.points.joinToString(";") { 
+                    "(${it.x - paddingRect.x},${it.y - paddingRect.y})" 
+                })
+                textWithCoordinates.append("]\n")
+            }
+        }
 
         Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
         val outRGBA = Mat()
@@ -324,6 +356,7 @@ class OcrEngine(context: Context) : Closeable {
 
         val text = recResults.joinToString(separator = "\n") { it.text }
         fullTickMeter.stop()
+        
         return OcrResult(
             detResults = detResults,
             detTime = detTickMeter.timeMilli,
@@ -334,6 +367,8 @@ class OcrEngine(context: Context) : Closeable {
             boxImage = boxImage,
             fullTime = fullTickMeter.timeMilli,
             text = text,
+            textWithCoordinates = textWithCoordinates.toString(),
+            textBlocks = textBlocks
         )
     }
 
