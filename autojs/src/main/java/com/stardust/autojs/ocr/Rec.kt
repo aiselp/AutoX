@@ -9,6 +9,9 @@ import org.opencv.core.Mat
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc.resize
 import java.util.*
+import org.opencv.core.Core
+import org.opencv.core.Scalar
+import org.opencv.core.Rect
 
 class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelName: String, keysName: String) {
 
@@ -41,14 +44,35 @@ class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
     }
 
     fun getRecResult(src: Mat): RecResult {
-        val scale = dstHeight / src.rows()
-        val dstWidth = (src.cols() * scale).toInt().toDouble()
-        val srcResize = Mat()
-        resize(src, srcResize, Size(dstWidth, dstHeight))
+        // 使用官方推荐的图像尺寸 3x48x320
+        val targetHeight = 48.0
+        val targetWidth = 320.0
         
-        // PP-OCRv5 识别模型预处理参数
-        val inputTensorValues = substractMeanNormalize(srcResize, meanValues, normValues)
-        val inputShape = longArrayOf(1, srcResize.channels().toLong(), srcResize.rows().toLong(), srcResize.cols().toLong())
+        val scale = targetHeight / src.rows()
+        val dstWidth = (src.cols() * scale).toInt().toDouble()
+        
+        val srcResize = Mat()
+        resize(src, srcResize, Size(dstWidth, targetHeight))
+        
+        // 如果宽度超过320，进行裁剪；如果不足，进行填充
+        val finalWidth = min(dstWidth.toInt(), targetWidth.toInt())
+        val finalMat = Mat(targetHeight.toInt(), targetWidth.toInt(), srcResize.type(), Scalar(0.0, 0.0, 0.0))
+        
+        if (dstWidth <= targetWidth) {
+            // 宽度不足，居中放置
+            val xOffset = ((targetWidth - dstWidth) / 2).toInt()
+            val roi = Rect(xOffset, 0, finalWidth, targetHeight.toInt())
+            srcResize.copyTo(finalMat.submat(roi))
+        } else {
+            // 宽度超过，裁剪中间部分
+            val xOffset = ((dstWidth - targetWidth) / 2).toInt()
+            val roi = Rect(xOffset, 0, finalWidth, targetHeight.toInt())
+            srcResize.submat(roi).copyTo(finalMat)
+        }
+        
+        // 使用官方预处理参数
+        val inputTensorValues = substractMeanNormalize(finalMat, meanValues, normValues)
+        val inputShape = longArrayOf(1, finalMat.channels().toLong(), finalMat.rows().toLong(), finalMat.cols().toLong())
         val inputName = session.inputNames.iterator().next()
         
         OnnxTensor.createTensor(ortEnv, inputTensorValues, inputShape).use { inputTensor ->
@@ -64,8 +88,8 @@ class Rec(private val ortEnv: OrtEnvironment, assetManager: AssetManager, modelN
     fun getRecResults(mats: List<Mat>): List<RecResult> = mats.map { getRecResult(it) }
 
     companion object {
-        private const val dstHeight = 48.0
-        // PP-OCRv5 识别模型预处理参数
+        // 使用官方预处理参数
+        // 识别模型通常使用不同的归一化参数
         private val meanValues = floatArrayOf(0.5F * 255F, 0.5F * 255F, 0.5F * 255F)
         private val normValues = floatArrayOf(1.0F / 0.5F / 255.0F, 1.0F / 0.5F / 255.0F, 1.0F / 0.5F / 255.0F)
     }
