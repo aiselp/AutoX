@@ -124,7 +124,8 @@ class OcrEngine(context: Context) : Closeable {
     // 主要的重载方法 - 接受 ImageWrapper
     @android.webkit.JavascriptInterface
     fun detect(imageWrapper: com.stardust.autojs.core.image.ImageWrapper): String {
-        return detect(imageWrapper, true, 1920, 50, 0.3f, 0.6f, 1.5f, true, true)
+        // 使用官方推荐的默认参数
+        return detect(imageWrapper, true, 960, 0, 0.3f, 0.6f, 1.5f, true, true)
     }
 
     // 重载方法 - 接受 ImageWrapper 和完整参数
@@ -163,16 +164,16 @@ class OcrEngine(context: Context) : Closeable {
         }
     }
 
-    // 原有的 Bitmap 方法
+    // 原有的 Bitmap 方法 - 使用官方推荐参数作为默认值
     @android.webkit.JavascriptInterface
     fun detect(
         bmp: Bitmap,
         scaleUp: Boolean = true,
-        maxSideLen: Int = 1920,
-        padding: Int = 50,
-        boxScoreThresh: Float = 0.3f,
-        boxThresh: Float = 0.6f,
-        unClipRatio: Float = 1.5f,
+        maxSideLen: Int = 960,        // 官方推荐 resize_long: 960
+        padding: Int = 0,             // 官方配置无padding
+        boxScoreThresh: Float = 0.3f, // 官方 thresh: 0.3
+        boxThresh: Float = 0.6f,      // 官方 box_thresh: 0.6
+        unClipRatio: Float = 1.5f,    // 官方 unclip_ratio: 1.5
         doCls: Boolean = true,
         mostCls: Boolean = true
     ): String {
@@ -196,40 +197,46 @@ class OcrEngine(context: Context) : Closeable {
             Log.i(TAG, "---------- step: Resize ----------")
             val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
             
-            // 针对小图片的特殊处理
-            val isSmallImage = originMaxSide < 300
-            val adjustedPadding = if (isSmallImage) {
-                // 小图片减少padding，确保返回 Int
-                max(padding / 2, 10)
-            } else {
-                padding
+            // 智能图像尺寸分类处理
+            val imageType = when {
+                originMaxSide < 300 -> "SMALL"
+                originMaxSide > 1500 -> "LARGE"
+                else -> "MEDIUM"
             }
             
-            val adjustedMaxSideLen = if (isSmallImage) {
-                // 小图片适当放大但不要太大，确保返回 Int
-                min(maxSideLen, 800)
-            } else {
-                maxSideLen
+            Log.i(TAG, "Image type: $imageType, size: $originMaxSide")
+            
+            // 根据图像类型优化参数，但保持官方参数为核心
+            val (optimizedMaxSideLen, optimizedPadding) = when (imageType) {
+                "SMALL" -> Pair(
+                    min(maxSideLen, 800),  // 小图限制最大尺寸
+                    max(padding, 10)       // 小图保持最小padding
+                )
+                "LARGE" -> Pair(
+                    if (maxSideLen <= 0) 2560 else maxSideLen,  // 大图允许更大尺寸
+                    padding                                    // 保持原padding
+                )
+                else -> Pair(maxSideLen, padding)              // 中等图片使用原参数
             }
             
             var resize = if (scaleUp) {
                 //支持放大和缩小
-                if (adjustedMaxSideLen <= 0) originMaxSide else adjustedMaxSideLen
+                if (optimizedMaxSideLen <= 0) originMaxSide else optimizedMaxSideLen
             } else {
                 //仅支持缩小
-                if (adjustedMaxSideLen <= 0 || originMaxSide < adjustedMaxSideLen) originMaxSide else adjustedMaxSideLen
+                if (optimizedMaxSideLen <= 0 || originMaxSide < optimizedMaxSideLen) originMaxSide else optimizedMaxSideLen
             }
-            resize += 2 * adjustedPadding
+            resize += 2 * optimizedPadding
             
-            Log.i(TAG, "Small image: $isSmallImage, adjusted padding: $adjustedPadding, resize=$resize")
+            Log.i(TAG, "Optimized params - maxSideLen: $optimizedMaxSideLen, padding: $optimizedPadding, resize=$resize")
             
-            val paddingRect = Rect(adjustedPadding, adjustedPadding, inputBGR.cols(), inputBGR.rows())
-            val paddingSrc = makePadding(inputBGR, adjustedPadding)
+            val paddingRect = Rect(optimizedPadding, optimizedPadding, inputBGR.cols(), inputBGR.rows())
+            val paddingSrc = makePadding(inputBGR, optimizedPadding)
             val s = getScaleParam(paddingSrc, resize)
             Log.i(TAG, "$s")
 
             val ocrResult = fullDetect(paddingSrc, paddingRect, s, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
-            Log.i(TAG, "OCR completed, text length: ${ocrResult.text.length}")
+            Log.i(TAG, "OCR completed, detected ${ocrResult.detResults.size} boxes, text length: ${ocrResult.text.length}")
 
             // 返回 JSON 字符串
             return """{
@@ -240,6 +247,8 @@ class OcrEngine(context: Context) : Closeable {
                 "detTime": ${ocrResult.detTime},
                 "recTime": ${ocrResult.recTime},
                 "clsTime": ${ocrResult.clsTime},
+                "detectedBoxes": ${ocrResult.detResults.size},
+                "imageType": "$imageType",
                 "success": true
             }"""
         } catch (e: Exception) {
@@ -251,8 +260,7 @@ class OcrEngine(context: Context) : Closeable {
     // 添加专门的小图片检测方法
     @android.webkit.JavascriptInterface
     fun detectSmallImage(
-        imageWrapper: com.stardust.autojs.core.image.ImageWrapper,
-        customParams: Boolean = false
+        imageWrapper: com.stardust.autojs.core.image.ImageWrapper
     ): String {
         Log.i(TAG, "=====Small Image Detection=====")
         
@@ -268,32 +276,17 @@ class OcrEngine(context: Context) : Closeable {
             
             Log.i(TAG, "Small image size: ${bitmap.width}x${bitmap.height}")
             
-            // 小图片专用参数
-            return if (customParams) {
-                // 使用自定义参数
-                detect(bitmap, 
-                    scaleUp = true,           // 允许放大
-                    maxSideLen = 400,         // 限制最大尺寸
-                    padding = 20,             // 减少padding
-                    boxScoreThresh = 0.2f,    // 降低检测阈值
-                    boxThresh = 0.4f,         // 降低框阈值
-                    unClipRatio = 1.8f,       // 增加unclip比例
-                    doCls = false,            // 小图片通常不需要方向分类
-                    mostCls = false
-                )
-            } else {
-                // 使用优化的小图片参数
-                detect(bitmap, 
-                    scaleUp = true,
-                    maxSideLen = 400,
-                    padding = 20,
-                    boxScoreThresh = 0.2f,
-                    boxThresh = 0.4f,
-                    unClipRatio = 1.8f,
-                    doCls = false,
-                    mostCls = false
-                )
-            }
+            // 小图片专用参数，基于官方参数调整
+            return detect(bitmap, 
+                scaleUp = true,
+                maxSideLen = 800,      // 限制最大尺寸
+                padding = 10,          // 最小padding
+                boxScoreThresh = 0.2f, // 降低检测阈值
+                boxThresh = 0.4f,      // 降低框阈值
+                unClipRatio = 1.8f,    // 增加unclip比例
+                doCls = false,         // 小图片通常不需要方向分类
+                mostCls = false
+            )
         } catch (e: Exception) {
             Log.e(TAG, "Small image detection error: ${e.message}")
             return """{"error": "Small image processing failed: ${e.message}", "success": false}"""
@@ -303,7 +296,8 @@ class OcrEngine(context: Context) : Closeable {
     // 添加其他便捷方法
     @android.webkit.JavascriptInterface
     fun detectFromBase64(base64Image: String): String {
-        return detectFromBase64(base64Image, true, 1920, 50, 0.3f, 0.6f, 1.5f, true, true)
+        // 使用官方推荐参数
+        return detectFromBase64(base64Image, true, 960, 0, 0.3f, 0.6f, 1.5f, true, true)
     }
 
     @android.webkit.JavascriptInterface
@@ -334,7 +328,7 @@ class OcrEngine(context: Context) : Closeable {
 
     @android.webkit.JavascriptInterface
     fun detectSimple(imageWrapper: com.stardust.autojs.core.image.ImageWrapper): String {
-        // 简化的调用，使用默认参数
+        // 简化的调用，使用官方推荐参数
         return detect(imageWrapper)
     }
 
@@ -352,38 +346,30 @@ class OcrEngine(context: Context) : Closeable {
         val textBoxPaddingImg = src.clone()
         val thickness = getThickness(src)
         Log.i(TAG, "=====Start detect=====")
-        Log.i(TAG, "Source image size: ${src.cols()}x${src.rows()}")
+        Log.i(TAG, "Source image size: ${src.cols()}x${src.rows()}, scale param: $s")
 
         val detTickMeter = TickMeter().apply { start() }
         Log.i(TAG, "---------- step: Get DetResults ----------")
         
-        // 针对小图片调整参数 - 修复类型问题
-        val adjustedBoxThresh = if (src.cols() < 200 || src.rows() < 200) {
-            // 小图片降低阈值，使用 floatMax 处理 Float 类型
-            floatMax(boxThresh * 0.7f, 0.3f)
-        } else {
-            boxThresh
-        }
+        // 使用官方推荐的参数，不进行动态调整以保持一致性
+        Log.i(TAG, "Using official params - boxThresh: $boxThresh, boxScoreThresh: $boxScoreThresh, unClipRatio: $unClipRatio")
         
-        val adjustedBoxScoreThresh = if (src.cols() < 200 || src.rows() < 200) {
-            // 小图片降低阈值，使用 floatMax 处理 Float 类型
-            floatMax(boxScoreThresh * 0.7f, 0.2f)
-        } else {
-            boxScoreThresh
-        }
-        
-        Log.i(TAG, "Adjusted thresholds - boxThresh: $adjustedBoxThresh, boxScoreThresh: $adjustedBoxScoreThresh")
-        
-        val detResults = det.getDetResults(src, s, adjustedBoxScoreThresh, adjustedBoxThresh, unClipRatio)
+        val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
         detTickMeter.stop()
 
         Log.i(TAG, "Detected ${detResults.size} text boxes")
 
+        // 过滤低质量的检测框
+        val filteredDetResults = detResults.filter { it.score > boxScoreThresh }
+        if (filteredDetResults.size < detResults.size) {
+            Log.i(TAG, "Filtered out ${detResults.size - filteredDetResults.size} low score boxes")
+        }
+
         Log.i(TAG, "---------- step: Draw TextBoxes ----------")
-        drawTextBoxes(textBoxPaddingImg, detResults, thickness)
+        drawTextBoxes(textBoxPaddingImg, filteredDetResults, thickness)
 
         Log.i(TAG, "---------- step: Get PartMats ----------")
-        val partMats = getPartMats(src, detResults)
+        val partMats = getPartMats(src, filteredDetResults)
         Log.i(TAG, "Successfully cropped ${partMats.size} part images")
 
         // 检查裁剪的图像是否有效
@@ -432,8 +418,8 @@ class OcrEngine(context: Context) : Closeable {
         
         // 只处理成功裁剪和识别的部分
         for (i in partMats.indices) {
-            if (i < recResults.size && i < detResults.size && !partMats[i].empty()) {
-                validDetResults.add(detResults[i])
+            if (i < recResults.size && i < filteredDetResults.size && !partMats[i].empty()) {
+                validDetResults.add(filteredDetResults[i])
                 validRecResults.add(recResults[i])
             }
         }
@@ -448,31 +434,36 @@ class OcrEngine(context: Context) : Closeable {
             val recResult = validRecResults[i]
             val detResult = validDetResults[i]
             
-            // 构建JSON对象
-            val textBlockJson = JSONObject().apply {
-                put("text", recResult.text)
-                put("score", if (recResult.charScores.isNotEmpty()) recResult.charScores.average().toFloat() else 0f)
-                put("det_score", detResult.score)
+            // 过滤空文本和低置信度结果
+            if (recResult.text.isNotBlank() && recResult.charScores.isNotEmpty() && 
+                recResult.charScores.average() > 0.5f) {
                 
-                val coordinatesArray = JSONArray()
-                detResult.points.forEach { point ->
-                    // 调整坐标，去除padding
-                    val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
-                    val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
-                    coordinatesArray.put(JSONObject().apply {
-                        put("x", adjustedX)
-                        put("y", adjustedY)
-                    })
+                // 构建JSON对象
+                val textBlockJson = JSONObject().apply {
+                    put("text", recResult.text)
+                    put("score", recResult.charScores.average().toFloat())
+                    put("det_score", detResult.score)
+                    
+                    val coordinatesArray = JSONArray()
+                    detResult.points.forEach { point ->
+                        // 调整坐标，去除padding
+                        val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
+                        val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
+                        coordinatesArray.put(JSONObject().apply {
+                            put("x", adjustedX)
+                            put("y", adjustedY)
+                        })
+                    }
+                    put("coordinates", coordinatesArray)
                 }
-                put("coordinates", coordinatesArray)
+                textBlocksJsonArray.put(textBlockJson)
+                
+                textWithCoordinates.append("${recResult.text} [")
+                textWithCoordinates.append(detResult.points.joinToString(";") { 
+                    "(${it.x - paddingRect.x},${it.y - paddingRect.y})" 
+                })
+                textWithCoordinates.append("]\n")
             }
-            textBlocksJsonArray.put(textBlockJson)
-            
-            textWithCoordinates.append("${recResult.text} [")
-            textWithCoordinates.append(detResult.points.joinToString(";") { 
-                "(${it.x - paddingRect.x},${it.y - paddingRect.y})" 
-            })
-            textWithCoordinates.append("]\n")
         }
 
         Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
@@ -484,7 +475,9 @@ class OcrEngine(context: Context) : Closeable {
         matToBitmap(outRGBA, boxImage)
 
         // 修复：使用有效的识别结果构建文本
-        val text = validRecResults.joinToString(separator = "\n") { it.text }
+        val text = validRecResults
+            .filter { it.text.isNotBlank() && it.charScores.isNotEmpty() && it.charScores.average() > 0.5f }
+            .joinToString(separator = "\n") { it.text }
         fullTickMeter.stop()
         
         Log.i(TAG, "Final text: $text")
