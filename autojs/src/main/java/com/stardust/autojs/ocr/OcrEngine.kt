@@ -343,6 +343,6 @@ class OcrEngine(context: Context) : Closeable {
         private const val DET_NAME = "ch_PP-OCRv5_mobile_det.onnx"
         private const val CLS_NAME = "ch_ppocr_mobile_v2.0_cls_infer.onnx"
         private const val REC_NAME = "ch_PP-OCRv5_rec_mobile_infer.onnx"
-        private const val KEYS_NAME = "ppocr_keys_v1.txt"
+        private const val KEYS_NAME = "ppocrv5_dict.txt"
     }
 }
