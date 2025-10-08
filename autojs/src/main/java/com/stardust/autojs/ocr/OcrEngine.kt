@@ -330,7 +330,7 @@ class OcrEngine(context: Context) : Closeable {
                 // 构建JSON对象
                 val textBlockJson = JSONObject().apply {
                     put("text", recResult.text)
-                    put("score", recResult.charScores.average().toFloat())
+                    put("score", if (recResult.charScores.isNotEmpty()) recResult.charScores.average().toFloat() else 0f)
                     put("det_score", detResult.score)
                     
                     val coordinatesArray = JSONArray()
