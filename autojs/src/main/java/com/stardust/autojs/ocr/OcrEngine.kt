@@ -17,6 +17,8 @@ import org.opencv.imgproc.Imgproc.*
 import java.io.Closeable
 import java.lang.Integer.max
 import java.lang.Integer.min
+import kotlin.math.max as floatMax
+import kotlin.math.min as floatMin
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -197,14 +199,14 @@ class OcrEngine(context: Context) : Closeable {
             // 针对小图片的特殊处理
             val isSmallImage = originMaxSide < 300
             val adjustedPadding = if (isSmallImage) {
-                // 小图片减少padding
+                // 小图片减少padding，确保返回 Int
                 max(padding / 2, 10)
             } else {
                 padding
             }
             
             val adjustedMaxSideLen = if (isSmallImage) {
-                // 小图片适当放大但不要太大
+                // 小图片适当放大但不要太大，确保返回 Int
                 min(maxSideLen, 800)
             } else {
                 maxSideLen
@@ -355,17 +357,17 @@ class OcrEngine(context: Context) : Closeable {
         val detTickMeter = TickMeter().apply { start() }
         Log.i(TAG, "---------- step: Get DetResults ----------")
         
-        // 针对小图片调整参数
+        // 针对小图片调整参数 - 修复类型问题
         val adjustedBoxThresh = if (src.cols() < 200 || src.rows() < 200) {
-            // 小图片降低阈值
-            max(boxThresh * 0.7f, 0.3f)
+            // 小图片降低阈值，使用 floatMax 处理 Float 类型
+            floatMax(boxThresh * 0.7f, 0.3f)
         } else {
             boxThresh
         }
         
         val adjustedBoxScoreThresh = if (src.cols() < 200 || src.rows() < 200) {
-            // 小图片降低阈值
-            max(boxScoreThresh * 0.7f, 0.2f)
+            // 小图片降低阈值，使用 floatMax 处理 Float 类型
+            floatMax(boxScoreThresh * 0.7f, 0.2f)
         } else {
             boxScoreThresh
         }
