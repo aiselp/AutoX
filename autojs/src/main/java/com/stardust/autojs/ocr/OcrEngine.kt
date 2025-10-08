@@ -191,22 +191,32 @@ class OcrEngine(context: Context) : Closeable {
 
             Log.i(TAG, "---------- step: Resize ----------")
             val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
+            
+            // 修复小图片问题：设置最小尺寸限制
+            val minSize = 64
+            val actualMaxSideLen = if (maxSideLen <= 0) {
+                max(originMaxSide, minSize)
+            } else {
+                max(maxSideLen, minSize)
+            }
+            
             var resize = if (scaleUp) {
                 //支持放大和缩小
-                if (maxSideLen <= 0) originMaxSide else maxSideLen
+                actualMaxSideLen
             } else {
                 //仅支持缩小
-                if (maxSideLen <= 0 || originMaxSide < maxSideLen) originMaxSide else maxSideLen
+                if (originMaxSide < actualMaxSideLen) originMaxSide else actualMaxSideLen
             }
             resize += 2 * padding
             Log.i(TAG, "resize=$resize")
+            
             val paddingRect = Rect(padding, padding, inputBGR.cols(), inputBGR.rows())
             val paddingSrc = makePadding(inputBGR, padding)
             val s = getScaleParam(paddingSrc, resize)
             Log.i(TAG, "$s")
 
             val ocrResult = fullDetect(paddingSrc, paddingRect, s, boxScoreThresh, boxThresh, unClipRatio, doCls, mostCls)
-            Log.i(TAG, ocrResult.toString())
+            Log.i(TAG, "OCR completed, text length: ${ocrResult.text.length}")
 
             // 返回 JSON 字符串
             return """{
@@ -283,11 +293,14 @@ class OcrEngine(context: Context) : Closeable {
         val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
         detTickMeter.stop()
 
+        Log.i(TAG, "Detected ${detResults.size} text boxes")
+
         Log.i(TAG, "---------- step: Draw TextBoxes ----------")
         drawTextBoxes(textBoxPaddingImg, detResults, thickness)
 
         Log.i(TAG, "---------- step: Get PartMats ----------")
         val partMats = getPartMats(src, detResults)
+        Log.i(TAG, "Successfully cropped ${partMats.size} part images")
 
         val clsTickMeter = TickMeter().apply { start() }
         val clsResults = if (doCls && partMats.isNotEmpty()) {
@@ -318,41 +331,54 @@ class OcrEngine(context: Context) : Closeable {
         val recResults = rec.getRecResults(clsPartMats)
         recTickMeter.stop()
 
+        Log.i(TAG, "Recognized ${recResults.size} text results")
+
+        // 修复：确保detResults和recResults对应关系正确
+        // 由于getPartMats可能过滤掉一些无效的裁剪，需要重新建立对应关系
+        val validDetResults = mutableListOf<DetResult>()
+        val validRecResults = mutableListOf<RecResult>()
+        
+        for (i in recResults.indices) {
+            if (i < detResults.size) {
+                validDetResults.add(detResults[i])
+                validRecResults.add(recResults[i])
+            }
+        }
+
         // 创建包含坐标信息的文本结果
         val textWithCoordinates = StringBuilder()
         val textBlocksJsonArray = JSONArray()
         
-        for (i in recResults.indices) {
-            if (i < detResults.size) {
-                val recResult = recResults[i]
-                val detResult = detResults[i]
+        // 修复：使用有效的对应关系
+        for (i in validRecResults.indices) {
+            val recResult = validRecResults[i]
+            val detResult = validDetResults[i]
+            
+            // 构建JSON对象
+            val textBlockJson = JSONObject().apply {
+                put("text", recResult.text)
+                put("score", if (recResult.charScores.isNotEmpty()) recResult.charScores.average().toFloat() else 0f)
+                put("det_score", detResult.score)
                 
-                // 构建JSON对象
-                val textBlockJson = JSONObject().apply {
-                    put("text", recResult.text)
-                    put("score", if (recResult.charScores.isNotEmpty()) recResult.charScores.average().toFloat() else 0f)
-                    put("det_score", detResult.score)
-                    
-                    val coordinatesArray = JSONArray()
-                    detResult.points.forEach { point ->
-                        // 调整坐标，去除padding
-                        val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
-                        val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
-                        coordinatesArray.put(JSONObject().apply {
-                            put("x", adjustedX)
-                            put("y", adjustedY)
-                        })
-                    }
-                    put("coordinates", coordinatesArray)
+                val coordinatesArray = JSONArray()
+                detResult.points.forEach { point ->
+                    // 调整坐标，去除padding
+                    val adjustedX = (point.x - paddingRect.x).coerceAtLeast(0)
+                    val adjustedY = (point.y - paddingRect.y).coerceAtLeast(0)
+                    coordinatesArray.put(JSONObject().apply {
+                        put("x", adjustedX)
+                        put("y", adjustedY)
+                    })
                 }
-                textBlocksJsonArray.put(textBlockJson)
-                
-                textWithCoordinates.append("${recResult.text} [")
-                textWithCoordinates.append(detResult.points.joinToString(";") { 
-                    "(${it.x - paddingRect.x},${it.y - paddingRect.y})" 
-                })
-                textWithCoordinates.append("]\n")
+                put("coordinates", coordinatesArray)
             }
+            textBlocksJsonArray.put(textBlockJson)
+            
+            textWithCoordinates.append("${recResult.text} [")
+            textWithCoordinates.append(detResult.points.joinToString(";") { 
+                "(${it.x - paddingRect.x},${it.y - paddingRect.y})" 
+            })
+            textWithCoordinates.append("]\n")
         }
 
         Log.i(TAG, "---------- step: output box Mat(BGR) -> Mat(RGBA) -> Bitmap ----------")
@@ -363,15 +389,19 @@ class OcrEngine(context: Context) : Closeable {
         )
         matToBitmap(outRGBA, boxImage)
 
-        val text = recResults.joinToString(separator = "\n") { it.text }
+        // 修复：使用有效的识别结果构建文本
+        val text = validRecResults.joinToString(separator = "\n") { it.text }
         fullTickMeter.stop()
         
+        Log.i(TAG, "Final text: $text")
+        Log.i(TAG, "Text with coordinates: $textWithCoordinates")
+        
         return OcrResult(
-            detResults = detResults,
+            detResults = validDetResults,
             detTime = detTickMeter.timeMilli,
             clsResults = clsResults,
             clsTime = clsTickMeter.timeMilli,
-            recResults = recResults,
+            recResults = validRecResults,
             recTime = recTickMeter.timeMilli,
             boxImage = boxImage,
             fullTime = fullTickMeter.timeMilli,
