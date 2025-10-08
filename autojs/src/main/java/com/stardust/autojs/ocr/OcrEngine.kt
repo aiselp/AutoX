@@ -16,6 +16,7 @@ import org.opencv.core.TickMeter
 import org.opencv.imgproc.Imgproc.*
 import java.io.Closeable
 import java.lang.Integer.max
+import java.lang.Integer.min
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -180,6 +181,7 @@ class OcrEngine(context: Context) : Closeable {
             return """{"error": "OCR Engine not initialized: $initError", "success": false}"""
         }
         
+        Log.i(TAG, "Input bitmap size: ${bmp.width}x${bmp.height}")
         Log.i(TAG, "Parameter: scaleUp($scaleUp), maxSideLen($maxSideLen), padding($padding),boxScoreThresh($boxScoreThresh),boxThresh($boxThresh),unClipRatio($unClipRatio),doCls($doCls),mostCls($mostCls)")
 
         try {
@@ -192,26 +194,35 @@ class OcrEngine(context: Context) : Closeable {
             Log.i(TAG, "---------- step: Resize ----------")
             val originMaxSide = max(inputBGR.cols(), inputBGR.rows())
             
-            // 修复小图片问题：设置最小尺寸限制
-            val minSize = 64
-            val actualMaxSideLen = if (maxSideLen <= 0) {
-                max(originMaxSide, minSize)
+            // 针对小图片的特殊处理
+            val isSmallImage = originMaxSide < 300
+            val adjustedPadding = if (isSmallImage) {
+                // 小图片减少padding
+                max(padding / 2, 10)
             } else {
-                max(maxSideLen, minSize)
+                padding
+            }
+            
+            val adjustedMaxSideLen = if (isSmallImage) {
+                // 小图片适当放大但不要太大
+                min(maxSideLen, 800)
+            } else {
+                maxSideLen
             }
             
             var resize = if (scaleUp) {
                 //支持放大和缩小
-                actualMaxSideLen
+                if (adjustedMaxSideLen <= 0) originMaxSide else adjustedMaxSideLen
             } else {
                 //仅支持缩小
-                if (originMaxSide < actualMaxSideLen) originMaxSide else actualMaxSideLen
+                if (adjustedMaxSideLen <= 0 || originMaxSide < adjustedMaxSideLen) originMaxSide else adjustedMaxSideLen
             }
-            resize += 2 * padding
-            Log.i(TAG, "resize=$resize")
+            resize += 2 * adjustedPadding
             
-            val paddingRect = Rect(padding, padding, inputBGR.cols(), inputBGR.rows())
-            val paddingSrc = makePadding(inputBGR, padding)
+            Log.i(TAG, "Small image: $isSmallImage, adjusted padding: $adjustedPadding, resize=$resize")
+            
+            val paddingRect = Rect(adjustedPadding, adjustedPadding, inputBGR.cols(), inputBGR.rows())
+            val paddingSrc = makePadding(inputBGR, adjustedPadding)
             val s = getScaleParam(paddingSrc, resize)
             Log.i(TAG, "$s")
 
@@ -232,6 +243,58 @@ class OcrEngine(context: Context) : Closeable {
         } catch (e: Exception) {
             Log.e(TAG, "OCR detection error: ${e.message}", e)
             return """{"error": "OCR processing failed: ${e.message}", "success": false}"""
+        }
+    }
+
+    // 添加专门的小图片检测方法
+    @android.webkit.JavascriptInterface
+    fun detectSmallImage(
+        imageWrapper: com.stardust.autojs.core.image.ImageWrapper,
+        customParams: Boolean = false
+    ): String {
+        Log.i(TAG, "=====Small Image Detection=====")
+        
+        if (!isInitialized) {
+            return """{"error": "OCR Engine not initialized: $initError", "success": false}"""
+        }
+        
+        try {
+            val bitmap = imageWrapper.bitmap
+            if (bitmap == null) {
+                return """{"error": "ImageWrapper bitmap is null", "success": false}"""
+            }
+            
+            Log.i(TAG, "Small image size: ${bitmap.width}x${bitmap.height}")
+            
+            // 小图片专用参数
+            return if (customParams) {
+                // 使用自定义参数
+                detect(bitmap, 
+                    scaleUp = true,           // 允许放大
+                    maxSideLen = 400,         // 限制最大尺寸
+                    padding = 20,             // 减少padding
+                    boxScoreThresh = 0.2f,    // 降低检测阈值
+                    boxThresh = 0.4f,         // 降低框阈值
+                    unClipRatio = 1.8f,       // 增加unclip比例
+                    doCls = false,            // 小图片通常不需要方向分类
+                    mostCls = false
+                )
+            } else {
+                // 使用优化的小图片参数
+                detect(bitmap, 
+                    scaleUp = true,
+                    maxSideLen = 400,
+                    padding = 20,
+                    boxScoreThresh = 0.2f,
+                    boxThresh = 0.4f,
+                    unClipRatio = 1.8f,
+                    doCls = false,
+                    mostCls = false
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Small image detection error: ${e.message}")
+            return """{"error": "Small image processing failed: ${e.message}", "success": false}"""
         }
     }
 
@@ -287,10 +350,29 @@ class OcrEngine(context: Context) : Closeable {
         val textBoxPaddingImg = src.clone()
         val thickness = getThickness(src)
         Log.i(TAG, "=====Start detect=====")
+        Log.i(TAG, "Source image size: ${src.cols()}x${src.rows()}")
 
         val detTickMeter = TickMeter().apply { start() }
         Log.i(TAG, "---------- step: Get DetResults ----------")
-        val detResults = det.getDetResults(src, s, boxScoreThresh, boxThresh, unClipRatio)
+        
+        // 针对小图片调整参数
+        val adjustedBoxThresh = if (src.cols() < 200 || src.rows() < 200) {
+            // 小图片降低阈值
+            max(boxThresh * 0.7f, 0.3f)
+        } else {
+            boxThresh
+        }
+        
+        val adjustedBoxScoreThresh = if (src.cols() < 200 || src.rows() < 200) {
+            // 小图片降低阈值
+            max(boxScoreThresh * 0.7f, 0.2f)
+        } else {
+            boxScoreThresh
+        }
+        
+        Log.i(TAG, "Adjusted thresholds - boxThresh: $adjustedBoxThresh, boxScoreThresh: $adjustedBoxScoreThresh")
+        
+        val detResults = det.getDetResults(src, s, adjustedBoxScoreThresh, adjustedBoxThresh, unClipRatio)
         detTickMeter.stop()
 
         Log.i(TAG, "Detected ${detResults.size} text boxes")
@@ -301,6 +383,15 @@ class OcrEngine(context: Context) : Closeable {
         Log.i(TAG, "---------- step: Get PartMats ----------")
         val partMats = getPartMats(src, detResults)
         Log.i(TAG, "Successfully cropped ${partMats.size} part images")
+
+        // 检查裁剪的图像是否有效
+        partMats.forEachIndexed { index, mat ->
+            if (mat.empty()) {
+                Log.w(TAG, "Part image $index is empty")
+            } else {
+                Log.i(TAG, "Part image $index size: ${mat.cols()}x${mat.rows()}")
+            }
+        }
 
         val clsTickMeter = TickMeter().apply { start() }
         val clsResults = if (doCls && partMats.isNotEmpty()) {
@@ -334,22 +425,23 @@ class OcrEngine(context: Context) : Closeable {
         Log.i(TAG, "Recognized ${recResults.size} text results")
 
         // 修复：确保detResults和recResults对应关系正确
-        // 由于getPartMats可能过滤掉一些无效的裁剪，需要重新建立对应关系
         val validDetResults = mutableListOf<DetResult>()
         val validRecResults = mutableListOf<RecResult>()
         
-        for (i in recResults.indices) {
-            if (i < detResults.size) {
+        // 只处理成功裁剪和识别的部分
+        for (i in partMats.indices) {
+            if (i < recResults.size && i < detResults.size && !partMats[i].empty()) {
                 validDetResults.add(detResults[i])
                 validRecResults.add(recResults[i])
             }
         }
 
+        Log.i(TAG, "Valid results: ${validRecResults.size}")
+
         // 创建包含坐标信息的文本结果
         val textWithCoordinates = StringBuilder()
         val textBlocksJsonArray = JSONArray()
         
-        // 修复：使用有效的对应关系
         for (i in validRecResults.indices) {
             val recResult = validRecResults[i]
             val detResult = validDetResults[i]
@@ -394,7 +486,7 @@ class OcrEngine(context: Context) : Closeable {
         fullTickMeter.stop()
         
         Log.i(TAG, "Final text: $text")
-        Log.i(TAG, "Text with coordinates: $textWithCoordinates")
+        Log.i(TAG, "Text with coordinates length: ${textWithCoordinates.length}")
         
         return OcrResult(
             detResults = validDetResults,
