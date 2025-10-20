@@ -29,7 +29,7 @@ jobs:
 
       - name: Build Docs
         run: ./gradlew app:buildDocs
-      - name: Setup Android SDK
+      - name: Setup Android SDK and CMake
         uses: android-actions/setup-android@v3
       - name: Build with Gradle
         run: | 
