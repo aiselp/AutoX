@@ -109,16 +109,7 @@ task downloadAndExtractArchives(type: DefaultTask) {
                     from "${archive.dest}/inference_lite_lib.android.armv8.clang.c++_shared.with_extra.with_cv/java/so"
                     into "PaddleLite/java/libs/arm64-v8a/"
                 }
-            } else if (archive.dest=="PaddleLiteArmv7") {
-                copy {
-                    from "${archive.dest}/inference_lite_lib.android.armv7.clang.c++_shared.with_extra.with_cv/cxx/lib"
-                    into "PaddleLite/cxx/libs/armeabi-v7a"
-                }
-                copy {
-                    from "${archive.dest}/inference_lite_lib.android.armv7.clang.c++_shared.with_extra.with_cv/java/so"
-                    into "PaddleLite/java/libs/armeabi-v7a/"
-                }
-            }
+            } 
         }
         zipArchives.eachWithIndex { archive, index ->
             MessageDigest messageDigest = MessageDigest.getInstance('MD5')
