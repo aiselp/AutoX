@@ -36,8 +36,8 @@ android {
 
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
-    implementation project(path: ':autojs-aar:opencv')
-    implementation project(path: ':autojs-aar:opencvhelper')
+    //implementation project(path: ':autojs-aar:opencv')
+    //implementation project(path: ':autojs-aar:opencvhelper')
 }
 
 /**
