@@ -1,8 +1,8 @@
 package com.stardust.autojs.runtime.api
 
 import android.content.Context
-import com.baidu.paddle.lite.demo.ocr.OcrResult
-import com.baidu.paddle.lite.demo.ocr.Predictor
+import com.baidu.paddle.lite.ocr.OcrResult
+import com.baidu.paddle.lite.ocr.Predictor
 import com.stardust.app.GlobalAppContext.get
 import com.stardust.autojs.core.image.ImageWrapper
 
