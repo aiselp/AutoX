@@ -40,7 +40,7 @@ import java.io.PrintWriter
 import java.io.StringReader
 import java.io.StringWriter
 import com.stardust.autojs.onnx.OnnxModule
-import com.stardust.autojs.runtime.api.Paddle
+
 
 class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     lateinit var consoleExtension: ConsoleExtension
