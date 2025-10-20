@@ -40,6 +40,7 @@ import java.io.PrintWriter
 import java.io.StringReader
 import java.io.StringWriter
 import com.stardust.autojs.onnx.OnnxModule
+import com.stardust.autojs.runtime.api.OCR
 
 class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     lateinit var consoleExtension: ConsoleExtension
@@ -48,7 +49,7 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     val shizuku = Shizuku(uiHandler.context)
 
     val gmlkit: GoogleMLKit = GoogleMLKit()
-
+    val ocr: OCR = OCR()
     val paddle: Paddle = Paddle()
     
     @ScriptVariable
