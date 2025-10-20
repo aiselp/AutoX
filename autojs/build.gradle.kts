@@ -79,7 +79,7 @@ dependencies {
     api(project(path = ":LocalRepo:emulatorview"))
     api(project(path = ":LocalRepo:term"))
     implementation("com.hzy:libp7zip:1.7.0")
-    api(project(":paddleocr"))
+    //api(project(":paddleocr"))
     api(libs.mozilla.rhino)
     api(libs.mozilla.rhino.xml)
     api(libs.mozilla.rhino.tools)
