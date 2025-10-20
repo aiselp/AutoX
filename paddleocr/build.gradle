@@ -4,6 +4,7 @@ plugins {
 import java.security.MessageDigest
 
 android {
+    namespace 'com.baidu.paddle.lite.ocr'
     ndkVersion '21.1.6352462'
     compileSdk 31
     defaultConfig {
