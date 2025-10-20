@@ -1,0 +1,142 @@
+plugins {
+    id 'com.android.library'
+}
+import java.security.MessageDigest
+
+android {
+    ndkVersion '21.1.6352462'
+    compileSdk 31
+    defaultConfig {
+        minSdkVersion 21
+        targetSdkVersion 31
+
+        externalNativeBuild {
+            cmake {
+                cppFlags "-std=c++11 -frtti -fexceptions -Wno-format"
+                arguments '-DANDROID_PLATFORM=android-23', '-DANDROID_STL=c++_shared' ,"-DANDROID_ARM_NEON=TRUE"
+            }
+        }
+        ndk {
+            abiFilters "arm64-v8a", "armeabi-v7a"
+            ldLibs "jnigraphics"
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+            version "3.10.2"
+        }
+    }
+}
+
+dependencies {
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    implementation project(path: ':autojs-aar:opencv')
+    implementation project(path: ':autojs-aar:opencvhelper')
+}
+
+/**
+ * Paddle-Lite包 开发时使用 比如后续更新版本 用于下载新的包
+ * 20230829 更新到v2.13-rc
+ */
+def archives = [
+//    [
+//        'src' : 'https://github.com/PaddlePaddle/Paddle-Lite/releases/download/v2.13-rc/inference_lite_lib.android.armv8.clang.c++_shared.with_extra.with_cv.tar.gz',
+//        'dest': 'PaddleLiteArmv8'
+//    ],
+//    [
+//        'src' : 'https://github.com/PaddlePaddle/Paddle-Lite/releases/download/v2.13-rc/inference_lite_lib.android.armv7.clang.c++_shared.with_extra.with_cv.tar.gz',
+//        'dest': 'PaddleLiteArmv7'
+//    ],
+]
+/**
+ * 下载opencv4.8.0源码包 默认为4.2.0 和 AutoJS中的版本不匹配会产生冲突 这里进行修改
+ */
+def zipArchives = [
+    [
+        'src' : 'https://github.com/opencv/opencv/releases/download/4.8.0/opencv-4.8.0-android-sdk.zip',
+        'dest': 'OpenCV'
+    ]
+]
+
+/**
+ * 首次导入最好手动运行一下这个task下载依赖的包
+ */
+task downloadAndExtractArchives(type: DefaultTask) {
+    doFirst {
+        println "Downloading and extracting archives including libs and models"
+    }
+    doLast {
+        // Prepare cache folder for archives
+        String cachePath = "cache"
+        if (!file("${cachePath}").exists()) {
+            mkdir "${cachePath}"
+        }
+        archives.eachWithIndex { archive, index ->
+            MessageDigest messageDigest = MessageDigest.getInstance('MD5')
+            messageDigest.update(archive.src.bytes)
+            String cacheName = new BigInteger(1, messageDigest.digest()).toString(32)
+            // Download the target archive if not exists
+            boolean copyFiles = !file("${archive.dest}").exists()
+            if (!file("${cachePath}/${cacheName}.tar.gz").exists()) {
+                ant.get(src: archive.src, dest: file("${cachePath}/${cacheName}.tar.gz"))
+                copyFiles = true; // force to copy files from the latest archive files
+            }
+            // Extract the target archive if its dest path does not exists
+            if (copyFiles) {
+                copy {
+                    from tarTree("${cachePath}/${cacheName}.tar.gz")
+                    into "${archive.dest}"
+                }
+            }
+            // paddle-lite 特殊处理
+            if (archive.dest=="PaddleLiteArmv8") {
+                copy {
+                    from "${archive.dest}/inference_lite_lib.android.armv8.clang.c++_shared.with_extra.with_cv/cxx/include"
+                    into "PaddleLite/cxx/include"
+                }
+                copy {
+                    from "${archive.dest}/inference_lite_lib.android.armv8.clang.c++_shared.with_extra.with_cv/cxx/lib"
+                    into "PaddleLite/cxx/libs/arm64-v8a"
+                }
+                copy {
+                    from "${archive.dest}/inference_lite_lib.android.armv8.clang.c++_shared.with_extra.with_cv/java/so"
+                    into "PaddleLite/java/libs/arm64-v8a/"
+                }
+            } else if (archive.dest=="PaddleLiteArmv7") {
+                copy {
+                    from "${archive.dest}/inference_lite_lib.android.armv7.clang.c++_shared.with_extra.with_cv/cxx/lib"
+                    into "PaddleLite/cxx/libs/armeabi-v7a"
+                }
+                copy {
+                    from "${archive.dest}/inference_lite_lib.android.armv7.clang.c++_shared.with_extra.with_cv/java/so"
+                    into "PaddleLite/java/libs/armeabi-v7a/"
+                }
+            }
+        }
+        zipArchives.eachWithIndex { archive, index ->
+            MessageDigest messageDigest = MessageDigest.getInstance('MD5')
+            messageDigest.update(archive.src.bytes)
+            String cacheName = new BigInteger(1, messageDigest.digest()).toString(32)
+            // Download the target archive if not exists
+            boolean copyFiles = !file("${archive.dest}").exists()
+            if (!file("${cachePath}/${cacheName}.zip").exists()) {
+                ant.get(src: archive.src, dest: file("${cachePath}/${cacheName}.zip"))
+                copyFiles = true; // force to copy files from the latest archive files
+            }
+            // Extract the target archive if its dest path does not exists
+            if (copyFiles) {
+                copy {
+                    from zipTree("${cachePath}/${cacheName}.zip")
+                    into "${archive.dest}"
+                }
+            }
+        }
+    }
+}
+preBuild.dependsOn downloadAndExtractArchives
