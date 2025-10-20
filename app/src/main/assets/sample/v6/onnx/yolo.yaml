@@ -1,0 +1,11 @@
+path: yolodet  # 数据集的根目录
+train: images\tr  # 训练集图片路径（相对于path）
+val: images\yz      # 验证集图片路径（相对于path）
+# 类别数目
+nc: 3  # 请修改为你的实际类别数（例如：ball, chick, boom 共3类）
+
+# 类别名称列表（非常重要！顺序必须与标注时的class_id对应）
+names: 
+  0: ball
+  1: chick
+  2: boom
