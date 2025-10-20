@@ -38,7 +38,7 @@ public class Predictor {
     /**
      * 自定义开关
      */
-    public boolean useSlim = true;
+    public boolean useSlim = false;
     public boolean useOpencl = false;
     public boolean checkModelLoaded = true;
     public boolean runCls = false;
@@ -61,7 +61,7 @@ public class Predictor {
     public String clsModelFilename = "cls_opt.nb";
 
     private final String defaultLabelPath = "labels/ppocr_keys_v1.txt";
-    private final String defaultModelPath = "models/ocr_v3_for_cpu";
+    private final String defaultModelPath = "models/ocr_v4_for_cpu";
     /**
      * slim模型 目前使用的是2.10版的opt工具转换的2.11版本不能正常使用
      */
