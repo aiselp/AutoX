@@ -38,7 +38,6 @@ public class Predictor {
     /**
      * 自定义开关
      */
-    public boolean useSlim = true;
     public boolean useOpencl = false;
     public boolean checkModelLoaded = true;
     public boolean runCls = false;
@@ -61,11 +60,10 @@ public class Predictor {
     public String clsModelFilename = "cls_opt.nb";
 
     private final String defaultLabelPath = "labels/ppocr_keys_v1.txt";
-    private final String defaultModelPath = "models/ocr_v3_for_cpu";
+    private final String defaultModelPath = "models/ocr_v4_for_cpu";
     /**
      * slim模型 目前使用的是2.10版的opt工具转换的2.11版本不能正常使用
      */
-    private final String defaultModelPathSlim = "models/ocr_v3_for_cpu(slim)";
 
     /**
      * 初始化时校验模型是否加载正确
@@ -83,16 +81,11 @@ public class Predictor {
         return this.init(appCtx, defaultModelPath, defaultLabelPath);
     }
 
-    public boolean init(Context appCtx, boolean useSlim) {
-        if (this.isLoaded && this.useSlim == useSlim) {
+    public boolean init(Context appCtx) {
+        if (this.isLoaded) {
             return true;
         }
-        this.useSlim = useSlim;
-        if (useSlim) {
-            return this.init(appCtx, defaultModelPathSlim, defaultLabelPath);
-        } else {
-            return this.init(appCtx, defaultModelPath, defaultLabelPath);
-        }
+        return this.init(appCtx, defaultModelPath, defaultLabelPath); 
     }
 
     public boolean init(Context appCtx, String modelPath, String labelPath) {
@@ -334,9 +327,6 @@ public class Predictor {
         return defaultModelPathSlim;
     }
 
-    public boolean isUseSlim() {
-        return useSlim;
-    }
 
     public void setInputImage(Bitmap image) {
         if (image == null) {
