@@ -14,8 +14,8 @@ public class OCRPredictorNative {
     private static final AtomicBoolean isSOLoaded = new AtomicBoolean();
     private static final ReentrantLock lock = new ReentrantLock();
 
-public static void boolean loadLibrary() throws RuntimeException {
-       return true;
+public static void loadLibrary() throws RuntimeException {
+       Log.d("先取消");
     }
 
     private Config config;
