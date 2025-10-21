@@ -15,7 +15,7 @@ public class OCRPredictorNative {
     private static final ReentrantLock lock = new ReentrantLock();
 
 public static void loadLibrary() throws RuntimeException {
-       Log.d("先取消");
+       Log.i("先取消");
     }
 
     private Config config;
