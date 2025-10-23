@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.byte.buddy.android)
     implementation("cz.adaptech:tesseract4android:4.1.1")
     implementation(libs.bundles.mlkit)
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
 }
 tasks.register<Exec>("buildV7Api") {
     group = "build"
