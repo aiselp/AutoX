@@ -39,6 +39,7 @@ import java.io.IOException
 import java.io.PrintWriter
 import java.io.StringReader
 import java.io.StringWriter
+import com.stardust.autojs.onnx.OnnxModule
 
 class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     lateinit var consoleExtension: ConsoleExtension
@@ -59,6 +60,8 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
     @ScriptVariable
     val automator = SimpleActionAutomator(accessibilityBridge) { Handler(loopers.servantLooper) }
 
+    @ScriptVariable
+    val onnx: OnnxModule = OnnxModule(this)
 
     init {
         automator.setScreenMetrics(mScreenMetrics)
