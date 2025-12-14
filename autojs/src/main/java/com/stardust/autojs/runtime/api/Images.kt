@@ -190,7 +190,6 @@ class Images(
 
     fun releaseScreenCapturer() {
         disposables.forEach { it.dispose() }
-        //mScreenCapturer?.release()
     }
 
     @JvmOverloads
@@ -203,13 +202,15 @@ class Images(
         return findImage(image, template, 0.7f, threshold, rect, TemplateMatching.MAX_LEVEL_AUTO)
     }
 
+    @JvmOverloads
     fun findImage(
         image: ImageWrapper?,
         template: ImageWrapper?,
         weakThreshold: Float,
         threshold: Float,
         rect: Rect?,
-        maxLevel: Int
+        maxLevel: Int,
+        transparentMask: Boolean = false
     ): Point? {
         initOpenCvIfNeeded()
         if (image == null) throw NullPointerException("image = null")
@@ -220,7 +221,7 @@ class Images(
         }
         val point = TemplateMatching.fastTemplateMatching(
             src, template.mat, TemplateMatching.MATCHING_METHOD_DEFAULT,
-            weakThreshold, threshold, maxLevel
+            weakThreshold, threshold, maxLevel, transparentMask
         )
         if (point != null) {
             if (rect != null) {
@@ -236,6 +237,7 @@ class Images(
         return point
     }
 
+    @JvmOverloads
     fun matchTemplate(
         image: ImageWrapper?,
         template: ImageWrapper?,
@@ -243,7 +245,8 @@ class Images(
         threshold: Float,
         rect: Rect?,
         maxLevel: Int,
-        limit: Int
+        limit: Int,
+        transparentMask: Boolean = false
     ): List<TemplateMatching.Match> {
         initOpenCvIfNeeded()
         if (image == null) throw NullPointerException("image = null")
@@ -252,9 +255,10 @@ class Images(
         if (rect != null) {
             src = Mat(src, rect)
         }
+
         val result = TemplateMatching.fastTemplateMatching(
             src, template.mat, Imgproc.TM_CCOEFF_NORMED,
-            weakThreshold, threshold, maxLevel, limit
+            weakThreshold, threshold, maxLevel, limit, transparentMask
         )
         for (match in result) {
             val point = match.point

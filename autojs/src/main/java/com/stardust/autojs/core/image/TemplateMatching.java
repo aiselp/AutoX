@@ -3,14 +3,14 @@ package com.stardust.autojs.core.image;
 import android.util.Log;
 import android.util.TimingLogger;
 
-import com.stardust.autojs.core.opencv.OpenCVHelper;
+import androidx.annotation.NonNull;
+
 import com.stardust.util.Nath;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
 
-import com.stardust.autojs.core.opencv.Mat;
-
+import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
 import org.opencv.core.Scalar;
@@ -38,6 +38,7 @@ public class TemplateMatching {
             this.similarity = similarity;
         }
 
+        @NonNull
         @Override
         public String toString() {
             return "Match{" +
@@ -52,8 +53,8 @@ public class TemplateMatching {
     public static final int MAX_LEVEL_AUTO = -1;
     public static final int MATCHING_METHOD_DEFAULT = Imgproc.TM_CCOEFF_NORMED;
 
-    public static Point fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel) {
-        List<Match> result = fastTemplateMatching(img, template, matchMethod, weakThreshold, strictThreshold, maxLevel, 1);
+    public static Point fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel, Boolean transparentMask) {
+        List<Match> result = fastTemplateMatching(img, template, matchMethod, weakThreshold, strictThreshold, maxLevel, 1, transparentMask);
         if (result.isEmpty()) {
             return null;
         }
@@ -71,7 +72,7 @@ public class TemplateMatching {
      * @param maxLevel        图像金字塔的层数
      * @return
      */
-    public static List<Match> fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel, int limit) {
+    public static List<Match> fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel, int limit, Boolean transparentMask) {
         TimingLogger logger = new TimingLogger(LOG_TAG, "fast_tm");
         // 创建资源回收列表
         List<Mat> resourcesToRelease = new ArrayList<>();
@@ -88,13 +89,21 @@ public class TemplateMatching {
                 List<Match> currentMatchResult = new ArrayList<>();
                 Mat src = getPyramidDownAtLevel(img, level);
                 Mat currentTemplate = getPyramidDownAtLevel(template, level);
+                Mat currentMask = null;
+
+                if (transparentMask) {
+                    currentMask = TemplateMatchingKt.INSTANCE.processingAlphaChannel(currentTemplate);
+                }
 
                 // +++ 添加到释放列表 +++
                 if (src != img) {
                     resourcesToRelease.add(src);
                 }
-                if (currentTemplate != template){
+                if (currentTemplate != template) {
                     resourcesToRelease.add(currentTemplate);
+                }
+                if (currentMask != null) {
+                    resourcesToRelease.add(currentMask);
                 }
 
                 // 如果在上一轮中没有匹配到图片，则考虑是否退出匹配
@@ -103,14 +112,14 @@ public class TemplateMatching {
                     if (!isFirstMatching && !shouldContinueMatching(level, maxLevel)) {
                         break;
                     }
-                    Mat matchResult = matchTemplate(src, currentTemplate, matchMethod);
+                    Mat matchResult = matchTemplate(src, currentTemplate, matchMethod, currentMask);
                     resourcesToRelease.add(matchResult);
                     getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold, currentMatchResult, limit, null);
                 } else {
                     for (Match match : previousMatchResult) {
                         Rect r = getROI(match.point, src, currentTemplate);
                         Mat m = new Mat(src, r);
-                        Mat matchResult = matchTemplate(m, currentTemplate, matchMethod);
+                        Mat matchResult = matchTemplate(m, currentTemplate, matchMethod, currentMask);
 
                         // +++ 添加到释放列表 +++
                         resourcesToRelease.add(m);
@@ -145,10 +154,9 @@ public class TemplateMatching {
             logger.dumpToLog();
             return finalMatchResult;
         } finally {
-            // 释放所有中间Mat对象
             for (Mat mat : resourcesToRelease) {
                 try {
-                    OpenCVHelper.release(mat);
+                    mat.release();
                 } catch (Exception e) {
                     Log.e(LOG_TAG, "Error releasing Mat resource", e);
                 }
@@ -217,11 +225,15 @@ public class TemplateMatching {
     }
 
 
-    private static Mat matchTemplate(Mat img, Mat temp, int match_method) {
+    private static Mat matchTemplate(Mat img, Mat temp, int match_method, Mat mask) {
         int result_cols = img.cols() - temp.cols() + 1;
         int result_rows = img.rows() - temp.rows() + 1;
         Mat result = new Mat(result_rows, result_cols, CvType.CV_32FC1);
-        Imgproc.matchTemplate(img, temp, result, match_method);
+        if (mask == null) {
+            Imgproc.matchTemplate(img, temp, result, match_method);
+        } else {
+            Imgproc.matchTemplate(img, temp, result, match_method, mask);
+        }
         return result;
     }
 

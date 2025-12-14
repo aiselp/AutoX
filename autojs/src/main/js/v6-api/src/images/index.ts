@@ -1,115 +1,22 @@
 import { asGlobal } from "@/utils"
 import { registerAsyncCapture } from "./async_capture"
+import { MatchingResult } from "./MatchingResult"
+import { Color, getColorDetector, parseColor } from "./colors"
 
 type Image = Autox.Image
 type ImageFormat = 'png' | 'jpeg' | 'webp' | 'jpg'
-type Color = string | number
+
 type ImageFindOptions = {
     region?: [number, number, number?, number?],
     threshold?: number
 }
-type Point = any
-var MatchingResult = (function () {
-    var comparators: any = {
-        "left": (l: Point, r: Point) => l.point.x - r.point.x,
-        "top": (l: Point, r: Point) => l.point.y - r.point.y,
-        "right": (l: Point, r: Point) => r.point.x - l.point.x,
-        "bottom": (l: Point, r: Point) => r.point.y - l.point.y
-    }
-    class MatchingResult {
-        matches: any[]
-        __points__: any
-
-        constructor(list: any) {
-            if (Array.isArray(list)) {
-                this.matches = list;
-            } else {
-                this.matches = runtime.bridges.toArray(list);
-            }
-        }
-        get points() {
-            if (typeof (this.__points__) == 'undefined') {
-                this.__points__ = this.matches.map(m => m.point);
-            }
-            return this.__points__;
-        }
-
-        first() {
-            if (this.matches.length == 0) {
-                return null;
-            }
-            return this.matches[0];
-        }
-        last() {
-            if (this.matches.length == 0) {
-                return null;
-            }
-            return this.matches[this.matches.length - 1];
-        }
-        findMax(cmp: (a: any, b: any) => number) {
-            if (this.matches.length == 0) {
-                return null;
-            }
-            var target = this.matches[0];
-            this.matches.forEach(m => {
-                if (cmp(target, m) > 0) {
-                    target = m;
-                }
-            });
-            return target;
-        }
-        leftmost() {
-            return this.findMax(comparators.left);
-        }
-        topmost() {
-            return this.findMax(comparators.top);
-        }
-        rightmost() {
-            return this.findMax(comparators.right);
-        }
-        bottommost() {
-            return this.findMax(comparators.bottom);
-        }
-        worst() {
-            return this.findMax((l, r) => l.similarity - r.similarity);
-        }
-        best() {
-            return this.findMax((l, r) => r.similarity - l.similarity);
-        }
-        sortBy(cmp: any) {
-            var comparatorFn: any = null;
-            if (typeof (cmp) == 'string') {
-                cmp.split("-").forEach(direction => {
-                    var buildInFn = comparators[direction];
-                    if (!buildInFn) {
-                        throw new Error("unknown direction '" + direction + "' in '" + cmp + "'");
-                    }
-                    (function (fn) {
-                        if (comparatorFn == null) {
-                            comparatorFn = fn;
-                        } else {
-                            comparatorFn = (function (comparatorFn, fn) {
-                                return function (l: unknown, r: unknown) {
-                                    var cmpValue = comparatorFn(l, r);
-                                    if (cmpValue == 0) {
-                                        return fn(l, r);
-                                    }
-                                    return cmpValue;
-                                }
-                            })(comparatorFn, fn);
-                        }
-                    })(buildInFn);
-                });
-            } else {
-                comparatorFn = cmp;
-            }
-            var clone = this.matches.slice();
-            clone.sort(comparatorFn);
-            return new MatchingResult(clone);
-        }
-    }
-    return MatchingResult;
-})();
+interface FindImageOptions {
+    threshold?: number
+    region?: [number, number, number?, number?]
+    level?: number
+    weakThreshold?: number
+    transparentMask?: boolean
+}
 
 function images() {
 }
@@ -132,55 +39,6 @@ images.opencvImporter = {
 }
 
 const defaultColorThreshold = 4;
-export interface Colors {
-    [key: string]: any
-    BLACK: number;
-    DKGRAY: number;
-    GRAY: number;
-    LTGRAY: number;
-    WHITE: number;
-    RED: number;
-    GREEN: number;
-    BLUE: number;
-    YELLOW: number;
-    CYAN: number;
-    MAGENTA: number;
-    TRANSPARENT: number;
-    parseColor(colorString: string): number;
-    toString(color: number): string;
-    rgb(red: number, green: number, blue: number): number;
-    argb(alpha: number, red: number, green: number, blue: number): number;
-    equals(color1: Color, color2: Color): boolean;
-}
-const colorsExt = {
-    alpha: function (color: Color) {
-        color = parseColor(color);
-        return color >>> 24;
-    },
-    red: function (color: Color) {
-        color = parseColor(color);
-        return (color >> 16) & 0xFF;
-    },
-    green: function (color: Color) {
-        color = parseColor(color);
-        return (color >> 8) & 0xFF;
-    },
-    blue: function (color: Color) {
-        color = parseColor(color);
-        return color & 0xFF;
-    },
-    isSimilar: function (c1: Color, c2: Color, threshold?: number, algorithm?: string) {
-        c1 = parseColor(c1);
-        c2 = parseColor(c2);
-        threshold = threshold == undefined ? 4 : threshold;
-        algorithm = algorithm == undefined ? "diff" : algorithm;
-        var colorDetector = getColorDetector(c1, algorithm, threshold);
-        return colorDetector.detectsColor(colors.red(c2), colors.green(c2), colors.blue(c2));
-    }
-}
-type ColorsType = Colors & typeof colorsExt
-var colors = Object.create(runtime.colors) as ColorsType;
-Object.assign(colors, colorsExt);
 
 var javaImages = runtime.images;
 
@@ -448,12 +306,7 @@ images.findMultiColors = function (img: Image, firstColor: number | string,
     return colorFinder.findMultiColors(img, firstColor, threshold, region, list);
 }
 
-images.findImage = function (img: Image, template: Image, options?: {
-    threshold?: number,
-    region?: [number, number, number?, number?],
-    level?: number,
-    weakThreshold?: number
-}) {
+images.findImage = function (img: Image, template: Image, options?: FindImageOptions) {
     initIfNeeded();
     options = options || {};
     var threshold = options.threshold || 0.9;
@@ -462,20 +315,16 @@ images.findImage = function (img: Image, template: Image, options?: {
         maxLevel = options.level;
     }
     var weakThreshold = options.weakThreshold || 0.6;
+    const transparentMask = !!options.transparentMask
     if (options.region) {
-        return javaImages.findImage(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel);
+        return javaImages.findImage(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, transparentMask);
     } else {
-        return javaImages.findImage(img, template, weakThreshold, threshold, null, maxLevel);
+        return javaImages.findImage(img, template, weakThreshold, threshold, null, maxLevel, transparentMask);
     }
 }
 
-images.matchTemplate = function (img: Image, template: Image, options?: {
-    threshold?: number,
-    region?: [number, number, number?, number?],
-    max?: number,
-    level?: number,
-    weakThreshold?: number
-}) {
+images.matchTemplate = function (img: Image, template: Image,
+    options?: FindImageOptions & { max?: number }) {
     initIfNeeded();
     options = options || {};
     var threshold = options.threshold || 0.9;
@@ -486,10 +335,11 @@ images.matchTemplate = function (img: Image, template: Image, options?: {
     var max = options.max || 5;
     var weakThreshold = options.weakThreshold || 0.6;
     var result;
+    const transparentMask = !!options.transparentMask
     if (options.region) {
-        result = javaImages.matchTemplate(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, max);
+        result = javaImages.matchTemplate(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, max, transparentMask);
     } else {
-        result = javaImages.matchTemplate(img, template, weakThreshold, threshold, null, maxLevel, max);
+        result = javaImages.matchTemplate(img, template, weakThreshold, threshold, null, maxLevel, max, transparentMask);
     }
     return new MatchingResult(result);
 }
@@ -545,26 +395,6 @@ images.matToImage = function (img: Image) {
 }
 
 
-
-
-
-function getColorDetector(color: Color, algorithm: unknown, threshold?: number) {
-    switch (algorithm) {
-        case "rgb":
-            return new com.stardust.autojs.core.image.ColorDetector.RGBDistanceDetector(color, threshold);
-        case "equal":
-            return new com.stardust.autojs.core.image.ColorDetector.EqualityDetector(color);
-        case "diff":
-            return new com.stardust.autojs.core.image.ColorDetector.DifferenceDetector(color, threshold);
-        case "rgb+":
-            return new com.stardust.autojs.core.image.ColorDetector.WeightedRGBDistanceDetector(color, threshold);
-        case "hs":
-            return new com.stardust.autojs.core.image.ColorDetector.HSDistanceDetector(color, threshold);
-    }
-    throw new Error("Unknown algorithm: " + algorithm);
-}
-
-
 function toPointArray(points: unknown[]) {
     var arr = [];
     for (var i = 0; i < points.length; i++) {
@@ -588,12 +418,7 @@ function buildRegion(region: (number | undefined)[], img: Image) {
     return r;
 }
 
-function parseColor(color: Color): number {
-    if (typeof (color) == 'string') {
-        color = colors.parseColor(color) as number;
-    }
-    return color;
-}
+
 
 function newSize(size: Array<unknown>) {
     if (!Array.isArray(size)) {
@@ -613,7 +438,6 @@ asGlobal(images, ['requestScreenCapture', 'captureScreen', 'findImage', 'findIma
     'findColor', 'findColorInRegion', 'findColorEquals', 'findMultiColors']);
 
 declare global {
-    var colors: ColorsType
     var requestScreenCapture: typeof images['requestScreenCapture']
     var captureScreen: () => Image
     var findImage: typeof images['findImage']
@@ -621,9 +445,7 @@ declare global {
     var findColor: typeof images['findColor']
     var findColorInRegion: typeof images['findColorInRegion']
     var findColorEquals: typeof images['findColorEquals']
-
 }
-global.colors = colors;
 
 export default images;
 

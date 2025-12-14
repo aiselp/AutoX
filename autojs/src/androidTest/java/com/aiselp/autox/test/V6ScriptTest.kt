@@ -174,6 +174,18 @@ class V6ScriptTest {
     }
 
     @Test
+    fun images_transparentMask(): Unit = runBlocking {
+        val dir = openAssetDir(application, "$v6AccessDir/images_transparentMask")
+        val resultViewer = ScriptResultViewer()
+        getScriptEngineService().execute(
+            ScriptFile(dir.resolve("test.js").pathString).toSource(),
+            resultViewer,
+            ExecutionConfig(workingDirectory = dir.pathString)
+        )
+        resultViewer.waitForSuccess()
+    }
+
+    @Test
     fun modules_import() {
         runScriptAssetSuccessfully("modules_import.js")
     }
