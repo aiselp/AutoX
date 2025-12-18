@@ -273,8 +273,32 @@ public class TemplateMatching {
             pos.y += rect.y;
         }
         logger.addSplit("value:" + value);
+        if(!Double.isFinite(value)){
+            return getBestMatched(replaceNoFinite(tmResult), matchMethod, weakThreshold, rect);
+        }
         return new Match(pos, value);
     }
 
+
+    private static Mat replaceNoFinite(Mat mat) {
+        if (mat.empty()) return null;
+
+        int rows = mat.rows();
+        int cols = mat.cols();
+
+        if (mat.type() == CvType.CV_32FC1) {
+            float[] data = new float[1];
+            for (int i = 0; i < rows; i++) {
+                for (int j = 0; j < cols; j++) {
+                    mat.get(i, j, data);
+                    if (!Float.isFinite(data[0])) {
+                        data[0] = 0.0f;
+                        mat.put(i, j, data);
+                    }
+                }
+            }
+        }
+        return mat;
+    }
 
 }
