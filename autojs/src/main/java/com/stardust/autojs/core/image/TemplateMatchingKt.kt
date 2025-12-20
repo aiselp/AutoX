@@ -1,8 +1,9 @@
 package com.stardust.autojs.core.image
 
-import android.util.Log
+import org.opencv.core.Core
 import org.opencv.core.CvType
 import org.opencv.core.Mat
+import org.opencv.core.Scalar
 
 
 object TemplateMatchingKt {
@@ -21,36 +22,17 @@ object TemplateMatchingKt {
         if (image.channels() < 4) {
             // 如果没有透明通道，创建一个全白的掩码（所有位置都参与匹配）
             // 确保填充所有像素值为1.0
-            for (i in 0..<rows) {
-                for (j in 0..<cols) {
-                    mask.put(i, j, 1.0)
-                }
-            }
+            mask.setTo(Scalar(1.0))
             return mask
         }
-        Log.d("TemplateMatchingKt", "Processing alpha channel for image with size: ${rows}x${cols}")
-
         // 有alpha通道，提取并转换
-        for (i in 0..<rows) {
-            for (j in 0..<cols) {
-                try {
-                    // 获取像素的4个通道值（B, G, R, A）
-                    val pixel = image.get(i, j)
-                    if (pixel != null && pixel.size >= 4) {
-                        // 第4个通道是alpha（索引3），转换为0-1范围
-                        val alphaValue = (pixel[3] / 255.0).toFloat()
-                        mask.put(i, j, alphaValue.toDouble())
-                    } else {
-                        // 如果无法获取像素，设置为完全不透明
-                        mask.put(i, j, 1.0)
-                    }
-                } catch (e: Exception) {
-                    // 发生异常时设置为完全不透明
-                    mask.put(i, j, 1.0)
-                }
-            }
-        }
+        val channels: MutableList<Mat> = ArrayList()
+        Core.split(image, channels)
 
+        channels[3].convertTo(mask, CvType.CV_32FC1, 1.0 / 255.0)
+        // 可把小于某个阈值的 alpha 视为透明
+        //Imgproc.threshold(mask, mask, 1.0, 255.0, Imgproc.THRESH_BINARY)
+        channels.forEach { it.release() }
         return mask
     }
 }

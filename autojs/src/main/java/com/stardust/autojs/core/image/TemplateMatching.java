@@ -282,21 +282,14 @@ public class TemplateMatching {
 
     private static Mat replaceNoFinite(Mat mat) {
         if (mat.empty()) return null;
-
-        int rows = mat.rows();
-        int cols = mat.cols();
-
         if (mat.type() == CvType.CV_32FC1) {
-            float[] data = new float[1];
-            for (int i = 0; i < rows; i++) {
-                for (int j = 0; j < cols; j++) {
-                    mat.get(i, j, data);
-                    if (!Float.isFinite(data[0])) {
-                        data[0] = 0.0f;
-                        mat.put(i, j, data);
-                    }
-                }
-            }
+            Core.patchNaNs(mat, 0.0);
+            Mat infMask = new Mat();
+            Core.compare(mat, new Scalar(255), infMask, Core.CMP_GT); // mat > threshold -> 255
+            Mat zeros = Mat.zeros(mat.size(), mat.type());
+            zeros.copyTo(mat, infMask);
+            infMask.release();
+            zeros.release();
         }
         return mat;
     }
