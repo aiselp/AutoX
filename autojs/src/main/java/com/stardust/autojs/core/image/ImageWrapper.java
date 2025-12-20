@@ -103,7 +103,7 @@ public class ImageWrapper {
         ensureNotRecycled();
         if (mMat == null && mBitmap != null) {
             mMat = new Mat();
-            Utils.bitmapToMat(mBitmap, mMat);
+            Utils.bitmapToMat(mBitmap, mMat, true);
         }
         return mMat;
     }
