@@ -510,4 +510,17 @@
   <string name="text_reconnecting">Reconnecting</string>
   <string name="text_connecting">Connecting</string>
   <string name="text_handshake_failed">Handshake failed</string>
+  <string name="text_mcp">MCP Service</string>
+  <string name="text_mcp_enable">Enable MCP server</string>
+  <string name="summary_mcp_enable">Expose automation tools over a local port</string>
+  <string name="text_mcp_host">Bind address</string>
+  <string name="summary_mcp_host">Default is 0.0.0.0 for LAN; use 127.0.0.1 for local only</string>
+  <string name="text_mcp_port">Port</string>
+  <string name="summary_mcp_port">Default is 27190</string>
+  <string name="text_mcp_token">Access token</string>
+  <string name="summary_mcp_token">Empty means no auth</string>
+  <string name="text_mcp_allow_base64">Allow Base64 responses</string>
+  <string name="summary_mcp_allow_base64">Used for screenshots and OCR output</string>
+  <string name="text_mcp_allow_network">Allow LAN access</string>
+  <string name="summary_mcp_allow_network">Allow LAN access and non-localhost bind (default on)</string>
 </resources>

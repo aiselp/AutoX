@@ -229,6 +229,7 @@ dependencies {
     implementation(project(":autojs"))
     implementation(project(":apkbuilder"))
     implementation(project(":codeeditor"))
+    implementation(project(":mcp"))
 
     // ViewModel
     implementation(libs.lifecycle.viewmodel.ktx)

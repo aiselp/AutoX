@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="mcp_notification_channel_name">MCP Server</string>
+    <string name="mcp_notification_channel_desc">In-app MCP server</string>
+    <string name="mcp_notification_title">MCP server running</string>
+    <string name="mcp_notification_text">LLM tools are available on the configured host</string>
+</resources>

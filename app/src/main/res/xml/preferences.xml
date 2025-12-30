@@ -112,6 +112,56 @@
 
     <PreferenceCategory
         android:layout="@layout/preference_category_custom"
+        android:title="@string/text_mcp">
+
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="@string/key_mcp_enabled"
+            android:layout="@layout/preference_custom"
+            android:summary="@string/summary_mcp_enable"
+            android:title="@string/text_mcp_enable" />
+
+        <EditTextPreference
+            android:defaultValue="0.0.0.0"
+            android:inputType="text"
+            android:key="@string/key_mcp_host"
+            android:layout="@layout/preference_custom"
+            android:summary="@string/summary_mcp_host"
+            android:title="@string/text_mcp_host" />
+
+        <EditTextPreference
+            android:defaultValue="27190"
+            android:inputType="number"
+            android:key="@string/key_mcp_port"
+            android:layout="@layout/preference_custom"
+            android:summary="@string/summary_mcp_port"
+            android:title="@string/text_mcp_port" />
+
+        <EditTextPreference
+            android:defaultValue=""
+            android:inputType="textPassword"
+            android:key="@string/key_mcp_token"
+            android:layout="@layout/preference_custom"
+            android:summary="@string/summary_mcp_token"
+            android:title="@string/text_mcp_token" />
+
+        <SwitchPreference
+            android:defaultValue="false"
+            android:key="@string/key_mcp_allow_base64"
+            android:layout="@layout/preference_custom"
+            android:summary="@string/summary_mcp_allow_base64"
+            android:title="@string/text_mcp_allow_base64" />
+
+        <SwitchPreference
+            android:defaultValue="true"
+            android:key="@string/key_mcp_allow_network"
+            android:layout="@layout/preference_custom"
+            android:summary="@string/summary_mcp_allow_network"
+            android:title="@string/text_mcp_allow_network" />
+    </PreferenceCategory>
+
+    <PreferenceCategory
+        android:layout="@layout/preference_category_custom"
         android:title="@string/text_about">
         <Preference
             android:layout="@layout/preference_custom"

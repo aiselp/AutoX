@@ -127,3 +127,7 @@ tasks.register("buildJsModule") {
     group = "build"
     dependsOn("buildV6Api", "buildV7Api")
 }
+
+tasks.named("preBuild") {
+    dependsOn("buildJsModule")
+}

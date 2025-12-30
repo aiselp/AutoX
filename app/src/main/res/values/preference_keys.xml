@@ -16,4 +16,11 @@
     <string name="key_guard_mode" translatable="false">key_guard_mode</string>
     <string name="key_intent_run_script" translatable="false" >key_intent_run_script</string>
     <string name="key_init_resource" translatable="false" >key_init_resource</string>
+
+    <string name="key_mcp_enabled" translatable="false">key_mcp_enabled</string>
+    <string name="key_mcp_host" translatable="false">key_mcp_host</string>
+    <string name="key_mcp_port" translatable="false">key_mcp_port</string>
+    <string name="key_mcp_token" translatable="false">key_mcp_token</string>
+    <string name="key_mcp_allow_base64" translatable="false">key_mcp_allow_base64</string>
+    <string name="key_mcp_allow_network" translatable="false">key_mcp_allow_network</string>
 </resources>

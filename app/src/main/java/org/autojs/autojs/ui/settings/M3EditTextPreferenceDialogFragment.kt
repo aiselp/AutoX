@@ -10,6 +10,7 @@ import androidx.preference.EditTextPreference
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 
 class M3EditTextPreferenceDialogFragment(val preference: EditTextPreference) : DialogFragment() {
+    private var editText: EditText? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,6 +22,10 @@ class M3EditTextPreferenceDialogFragment(val preference: EditTextPreference) : D
             .setTitle(preference.dialogTitle)
             .setIcon(preference.dialogIcon)
             .setPositiveButton(preference.positiveButtonText) { _, _ ->
+                val value = editText?.text?.toString().orEmpty()
+                if (preference.callChangeListener(value)) {
+                    preference.text = value
+                }
             }
             .setNegativeButton(preference.negativeButtonText) { _, _ ->
             }
@@ -41,13 +46,15 @@ class M3EditTextPreferenceDialogFragment(val preference: EditTextPreference) : D
     }
 
     open fun onBindDialogView(view: View) {
-        val editText = view.findViewById<EditText>(android.R.id.edit)
-        checkNotNull(editText) {
+        val editView = view.findViewById<EditText>(android.R.id.edit)
+        checkNotNull(editView) {
             IllegalStateException(
                 "Dialog view must contain an EditText with id" + " @android:id/edit"
             )
         }
-        editText.setText(preference.text)
+        editView.setText(preference.text)
+        editView.setSelection(editView.text?.length ?: 0)
+        editText = editView
     }
 
     override fun onDismiss(dialog: DialogInterface) {

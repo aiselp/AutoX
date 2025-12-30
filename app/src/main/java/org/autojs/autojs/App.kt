@@ -30,6 +30,7 @@ import org.autojs.autojs.theme.ThemeColorManagerCompat
 import org.autojs.autojs.timing.TimedTaskManager
 import org.autojs.autojs.timing.TimedTaskScheduler
 import org.autojs.autojs.ui.main.MainActivity
+import org.autojs.autojs.mcp.McpPreferenceBridge
 import org.autojs.autoxjs.BuildConfig
 import org.autojs.autoxjs.R
 import rikka.shizuku.ShizukuProvider
@@ -42,6 +43,7 @@ import java.lang.ref.WeakReference
 class App : Application(), Configuration.Provider {
     lateinit var dynamicBroadcastReceivers: DynamicBroadcastReceivers
         private set
+    private var mcpPreferenceBridge: McpPreferenceBridge? = null
 
 
     override fun onCreate() {
@@ -81,6 +83,7 @@ class App : Application(), Configuration.Provider {
             };
         } else if (ProcessUtils.isMainProcess(this)) {
             initResource()
+            mcpPreferenceBridge = McpPreferenceBridge(this).apply { start() }
             EngineController.scope.launch {
                 delay(1000)
                 ShizukuProvider.requestBinderForNonProviderProcess(this@App)

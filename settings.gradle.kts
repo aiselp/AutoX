@@ -1,8 +1,6 @@
-plugins {
-    // 自动下载项目所需的JDK版本
-    id("org.gradle.toolchains.foojay-resolver-convention") version ("1.0.0")
-}
+// Note: foojay-resolver-convention disabled to avoid Gradle 8.7 compatibility issues.
 
 include(":app", ":automator", ":common", ":autojs", ":inrt", ":apkbuilder")
 include(":paddleocr")
 include(":codeeditor")
+include(":mcp")

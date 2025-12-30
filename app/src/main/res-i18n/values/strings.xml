@@ -58,6 +58,20 @@
     <string name="github">软件源代码</string>
     <string name="text_already_copy_to_clip">已复制到剪贴板</string>
     <string name="text_qq_already_copy_to_clip">QQ群号已复制到剪贴板</string>
+
+    <string name="text_mcp">MCP 服务</string>
+    <string name="text_mcp_enable">启用 MCP 服务</string>
+    <string name="summary_mcp_enable">启用后可通过本地端口调用自动化工具</string>
+    <string name="text_mcp_host">监听地址</string>
+    <string name="summary_mcp_host">默认监听 0.0.0.0；仅本机访问可改为 127.0.0.1</string>
+    <string name="text_mcp_port">监听端口</string>
+    <string name="summary_mcp_port">默认 27190</string>
+    <string name="text_mcp_token">访问令牌</string>
+    <string name="summary_mcp_token">为空则不校验</string>
+    <string name="text_mcp_allow_base64">允许返回 Base64</string>
+    <string name="summary_mcp_allow_base64">用于截图与 OCR 返回 Base64</string>
+    <string name="text_mcp_allow_network">允许局域网访问</string>
+    <string name="summary_mcp_allow_network">允许局域网访问并可绑定非 127.0.0.1（默认开启）</string>
     <string name="share_app">[Autox.js]下载地址：https://github.com/kkevsekk1/AutoX/releases </string>
     <string name="text_floating_window">悬浮窗</string>
     <string name="text_error_report">错误报告</string>
