@@ -46,6 +46,11 @@ data class GoogleMLKitOcrResult(
         return filterList.toList()
     }
 
+    fun toSortedArray(level: Int): List<GoogleMLKitOcrResult> {
+        val filterList = toArray(level)
+        return filterList.sorted()
+    }
+
     fun sort() {
         if (!children.isNullOrEmpty()) {
             recursiveSort(this)
