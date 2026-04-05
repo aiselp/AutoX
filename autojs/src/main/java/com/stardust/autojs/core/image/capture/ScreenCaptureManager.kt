@@ -8,15 +8,26 @@ import android.content.ServiceConnection
 import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.IBinder
+import android.util.Log
 import androidx.activity.result.contract.ActivityResultContract
 import com.github.aiselp.autox.activity.TransparentActivity
+import com.stardust.autojs.core.image.capture.ScreenCaptureRequester.Callback
+import com.stardust.autojs.core.util.ScriptPromiseAdapter
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import java.lang.ref.WeakReference
 import java.util.concurrent.CancellationException
 
 class ScreenCaptureManager : ScreenCaptureRequester {
     @Volatile
     override var screenCapture: ScreenCapturer? = null
     private var mediaProjection: MediaProjection? = null
+    private var currentCoroutineScope: CoroutineScope? = null
+    private var currentConnection: ServiceConnection? = null
 
     override suspend fun requestScreenCapture(context: Context, orientation: Int) {
         if (screenCapture?.available == true) {
@@ -38,6 +49,10 @@ class ScreenCaptureManager : ScreenCaptureRequester {
         }
 
         // 使用服务绑定确保服务就绪
+        setupScreenCapture(result, orientation, context)
+    }
+
+    private suspend fun setupScreenCapture(result: Intent, orientation: Int, context: Context) {
         val serviceConnected = CompletableDeferred<Unit>()
         val connection = object : ServiceConnection {
             override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -60,16 +75,66 @@ class ScreenCaptureManager : ScreenCaptureRequester {
             }
         }
 
-        // 绑定服务并等待连接
-        context.startService(Intent(context, CaptureForegroundService::class.java))
+        // 先绑定服务再启动（避免延迟）
+        val serviceIntent = Intent(context, CaptureForegroundService::class.java)
         context.bindService(
-            Intent(context, CaptureForegroundService::class.java),
+            serviceIntent,
             connection,
             Context.BIND_AUTO_CREATE
         )
+
+        // 绑定后立即启动服务
+        context.startForegroundService(serviceIntent)
+
+        delay(50)  // 短暂等待服务启动
+
         serviceConnected.await()
     }
 
+    override fun requestScreenCaptureLegacy(context: Context, orientation: Int): ScriptPromiseAdapter {
+        val promiseAdapter = ScriptPromiseAdapter()
+
+        if (screenCapture?.available == true) {
+            screenCapture?.setOrientation(orientation, context)
+            promiseAdapter.resolve(true)
+            return promiseAdapter
+        }
+
+        val weakManager = WeakReference(this)
+
+        val callback = object : Callback {
+            override fun onRequestResult(result: Int, data: Intent?) {
+                val manager = weakManager.get()
+                if (manager == null) {
+                    promiseAdapter.resolve(false)
+                    return
+                }
+
+                val scope = CoroutineScope(Dispatchers.Main)
+                manager.currentCoroutineScope = scope
+
+                scope.launch {
+                    try {
+                        if (result == Activity.RESULT_OK && data != null) {
+                            manager.setupScreenCapture(data, orientation, context)
+                            promiseAdapter.resolve(true)
+                        } else {
+                            promiseAdapter.resolve(false)
+                        }
+                    } catch (e: Exception) {
+                        Log.e("SCREEN_LEGACY", "Manager-创建失败: ${e.message}")
+                        promiseAdapter.resolve(false)
+                    } finally {
+                        scope.cancel()
+                        manager.currentCoroutineScope = null
+                    }
+                }
+            }
+        }
+
+        ScreenCaptureRequestActivity.request(context, callback)
+        return promiseAdapter
+    }
     class ScreenCaptureRequester : ActivityResultContract<Context, Intent?>() {
         override fun createIntent(context: Context, input: Context): Intent {
             return (input.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager).createScreenCaptureIntent()
@@ -82,10 +147,20 @@ class ScreenCaptureManager : ScreenCaptureRequester {
         }
     }
 
-    override fun recycle() {
-        screenCapture?.release()
-        screenCapture = null
-        mediaProjection?.stop()
-        mediaProjection = null
-    }
+        override fun recycle() {
+            // 取消协程
+            currentCoroutineScope?.cancel()
+            currentCoroutineScope = null
+
+            // 清理连接
+            currentConnection = null
+
+            // 释放截图器
+            screenCapture?.release()
+            screenCapture = null
+
+            // 停止并释放 MediaProjection
+            mediaProjection?.stop()
+            mediaProjection = null
+        }
 }

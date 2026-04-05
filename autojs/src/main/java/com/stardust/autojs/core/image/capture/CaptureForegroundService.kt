@@ -16,16 +16,35 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.stardust.app.service.AbstractAutoService
 import com.stardust.autojs.R
+import java.lang.ref.WeakReference
 
 /**
  * Created by TonyJiangWJ(https://github.com/TonyJiangWJ).
  * From [TonyJiangWJ/Auto.js](https://github.com/TonyJiangWJ/Auto.js)
  */
 class CaptureForegroundService : AbstractAutoService() {
-    val callback = object : MediaProjection.Callback() {
+
+    private val callback = object : MediaProjection.Callback() {
         override fun onStop() {
-            stopServiceInternal()
+            // 使用弱引用避免持有 Service
+            val service = weakService.get()
+            service?.stopServiceInternal()
         }
+    }
+
+    private lateinit var weakService: WeakReference<CaptureForegroundService>
+
+    override fun onCreate() {
+        super.onCreate()
+        weakService = WeakReference(this)
+        ServiceCompat.startForeground(
+            this,
+            NOTIFICATION_ID,
+            buildNotification(),
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
+            } else 0
+        )
     }
 
     override fun onBind(intent: Intent?): IBinder {
@@ -36,22 +55,16 @@ class CaptureForegroundService : AbstractAutoService() {
         val action = intent?.action
         when (action) {
             STOP -> stopServiceInternal()
-            REGISTER -> mediaProjection?.registerCallback(callback, Handler(mainLooper))
+            REGISTER -> {
+                // 使用弱引用避免 MediaProjection 持有 Service
+                getMediaProjection()?.registerCallback(callback, Handler(mainLooper))
+            }
+            UNREGISTER -> {
+                getMediaProjection()?.unregisterCallback(callback)
+            }
         }
         super.onStartCommand(intent, flags, startId)
         return START_NOT_STICKY
-    }
-
-    override fun onCreate() {
-        super.onCreate()
-        ServiceCompat.startForeground(
-            this,
-            NOTIFICATION_ID,
-            buildNotification(),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION
-            } else 0
-        )
     }
 
     private fun buildNotification(): Notification {
@@ -89,27 +102,42 @@ class CaptureForegroundService : AbstractAutoService() {
 
     override fun onDestroy() {
         super.onDestroy()
-        mediaProjection?.unregisterCallback(callback)
-        mediaProjection?.stop()
+        // 取消注册回调
+        getMediaProjection()?.unregisterCallback(callback)
+        // 停止并清除 MediaProjection
+        clearMediaProjection()
         removeNotification()
         stopForeground(STOP_FOREGROUND_REMOVE)
     }
 
     companion object {
-        private var mediaProjection: MediaProjection? = null
-        private const val STOP = "STOP_SERVICE"
-        private const val REGISTER = "REGISTER_CALLBACK"
-        private const val NOTIFICATION_ID = 26
-        private val CHANNEL_ID = CaptureForegroundService::class.java.name + ".foreground"
-        private const val NOTIFICATION_TITLE = "截图服务运行中"
+        private var mediaProjectionRef: WeakReference<MediaProjection>? = null
 
+        private fun getMediaProjection(): MediaProjection? {
+            return mediaProjectionRef?.get()
+        }
+
+        private fun clearMediaProjection() {
+            mediaProjectionRef?.get()?.stop()
+            mediaProjectionRef = null
+        }
 
         fun setMediaProjection(context: Context, media: MediaProjection) {
-            mediaProjection = media
+            // 清理旧的引用
+            clearMediaProjection()
+            // 使用弱引用存储
+            mediaProjectionRef = WeakReference(media)
             val intent = Intent(context, CaptureForegroundService::class.java).apply {
                 action = REGISTER
             }
             context.startForegroundService(intent)
         }
+
+        private const val STOP = "STOP_SERVICE"
+        private const val REGISTER = "REGISTER_CALLBACK"
+        private const val UNREGISTER = "UNREGISTER_CALLBACK"
+        private const val NOTIFICATION_ID = 26
+        private val CHANNEL_ID = CaptureForegroundService::class.java.name + ".foreground"
+        private const val NOTIFICATION_TITLE = "截图服务运行中"
     }
 }

@@ -69,6 +69,13 @@
             android:taskAffinity="com.stardust.autojs.runtime.api.image.ScreenCaptureRequestActivity"
             android:theme="@style/ScriptTheme.Transparent" />
 
+        <activity
+            android:name="com.stardust.autojs.core.image.capture.ScreenCaptureRequestActivity"
+            android:excludeFromRecents="true"
+            android:taskAffinity="com.stardust.autojs.runtime.api.image.ScreenCaptureRequestActivity"
+            android:theme="@style/ScriptTheme.Transparent"
+            android:process="@string/text_script_process_name" />
+
         <service
             android:name=".IndependentScriptService"
             android:foregroundServiceType="mediaPlayback"
