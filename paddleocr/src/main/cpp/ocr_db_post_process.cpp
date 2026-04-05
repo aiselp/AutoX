@@ -79,6 +79,14 @@ static float **Mat2Vec(cv::Mat mat) {
   return array;
 }
 
+static void freeMat2Vec(float **array, int rows) {
+  if (array == nullptr) return;
+  for (int i = 0; i < rows; ++i) {
+    delete[] array[i];
+  }
+  delete[] array;
+}
+
 static void quickSort(float **s, int l, int r) {
   if (l < r) {
     int i = l, j = r;
@@ -155,7 +163,6 @@ static float **get_mini_boxes(cv::RotatedRect box, float &ssid) {
 
   cv::Mat points;
   cv::boxPoints(box, points);
-  // sorted box points
   auto array = Mat2Vec(points);
   quickSort(array, 0, 3);
 
@@ -261,48 +268,36 @@ boxes_from_bitmap(const cv::Mat &pred, const cv::Mat &bitmap) {
   for (int _i = 0; _i < num_contours; _i++) {
     float ssid;
     cv::RotatedRect box = cv::minAreaRect(contours[_i]);
-    auto array = get_mini_boxes(box, ssid);
+    float **array = get_mini_boxes(box, ssid);
+    float **box_for_unclip = array;
 
-    auto box_for_unclip = array;
-    // end get_mini_box
+    if (ssid >= min_size) {
+      float score = box_score_fast(array, pred);
+      if (score >= box_thresh) {
+        cv::RotatedRect points = unclip(box_for_unclip);
+        float ssid2;
+        float **cliparray = get_mini_boxes(points, ssid2);
+        if (ssid2 >= min_size + 2) {
+          int dest_width = pred.cols;
+          int dest_height = pred.rows;
+          std::vector<std::vector<int>> intcliparray;
 
-    if (ssid < min_size) {
-      continue;
+          for (int num_pt = 0; num_pt < 4; num_pt++) {
+            std::vector<int> a{int(clampf(roundf(cliparray[num_pt][0] / float(width) *
+                                                  float(dest_width)),
+                                           0, float(dest_width))),
+                               int(clampf(roundf(cliparray[num_pt][1] /
+                                                  float(height) * float(dest_height)),
+                                           0, float(dest_height)))};
+            intcliparray.emplace_back(std::move(a));
+          }
+          boxes.emplace_back(std::move(intcliparray));
+        }
+        freeMat2Vec(cliparray, 4);
+      }
     }
-
-    float score;
-    score = box_score_fast(array, pred);
-    // end box_score_fast
-    if (score < box_thresh) {
-      continue;
-    }
-
-    // start for unclip
-    cv::RotatedRect points = unclip(box_for_unclip);
-    // end for unclip
-
-    cv::RotatedRect clipbox = points;
-    auto cliparray = get_mini_boxes(clipbox, ssid);
-
-    if (ssid < min_size + 2)
-      continue;
-
-    int dest_width = pred.cols;
-    int dest_height = pred.rows;
-    std::vector<std::vector<int>> intcliparray;
-
-    for (int num_pt = 0; num_pt < 4; num_pt++) {
-      std::vector<int> a{int(clampf(roundf(cliparray[num_pt][0] / float(width) *
-                                           float(dest_width)),
-                                    0, float(dest_width))),
-                         int(clampf(roundf(cliparray[num_pt][1] /
-                                           float(height) * float(dest_height)),
-                                    0, float(dest_height)))};
-      intcliparray.emplace_back(std::move(a));
-    }
-    boxes.emplace_back(std::move(intcliparray));
-
-  } // end for
+    freeMat2Vec(array, 4);
+  }
   return boxes;
 }
 

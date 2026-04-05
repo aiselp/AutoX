@@ -1,6 +1,25 @@
 const paddleApi = new com.stardust.autojs.runtime.api.Paddle();
 const paddle = {
-    ocr, ocrText
+    ocr, ocrText, initOcr,
+    initOcrWithConfig: function(config) {
+        return paddleApi.initOcrWithConfig(config)
+    },
+    getOcrConfig: function() {
+        return paddleApi.getOcrConfig
+    },
+    release: function() {
+        return paddleApi.release();
+    },
+    releaseDelayed: function(delayMillis) {
+        if (delayMillis !== undefined) {
+            return paddleApi.releaseDelayed(delayMillis);
+        }
+        return paddleApi.releaseDelayed();
+    }
+}
+
+function initOcr(modelPath?: string | null, labelPath?: string | null, cpuThreadNum?: number | null, cpuPowerMode?: string | null): boolean {
+    return paddleApi.initOcr(modelPath, labelPath, cpuThreadNum, cpuPowerMode)
 }
 
 function ocr(img: Autox.Image, path?: string): any[]

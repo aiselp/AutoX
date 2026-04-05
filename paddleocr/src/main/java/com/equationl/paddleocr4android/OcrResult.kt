@@ -1,4 +1,4 @@
-package com.baidu.paddle.lite.demo.ocr
+package com.equationl.paddleocr4android
 
 import android.graphics.Rect
 import kotlin.math.abs

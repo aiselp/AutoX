@@ -14,29 +14,22 @@ cv::Mat bitmap_to_cv_mat(JNIEnv *env, jobject bitmap) {
   }
   unsigned char *srcData = NULL;
   AndroidBitmap_lockPixels(env, bitmap, (void **)&srcData);
-  cv::Mat mat = cv::Mat::zeros(info.height, info.width, CV_8UC4);
-  memcpy(mat.data, srcData, info.height * info.width * 4);
+  cv::Mat mat(info.height, info.width, CV_8UC4, srcData);
+  cv::Mat bgr_mat;
+  cv::cvtColor(mat, bgr_mat, cv::COLOR_RGBA2BGR);
   AndroidBitmap_unlockPixels(env, bitmap);
-  cv::cvtColor(mat, mat, cv::COLOR_RGBA2BGR);
-  /**
-  if (!cv::imwrite("/sdcard/1/copy.jpg", mat)){
-      LOGE("Write image failed " );
-  }
-   */
-
-  return mat;
+  return bgr_mat;
 }
 
 cv::Mat resize_img(const cv::Mat &img, int height, int width) {
   if (img.rows == height && img.cols == width) {
-    return img;
+    return img.clone();
   }
   cv::Mat new_img;
   cv::resize(img, new_img, cv::Size(height, width));
   return new_img;
 }
 
-// fill tensor with mean and scale and trans layout: nhwc -> nchw, neon speed up
 void neon_mean_scale(const float *din, float *dout, int size,
                      const std::vector<float> &mean,
                      const std::vector<float> &scale) {
