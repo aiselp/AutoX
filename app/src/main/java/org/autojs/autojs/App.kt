@@ -78,7 +78,7 @@ class App : Application(), Configuration.Provider {
             initDynamicBroadcastReceivers()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 WebView.setDataDirectorySuffix(getString(R.string.text_script_process_name))
-            };
+            }
         } else if (ProcessUtils.isMainProcess(this)) {
             initResource()
             EngineController.scope.launch {

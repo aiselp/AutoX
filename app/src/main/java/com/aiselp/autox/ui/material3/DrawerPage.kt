@@ -28,6 +28,7 @@ import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -70,13 +71,13 @@ import com.stardust.app.isOpPermissionGranted
 import com.stardust.app.permission.DrawOverlaysPermission.launchCanDrawOverlaysSettings
 import com.stardust.app.permission.PermissionsSettingsUtil
 import com.stardust.autojs.IndependentScriptService
+import com.stardust.autojs.core.accessibility.AccessibilityProxyAccessor
 import com.stardust.autojs.core.pref.PrefKey
 import com.stardust.autojs.core.shizuku.ShizukuClient
 import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.toast
 import com.stardust.util.IntentUtil
-import com.stardust.view.accessibility.AccessibilityService
 import io.github.g00fy2.quickie.QRResult
 import io.github.g00fy2.quickie.ScanQRCode
 import kotlinx.coroutines.DelicateCoroutinesApi
@@ -87,7 +88,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.autojs.autojs.Pref
 import org.autojs.autojs.devplugin.DevPlugin
-import org.autojs.autojs.tool.AccessibilityServiceTool
 import org.autojs.autojs.tool.WifiTool
 import org.autojs.autojs.ui.floating.FloatyWindowManger
 import org.autojs.autojs.ui.main.drawer.DrawerViewModel
@@ -102,7 +102,7 @@ private const val FEEDBACK_ADDRESS = "https://github.com/aiselp/AutoX/issues"
 
 
 @Composable
-fun DrawerPage() {
+fun DrawerPage(drawerState: DrawerState) {
     ModalDrawerSheet(Modifier.width(300.dp)) {
         Column(Modifier.fillMaxSize()) {
             val textStyle = MaterialTheme.typography.titleMedium
@@ -121,7 +121,7 @@ fun DrawerPage() {
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(text = stringResource(R.string.text_service), style = textStyle)
-                AccessibilityServiceSwitch()
+                AccessibilityServiceSwitch(drawerState = drawerState)
                 StableModeSwitch()
                 NotificationUsageRightSwitch()
                 ForegroundServiceSwitch()
@@ -153,20 +153,43 @@ fun DrawerPage() {
 }
 
 @Composable
-private fun AccessibilityServiceSwitch() {
+private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val dialog = remember { DialogController() }
-    val isAccessibilityServiceEnabled = remember {
-        mutableStateOf(AccessibilityServiceTool.isAccessibilityServiceEnabled(context))
+
+    // 状态
+    val isAccessibilityServiceEnabled = remember { mutableStateOf(false) }
+
+    // 每次显示时刷新
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            val enabled = withContext<Boolean>(Dispatchers.IO) {
+                try {
+                    AccessibilityProxyAccessor.getInstance().isEnabled
+                } catch (e: Exception) {
+                    false
+                }
+            }
+            isAccessibilityServiceEnabled.value = enabled
+        }
     }
+
     val accessibilitySettingsLauncher =
         rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) {
-            isAccessibilityServiceEnabled.value =
-                AccessibilityServiceTool.isAccessibilityServiceEnabled(context)
-            if (!isAccessibilityServiceEnabled.value) {
-                isAccessibilityServiceEnabled.value = false
-                toast(context, R.string.text_accessibility_service_is_not_enable)
+            // 设置页面返回后刷新
+            scope.launch {
+                val enabled = withContext<Boolean>(Dispatchers.IO) {
+                    try {
+                        AccessibilityProxyAccessor.getInstance().isEnabled
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                isAccessibilityServiceEnabled.value = enabled
+                if (!enabled) {
+                    toast(context, R.string.text_accessibility_service_is_not_enable)
+                }
             }
         }
     val editor = remember { mutableStateOf(Pref.getEditor()) }
@@ -190,21 +213,36 @@ private fun AccessibilityServiceSwitch() {
         title = stringResource(id = R.string.text_accessibility_service),
         checked = isAccessibilityServiceEnabled.value,
         onCheckedChange = {
-            if (!isAccessibilityServiceEnabled.value) {
-                if (Pref.shouldEnableAccessibilityServiceByRoot()) {
-                    scope.launch {
-                        val enabled = withContext(Dispatchers.IO) {
-                            AccessibilityServiceTool.enableAccessibilityServiceByRootAndWaitFor(2000)
+            scope.launch {
+                if (!isAccessibilityServiceEnabled.value) {
+                    // 启用
+                    val enabled = withContext<Boolean>(Dispatchers.IO) {
+                        try {
+                            AccessibilityProxyAccessor.getInstance().ensureEnabled()
+                        } catch (e: Exception) {
+                            false
                         }
-                        if (enabled) isAccessibilityServiceEnabled.value = true
-                        else dialog.show()
                     }
-                } else scope.launch { dialog.show() }
-            } else {
-                isAccessibilityServiceEnabled.value = !AccessibilityService.disable()
+                    if (enabled) {
+                        isAccessibilityServiceEnabled.value = true
+                    } else {
+                        dialog.show()
+                    }
+                } else {
+                    // 禁用
+                    val disabled = withContext<Boolean>(Dispatchers.IO) {
+                        try {
+                            AccessibilityProxyAccessor.getInstance().disable()
+                        } catch (e: Exception) {
+                            false
+                        }
+                    }
+                    isAccessibilityServiceEnabled.value = !disabled
+                }
             }
         }
     )
+
     dialog.BaseDialog(
         onDismissRequest = { scope.launch { dialog.dismiss() } },
         title = { DialogTitle(title = stringResource(R.string.text_need_to_enable_accessibility_service)) },

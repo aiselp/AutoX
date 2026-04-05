@@ -510,4 +510,5 @@
   <string name="text_reconnecting">Reconnecting</string>
   <string name="text_connecting">Connecting</string>
   <string name="text_handshake_failed">Handshake failed</string>
+    <string name="text_root_permission_incomplete">Root permission incomplete! Please grant permission to \":script\" in Magisk</string>
 </resources>

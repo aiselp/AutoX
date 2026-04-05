@@ -559,4 +559,5 @@
     <string name="special_permissions_configuration_desc">勾选以下权限要求会让打包的app启动时向用户申请并取得权限后才能运行</string>
     <string name="text_is_not_executable">文件无法运行</string>
     <string name="memory_usage">内存使用量</string>
+    <string name="text_root_permission_incomplete">root权限不完整！需要到Magisk中为本软件的「:script」授权</string>
 </resources>

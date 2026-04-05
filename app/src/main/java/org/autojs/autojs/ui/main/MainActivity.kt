@@ -121,7 +121,7 @@ class MainActivity : AppCompatActivity() {
                 ModalNavigationDrawer(
                     drawerState = drawerState,
                     gesturesEnabled = drawerState.isOpen,
-                    drawerContent = { DrawerPage() }
+                    drawerContent = { DrawerPage(drawerState) }
                 ) {
                     MainPage(
                         scriptListFragment = scriptListFragment,

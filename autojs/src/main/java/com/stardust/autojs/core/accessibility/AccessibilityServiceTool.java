@@ -1,17 +1,14 @@
-package org.autojs.autojs.tool;
+package com.stardust.autojs.core.accessibility;
 
-import android.content.ActivityNotFoundException;
+import static com.stardust.app.GlobalAppContext.get;
+
 import android.content.Context;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.stardust.app.GlobalAppContext;
-import org.autojs.autojs.Pref;
-import org.autojs.autoxjs.R;
-
-import com.stardust.autojs.core.accessibility.AccessibilityService;
+import com.stardust.autojs.R;
 import com.stardust.autojs.core.util.ProcessShell;
-import com.stardust.view.accessibility.AccessibilityServiceUtils;
 
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -26,28 +23,6 @@ public class AccessibilityServiceTool {
 
     private static final Class<AccessibilityService> sAccessibilityServiceClass = AccessibilityService.class;
 
-    public static void enableAccessibilityService() {
-        if (Pref.shouldEnableAccessibilityServiceByRoot()) {
-            if (!enableAccessibilityServiceByRoot(sAccessibilityServiceClass)) {
-                goToAccessibilitySetting();
-            }
-        } else {
-            goToAccessibilitySetting();
-        }
-    }
-
-    public static void goToAccessibilitySetting() {
-        Context context = GlobalAppContext.get();
-        if (Pref.isFirstGoToAccessibilitySetting()) {
-            GlobalAppContext.toast(context.getString(R.string.text_please_choose) + context.getString(R.string.app_name));
-        }
-        try {
-            AccessibilityServiceUtils.INSTANCE.goToAccessibilitySetting(context);
-        } catch (ActivityNotFoundException e) {
-            GlobalAppContext.toast(context.getString(R.string.go_to_accessibility_settings) + context.getString(R.string.app_name));
-        }
-    }
-
     private static final String cmd = "enabled=$(settings get secure enabled_accessibility_services)\n" +
             "pkg=%s\n" +
             "if [[ $enabled == *$pkg* ]]\n" +
@@ -60,7 +35,7 @@ public class AccessibilityServiceTool {
             "settings put secure accessibility_enabled 1";
 
     public static boolean enableAccessibilityServiceByRoot(Class<? extends android.accessibilityservice.AccessibilityService> accessibilityService) {
-        String serviceName = GlobalAppContext.get().getPackageName() + "/" + accessibilityService.getName();
+        String serviceName = get().getPackageName() + "/" + accessibilityService.getName();
         try {
             return TextUtils.isEmpty(ProcessShell.execCommand(String.format(Locale.getDefault(), cmd, serviceName), true).error);
         } catch (Exception e) {
@@ -73,13 +48,6 @@ public class AccessibilityServiceTool {
             }
             return false;
         }
-    }
-
-    public static boolean enableAccessibilityServiceByRootAndWaitFor1(long timeOut) {
-        if (enableAccessibilityServiceByRoot(sAccessibilityServiceClass)) {
-            return AccessibilityService.Companion.waitForEnabled(timeOut);
-        }
-        return false;
     }
 
     public static boolean enableAccessibilityServiceByRootAndWaitFor(long timeOut) {
@@ -110,16 +78,5 @@ public class AccessibilityServiceTool {
         } catch (Exception e) {
             return false;
         }
-    }
-
-    public static void enableAccessibilityServiceByRootIfNeeded() {
-        if (AccessibilityService.Companion.getInstance() == null)
-            if (Pref.shouldEnableAccessibilityServiceByRoot()) {
-                AccessibilityServiceTool.enableAccessibilityServiceByRoot(sAccessibilityServiceClass);
-            }
-    }
-
-    public static boolean isAccessibilityServiceEnabled(Context context) {
-        return AccessibilityServiceUtils.INSTANCE.isAccessibilityServiceEnabled(context, sAccessibilityServiceClass);
     }
 }
