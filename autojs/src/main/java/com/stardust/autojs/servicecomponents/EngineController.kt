@@ -1,5 +1,6 @@
 package com.stardust.autojs.servicecomponents
 
+import android.util.Log
 import com.aiselp.autox.engine.NodeScriptEngine
 import com.stardust.autojs.AutoJs
 import com.stardust.autojs.execution.ExecutionConfig
@@ -65,7 +66,11 @@ object EngineController {
                 ExecutionConfig(workingDirectory = taskInfo.workerDirectory)
             )
         } catch (e: Throwable) {
-            serviceConnection.runScript(taskInfo, listener, config)
+            try {
+                serviceConnection.runScript(taskInfo, listener, config)
+            } catch (e2: Exception) {
+                Log.e(TAG, "serviceConnection.runScript failed", e2)
+            }
         }
     }
 

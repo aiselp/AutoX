@@ -48,6 +48,7 @@ class IndependentScriptService : AbstractAutoService() {
                 0
             }
         )
+        isForegroundRunning = true
     }
 
     private fun buildNotification(): Notification {
@@ -90,12 +91,16 @@ class IndependentScriptService : AbstractAutoService() {
         val action = intent?.action
         when (action) {
             ACTION_START_FOREGROUND -> startForeground()
-            ACTION_STOP_FOREGROUND -> stopServiceInternal()
+            ACTION_STOP_FOREGROUND -> {
+                isForegroundRunning = false
+                stopServiceInternal()
+            }
         }
         return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onDestroy() {
+        isForegroundRunning = false
         scope.cancel()
         super.onDestroy()
         Log.i(TAG, "IndependentScriptService Service destroyed")
@@ -120,6 +125,9 @@ class IndependentScriptService : AbstractAutoService() {
         private val CHANEL_ID = IndependentScriptService::class.java.name + "_foreground"
         const val ACTION_START_FOREGROUND = "action_start_foreground"
         const val ACTION_STOP_FOREGROUND = "action_stop_foreground"
+        @Volatile
+        var isForegroundRunning = false
+            private set
 
         fun startForeground(context: Context) {
             val intent = Intent(context, IndependentScriptService::class.java).apply {
