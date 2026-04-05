@@ -10,6 +10,7 @@ import com.stardust.autojs.core.console.ConsoleImpl
 import com.stardust.autojs.core.http.MutableOkHttp
 import com.stardust.autojs.core.image.capture.ScreenCaptureRequester
 import com.stardust.autojs.core.looper.Loopers
+import com.stardust.autojs.core.plugin.DevPluginWrapper
 import com.stardust.autojs.core.util.WeakReferenceKey
 import com.stardust.autojs.onnx.OnnxModule
 import com.stardust.autojs.rhino.AndroidClassLoader
@@ -59,6 +60,9 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
 
     @ScriptVariable
     val plugins: Plugins = Plugins(uiHandler.context, this)
+
+    @ScriptVariable
+    val devPlugin = DevPluginWrapper()
 
     @ScriptVariable
     var zips: SevenZip = SevenZip()
