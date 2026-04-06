@@ -9,6 +9,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.autojs.autojs.Pref
+import java.io.IOException
 
 class DevPluginServiceImpl : Service() {
 
@@ -37,6 +38,10 @@ class DevPluginServiceImpl : Service() {
                 try {
                     DevPlugin.connect(fullUrl)
                     Log.d(TAG, "连接成功: $fullUrl")
+                } catch (e: IOException) {
+                    Log.e(TAG, "连接失败: IO错误", e)
+                } catch (e: IllegalStateException) {
+                    Log.e(TAG, "连接失败: 状态错误", e)
                 } catch (e: Exception) {
                     Log.e(TAG, "连接失败: ${e.message}", e)
                 }
@@ -50,6 +55,8 @@ class DevPluginServiceImpl : Service() {
                 try {
                     DevPlugin.close()
                     Log.d(TAG, "断开连接成功")
+                } catch (e: IllegalStateException) {
+                    Log.e(TAG, "断开连接失败: 状态错误", e)
                 } catch (e: Exception) {
                     Log.e(TAG, "断开连接失败: ${e.message}", e)
                 }
@@ -62,6 +69,9 @@ class DevPluginServiceImpl : Service() {
                 val connected = DevPlugin.isActive
                 Log.d(TAG, "电脑连接状态: $connected")
                 connected
+            } catch (e: IllegalStateException) {
+                Log.e(TAG, "获取连接状态失败: 状态错误", e)
+                false
             } catch (e: Exception) {
                 Log.e(TAG, "获取连接状态失败: ${e.message}", e)
                 false
@@ -75,6 +85,9 @@ class DevPluginServiceImpl : Service() {
                 val address = Pref.getServerAddressOrDefault("")
                 Log.d(TAG, "保存的地址: $address")
                 address
+            } catch (e: IllegalStateException) {
+                Log.e(TAG, "获取保存地址失败: 状态错误", e)
+                ""
             } catch (e: Exception) {
                 Log.e(TAG, "获取保存地址失败: ${e.message}", e)
                 ""
@@ -88,6 +101,10 @@ class DevPluginServiceImpl : Service() {
                 try {
                     DevPlugin.startUSBDebug()
                     Log.d(TAG, "启动USB调试成功")
+                } catch (e: IOException) {
+                    Log.e(TAG, "启动USB调试失败: IO错误", e)
+                } catch (e: SecurityException) {
+                    Log.e(TAG, "启动USB调试失败: 权限不足", e)
                 } catch (e: Exception) {
                     Log.e(TAG, "启动USB调试失败: ${e.message}", e)
                 }
@@ -101,6 +118,8 @@ class DevPluginServiceImpl : Service() {
                 try {
                     DevPlugin.stopUSBDebug()
                     Log.d(TAG, "停止USB调试成功")
+                } catch (e: IOException) {
+                    Log.e(TAG, "停止USB调试失败: IO错误", e)
                 } catch (e: Exception) {
                     Log.e(TAG, "停止USB调试失败: ${e.message}", e)
                 }
@@ -114,6 +133,9 @@ class DevPluginServiceImpl : Service() {
                 val active = DevPlugin.isUSBDebugServiceActive
                 Log.d(TAG, "USB调试状态: $active")
                 active
+            } catch (e: IllegalStateException) {
+                Log.e(TAG, "获取USB调试状态失败: 状态错误", e)
+                false
             } catch (e: Exception) {
                 Log.e(TAG, "获取USB调试状态失败: ${e.message}", e)
                 false
@@ -122,7 +144,6 @@ class DevPluginServiceImpl : Service() {
 
     }
 
-    // 在 Service 的 onCreate 中
     override fun onCreate() {
         super.onCreate()
         Log.d("DevPluginService", "DevPluginServiceImpl onCreate")

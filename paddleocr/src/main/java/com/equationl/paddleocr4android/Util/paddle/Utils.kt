@@ -5,6 +5,7 @@ import android.graphics.Bitmap
 import android.graphics.Matrix
 import androidx.exifinterface.media.ExifInterface
 import android.os.Environment
+import android.util.Log
 import androidx.core.graphics.scale
 import java.io.BufferedInputStream
 import java.io.BufferedOutputStream
@@ -66,8 +67,10 @@ object Utils {
                     copyFileFromAssets(appCtx, srcSubPath, dstSubPath)
                 }
             }
+        } catch (e: IOException) {
+            Log.e(TAG, "复制 assets 目录失败: $srcDir -> $dstDir", e)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "未知错误", e)
         }
     }
 

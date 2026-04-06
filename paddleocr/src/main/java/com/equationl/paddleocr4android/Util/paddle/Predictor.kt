@@ -16,6 +16,7 @@ import com.equationl.paddleocr4android.CpuPowerMode
 import com.equationl.paddleocr4android.OcrConfig
 import com.equationl.paddleocr4android.exception.InitModelException
 import com.equationl.paddleocr4android.exception.RunModelException
+import okio.IOException
 import java.io.File
 import java.util.Date
 import java.util.Vector
@@ -148,7 +149,7 @@ open class Predictor {
             }
             wordLabels.add(" ")
             Log.i(TAG, "Word label size: " + wordLabels.size)
-        } catch (e: Exception) {
+        } catch (e: IOException) {
             e.printStackTrace()
             throw InitModelException("Load label Fail: " + e.message)
         }
@@ -280,7 +281,7 @@ open class Predictor {
 
         return try {
             init(appCtx)
-        } catch (e: Exception) {
+        } catch (e: InitModelException) {
             Log.e(TAG, "initOcr failed", e)
             false
         }
@@ -297,7 +298,7 @@ open class Predictor {
         ocrConfig.modelPath = modelPath
         return try {
             init(appCtx)
-        } catch (e: Exception) {
+        } catch (e: InitModelException) {
             Log.e(TAG, "init failed", e)
             false
         }
@@ -372,7 +373,7 @@ open class Predictor {
             } else {
                 emptyList()
             }
-        } catch (e: Exception) {
+        } catch (e: RunModelException) {
             Log.e(TAG, "runOcr failed", e)
             emptyList()
         }

@@ -38,8 +38,12 @@ class AccessibilityProxyServiceImpl : Service() {
             val intent = Intent(this, AccessibilityProxyService::class.java)
             intent.setPackage(packageName)
             bindService(intent, proxyConnection, BIND_AUTO_CREATE)
+        } catch (e: SecurityException) {
+            Log.e(TAG, "绑定失败: 权限不足", e)
+        } catch (e: IllegalArgumentException) {
+            Log.e(TAG, "绑定失败: Intent或Service无效", e)
         } catch (e: Exception) {
-            Log.e(TAG, "绑定到 AccessibilityProxyService 失败", e)
+            Log.e(TAG, "绑定失败: 未知错误", e)
         }
     }
 

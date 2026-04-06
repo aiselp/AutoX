@@ -1,5 +1,6 @@
 package com.stardust.autojs.servicecomponents
 
+import android.os.RemoteException
 import android.util.Log
 import com.aiselp.autox.engine.NodeScriptEngine
 import com.stardust.autojs.AutoJs
@@ -65,9 +66,11 @@ object EngineController {
                 source, listener?.toScriptExecutionListener(),
                 ExecutionConfig(workingDirectory = taskInfo.workerDirectory)
             )
-        } catch (e: Throwable) {
+        } catch (_: Throwable) {
             try {
                 serviceConnection.runScript(taskInfo, listener, config)
+            } catch (e2: RemoteException) {
+                Log.e(TAG, "serviceConnection.runScript failed: Binder通信错误", e2)
             } catch (e2: Exception) {
                 Log.e(TAG, "serviceConnection.runScript failed", e2)
             }

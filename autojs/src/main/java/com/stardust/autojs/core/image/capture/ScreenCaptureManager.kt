@@ -121,8 +121,11 @@ class ScreenCaptureManager : ScreenCaptureRequester {
                         } else {
                             promiseAdapter.resolve(false)
                         }
+                    } catch (e: IllegalStateException) {
+                        Log.e("SCREEN_LEGACY", "状态异常: ${e.message}")
+                        promiseAdapter.resolve(false)
                     } catch (e: Exception) {
-                        Log.e("SCREEN_LEGACY", "Manager-创建失败: ${e.message}")
+                        Log.e("SCREEN_LEGACY", "创建失败: ${e.message}")
                         promiseAdapter.resolve(false)
                     } finally {
                         scope.cancel()

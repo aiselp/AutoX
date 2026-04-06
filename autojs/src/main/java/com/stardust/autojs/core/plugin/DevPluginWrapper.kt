@@ -1,16 +1,21 @@
 package com.stardust.autojs.core.plugin
 
 import android.content.Context
+import android.util.Log
 import com.stardust.app.GlobalAppContext
 import com.stardust.autojs.annotation.ScriptInterface
+import androidx.core.content.edit
 
 /**
  * DevPlugin 的包装类，用于在 autojs 模块中访问 app 模块的 DevPluginAccessor
  */
 class DevPluginWrapper {
 
+    companion object {
+        private const val TAG = "DevPluginWrapper"
+    }
     // 直接获取 Kotlin 版本的 DevPluginAccessor 单例
-    private val devPluginAccessor = DevPluginAccessor.Companion.getInstance()
+    private val devPluginAccessor = DevPluginAccessor.getInstance()
 
     @ScriptInterface
     fun connectToComputer(url: String) {
@@ -60,23 +65,28 @@ class DevPluginWrapper {
         try {
             val pref = GlobalAppContext.get()
                 .getSharedPreferences("pref", Context.MODE_PRIVATE)
-            pref.edit().putString("server_address", address).apply()
+            pref.edit { putString("server_address", address) }
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "GlobalAppContext 未初始化", e)
+        } catch (e: NullPointerException) {
+            Log.e(TAG, "SharedPreferences 为 null", e)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "保存服务器地址失败", e)
         }
     }
 
-    /**
-     * 清除保存的服务器地址
-     */
     @ScriptInterface
     fun clearServerAddress() {
         try {
             val pref = GlobalAppContext.get()
                 .getSharedPreferences("pref", Context.MODE_PRIVATE)
-            pref.edit().remove("server_address").apply()
+            pref.edit { remove("server_address") }
+        } catch (e: IllegalStateException) {
+            Log.e(TAG, "GlobalAppContext 未初始化", e)
+        } catch (e: NullPointerException) {
+            Log.e(TAG, "SharedPreferences 为 null", e)
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e(TAG, "清除服务器地址失败", e)
         }
     }
 }

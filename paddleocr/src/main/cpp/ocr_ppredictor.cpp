@@ -88,6 +88,8 @@ OCR_PPredictor::infer_ocr(cv::Mat &origin,int max_size_len, int run_det, int run
   if(run_rec){
     if(ocr_results.size()==0){
       OCRPredictResult res;
+      res.score = 0.0f;
+      res.cls_score = 0.0f;
       ocr_results.emplace_back(std::move(res));
     }
     for(int i = 0; i < ocr_results.size();i++) {
@@ -96,6 +98,7 @@ OCR_PPredictor::infer_ocr(cv::Mat &origin,int max_size_len, int run_det, int run
   }else if(run_cls){
     ClsPredictResult cls_res = infer_cls(origin);
     OCRPredictResult res;
+    res.score = 0.0f;
     res.cls_score = cls_res.cls_score;
     res.cls_label = cls_res.cls_label;
     ocr_results.push_back(res);
