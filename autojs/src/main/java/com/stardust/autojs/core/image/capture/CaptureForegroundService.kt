@@ -24,13 +24,15 @@ import java.lang.ref.WeakReference
  */
 class CaptureForegroundService : AbstractAutoService() {
 
-    private val callback = object : MediaProjection.Callback() {
+    private class ServiceCallback(service: CaptureForegroundService) : MediaProjection.Callback() {
+        private val serviceRef = WeakReference(service)
+
         override fun onStop() {
-            // 使用弱引用避免持有 Service
-            val service = weakService.get()
-            service?.stopServiceInternal()
+            serviceRef.get()?.stopServiceInternal()
         }
     }
+
+    private val callback = ServiceCallback(this)
 
     private lateinit var weakService: WeakReference<CaptureForegroundService>
 
@@ -56,6 +58,7 @@ class CaptureForegroundService : AbstractAutoService() {
         when (action) {
             STOP -> stopServiceInternal()
             REGISTER -> {
+                getMediaProjection()?.unregisterCallback(callback)
                 // 使用弱引用避免 MediaProjection 持有 Service
                 getMediaProjection()?.registerCallback(callback, Handler(mainLooper))
             }
