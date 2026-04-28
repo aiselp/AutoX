@@ -1,7 +1,7 @@
 const paddleApi = new com.stardust.autojs.runtime.api.Paddle();
 const paddle = {
     ocr, ocrText, initOcr,
-    initOcrWithConfig: function(config) {
+    initOcrWithConfig: function(config: Record<string, any>) {
         return paddleApi.initOcrWithConfig(config)
     },
     getOcrConfig: function() {
@@ -10,7 +10,7 @@ const paddle = {
     release: function() {
         return paddleApi.release();
     },
-    releaseDelayed: function(delayMillis) {
+    releaseDelayed: function(delayMillis?: number) {
         if (delayMillis !== undefined) {
             return paddleApi.releaseDelayed(delayMillis);
         }

@@ -93,51 +93,66 @@ class ScreenCaptureManager : ScreenCaptureRequester {
 
     override fun requestScreenCaptureLegacy(context: Context, orientation: Int): ScriptPromiseAdapter {
         val promiseAdapter = ScriptPromiseAdapter()
+        var retryCount = 0
+        val maxRetry = 3
 
-        if (screenCapture?.available == true) {
-            screenCapture?.setOrientation(orientation, context)
-            promiseAdapter.resolve(true)
-            return promiseAdapter
-        }
+        fun doRequest() {
+            if (screenCapture?.isValid() == true) {
+                screenCapture?.setOrientation(orientation, context)
+                promiseAdapter.resolve(true)
+                return
+            }
 
-        val weakManager = WeakReference(this)
+            recycle()
 
-        val callback = object : Callback {
-            override fun onRequestResult(result: Int, data: Intent?) {
-                val manager = weakManager.get()
-                if (manager == null) {
-                    promiseAdapter.resolve(false)
-                    return
-                }
+            val weakManager = WeakReference(this)
+            val callback = object : Callback {
+                override fun onRequestResult(result: Int, data: Intent?) {
+                    val manager = weakManager.get()
+                    if (manager == null) {
+                        promiseAdapter.resolve(false)
+                        return
+                    }
 
-                val scope = CoroutineScope(Dispatchers.Main)
-                manager.currentCoroutineScope = scope
+                    val scope = CoroutineScope(Dispatchers.Main)
+                    manager.currentCoroutineScope = scope
 
-                scope.launch {
-                    try {
-                        if (result == Activity.RESULT_OK && data != null) {
-                            manager.setupScreenCapture(data, orientation, context)
-                            promiseAdapter.resolve(true)
-                        } else {
+                    scope.launch {
+                        try {
+                            if (result == Activity.RESULT_OK && data != null) {
+                                manager.setupScreenCapture(data, orientation, context)
+                                promiseAdapter.resolve(true)
+                            } else {
+                                promiseAdapter.resolve(false)
+                            }
+                        } catch (e: SecurityException) {
+                            if (e.message?.contains("non-current") == true && retryCount < maxRetry) {
+                                retryCount++
+                                Log.w("SCREEN_LEGACY", "MediaProjection expired, retrying ($retryCount/$maxRetry)")
+                                delay(100)
+                                doRequest()
+                            } else {
+                                Log.e("SCREEN_LEGACY", "Failed after $maxRetry retries", e)
+                                promiseAdapter.resolve(false)
+                            }
+                        } catch (e: Exception) {
+                            Log.e("SCREEN_LEGACY", "创建失败: ${e.message}")
                             promiseAdapter.resolve(false)
+                        } finally {
+                            scope.cancel()
+                            manager.currentCoroutineScope = null
                         }
-                    } catch (e: IllegalStateException) {
-                        Log.e("SCREEN_LEGACY", "状态异常: ${e.message}")
-                        promiseAdapter.resolve(false)
-                    } catch (e: Exception) {
-                        Log.e("SCREEN_LEGACY", "创建失败: ${e.message}")
-                        promiseAdapter.resolve(false)
-                    } finally {
-                        scope.cancel()
-                        manager.currentCoroutineScope = null
                     }
                 }
             }
+
+            ScreenCaptureRequestActivity.request(context, callback)
         }
 
-        ScreenCaptureRequestActivity.request(context, callback)
+        doRequest()
         return promiseAdapter
     }
+
     class ScreenCaptureRequester : ActivityResultContract<Context, Intent?>() {
         override fun createIntent(context: Context, input: Context): Intent {
             return (input.getSystemService(Context.MEDIA_PROJECTION_SERVICE) as MediaProjectionManager).createScreenCaptureIntent()
