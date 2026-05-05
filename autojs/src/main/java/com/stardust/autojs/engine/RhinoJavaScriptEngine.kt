@@ -101,8 +101,16 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
     @Synchronized
     override fun destroy() {
         super.destroy()
-        Log.d(LOG_TAG, "on destroy")
-        Context.exit()
+        // 清除 require 缓存，释放所有 ModuleScope
+        if (::require.isInitialized) {
+            require.clearCache()
+        }
+        try {
+            // 退出当前线程的 Rhino Context
+            Context.exit()
+        } catch (e: IllegalStateException) {
+            Log.w(LOG_TAG, "Context.exit() on wrong thread", e)
+        }
     }
 
     override fun init() {
