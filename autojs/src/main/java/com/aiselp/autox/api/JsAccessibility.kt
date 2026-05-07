@@ -1,7 +1,6 @@
 package com.aiselp.autox.api
 
 import android.accessibilityservice.GestureDescription
-import android.os.Handler
 import android.os.Looper
 import com.caoccao.javet.annotations.V8Function
 import com.caoccao.javet.annotations.V8Property
@@ -19,9 +18,7 @@ class JsAccessibility(val builder: ScriptRuntimeV2.Builder?) : NativeApi {
 
     @get:V8Property
     val automator by lazy {
-        SimpleActionAutomator(builder!!.accessibilityBridge!!) {
-            Handler(createLooper())
-        }
+        SimpleActionAutomator(builder!!.accessibilityBridge!!)
     }
 
     private fun createLooper(): Looper {

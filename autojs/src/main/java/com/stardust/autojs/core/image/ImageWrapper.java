@@ -57,7 +57,9 @@ public class ImageWrapper {
         if (image == null) {
             return null;
         }
-        return new ImageWrapper(toBitmap(image));
+        try (image) {
+            return new ImageWrapper(toBitmap(image));
+        }
     }
 
     public static ImageWrapper ofMat(Mat mat) {

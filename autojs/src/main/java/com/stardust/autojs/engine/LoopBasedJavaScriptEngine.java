@@ -25,6 +25,7 @@ public class LoopBasedJavaScriptEngine extends RhinoJavaScriptEngine {
 
     private Handler mHandler;
     private boolean mLooping = false;
+    private volatile boolean mDestroyed = false;
 
     public LoopBasedJavaScriptEngine(Context context) {
         super(context);
@@ -99,6 +100,10 @@ public class LoopBasedJavaScriptEngine extends RhinoJavaScriptEngine {
 
     @Override
     public synchronized void destroy() {
+        if (mDestroyed) return;
+        mDestroyed = true;
+        // 此时已经在引擎线程执行，无需再投递
+        mHandler.removeCallbacksAndMessages(null);
         getRuntime().loopers.forceStop();
         super.destroy();
     }
