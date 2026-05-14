@@ -12,7 +12,8 @@ import com.stardust.autojs.core.image.ImageWrapper
 
 class Paddle {
 
-    private val predictor = Predictor()
+    private val predictor: Predictor
+        get() = Predictor.getInstance()
     private val availableProcessors = Runtime.getRuntime().availableProcessors()
 
     private fun initOcr(context: Context, cpuThreadNum: Int, useSlim: Boolean) {

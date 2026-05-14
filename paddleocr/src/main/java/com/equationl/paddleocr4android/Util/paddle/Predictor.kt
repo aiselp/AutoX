@@ -24,32 +24,37 @@ import kotlin.concurrent.Volatile
 import kotlin.math.max
 import kotlin.math.min
 
-open class Predictor {
+class Predictor private constructor() {
     var initSuccess = false
     var modelLoaded: Boolean = false
+    var lastModelPath: String = ""
     var warmupIterNum: Int = 1
     var inferIterNum: Int = 1
     var ocrConfig = OcrConfig()
-    protected var paddlePredictor: OCRPredictorNative? = null
-    protected var inferenceTime: Float = 0f
+    private var paddlePredictor: OCRPredictorNative? = null
+    private var inferenceTime: Float = 0f
     private var pendingReleaseRunnable: Runnable? = null
 
     // Only for object detection
     var wordLabels: Vector<String> = Vector<String>()
-        protected set
+        private set
 
-    protected var scoreThreshold: Float = 0.1f
+    private var scoreThreshold: Float = 0.1f
     var inputImage: Bitmap? = null
         set(value) {
             if (field !== value) {
                 field?.recycle()
             }
-            field = value?.copy(Bitmap.Config.ARGB_8888, true)
+            field = if (value?.config == Bitmap.Config.ARGB_8888) {
+                value
+            } else {
+                value?.copy(Bitmap.Config.ARGB_8888, true)
+            }
         }
-    protected var outputImage: Bitmap? = null
+    private var outputImage: Bitmap? = null
     @Volatile
-    protected var outputResult: String = ""
-    protected var rawResultArray: ArrayList<OcrResultModel>? = null
+    private var outputResult: String = ""
+    private var rawResultArray: ArrayList<OcrResultModel>? = null
     var isDrwwTextPositionBox: Boolean = false
 
     @Throws(InitModelException::class)
@@ -66,14 +71,15 @@ open class Predictor {
     }
 
     @Throws(InitModelException::class)
-    protected fun loadModel(
+    private fun loadModel(
         appCtx: Context,
         modelPath: String,
         useOpencl: Int,
         cpuThreadNum: Int,
         cpuPowerMode: CpuPowerMode
     ): Boolean {
-        if (modelPath == ocrConfig.modelPath && modelLoaded) return true
+        Log.d(TAG, "modelPath: $modelPath")
+        if (modelPath == lastModelPath && modelLoaded) return true
         // Release model if exists
         releaseModel()
 
@@ -116,6 +122,7 @@ open class Predictor {
         ocrConfig.cpuPowerMode = cpuPowerMode
         ocrConfig.modelPath = realPath
         modelLoaded = true
+        lastModelPath = modelPath
         return true
     }
 
@@ -129,7 +136,7 @@ open class Predictor {
     }
 
     @Throws(InitModelException::class)
-    protected fun loadLabel(appCtx: Context, labelPath: String?): Boolean {
+    private fun loadLabel(appCtx: Context, labelPath: String?): Boolean {
         wordLabels.clear()
         if (labelPath == null) return true //ocr will return index, not text
 
@@ -159,17 +166,15 @@ open class Predictor {
 
 
     @Throws(RunModelException::class)
-    fun runModel(): Boolean {  // 移除参数，使用配置
+    fun runModel(): Boolean {
         if (inputImage == null || !isLoaded()) {
             throw RunModelException("输入图片为空或模型未加载")
         }
 
-        // 清理上一次的结果
         rawResultArray = null
         outputImage?.recycle()
         outputImage = null
 
-        // Warm up
         repeat(warmupIterNum) {
             paddlePredictor!!.runImage(
                 inputImage,
@@ -278,6 +283,9 @@ open class Predictor {
         useSlim: Boolean
     ): Boolean {
         ocrConfig.cpuThreadNum = cpuThreadNum
+        if (useSlim) {
+            ocrConfig.modelPath = "models/ocr_v4_for_cpu(slim)"
+        }
 
         return try {
             init(appCtx)
@@ -346,6 +354,7 @@ open class Predictor {
         )
 
         val checkingResults = runOcr(checkingBitmap, 4)
+        checkingBitmap.recycle()
         val sb = StringBuilder()
         for (result in checkingResults) {
             sb.append(result.text)
@@ -428,7 +437,7 @@ open class Predictor {
         appCtx: Context,
         bitmap: Bitmap?,
         cpuThreadNum: Int,
-        useSlim: Boolean = false // v4忽略此参数，保持兼容
+        useSlim: Boolean = false
     ): Array<String?> {
         cancelPendingRelease()
         val wordsResult = ocr(appCtx, bitmap, cpuThreadNum, useSlim)
@@ -453,6 +462,9 @@ open class Predictor {
         cancelPendingRelease()
         var retry = 3
         ocrConfig.cpuThreadNum = cpuThreadNum
+        if (useSlim) {
+            ocrConfig.modelPath = "models/ocr_v4_for_cpu(slim)"
+        }
         while (paddlePredictor == null || !checkInitSuccess()) {
             if (retry-- < 0) break
             init(appCtx)
@@ -464,7 +476,17 @@ open class Predictor {
     @JavascriptInterface
     fun release(): Boolean {
         return try {
+            inputImage?.recycle()
+            inputImage = null
+            outputImage?.recycle()
+            outputImage = null
+
+            rawResultArray?.clear()
+            rawResultArray = null
+
             releaseModel()
+
+            System.gc()
             initSuccess = false
             true
         } catch (e: Exception) {
@@ -520,6 +542,22 @@ open class Predictor {
     }
 
     companion object {
+        @Volatile
+        private var instance: Predictor? = null
+
+        fun getInstance(): Predictor {
+            return instance ?: synchronized(this) {
+                instance ?: Predictor().also { instance = it }
+            }
+        }
+
+        fun releaseInstance() {
+            synchronized(this) {
+                instance?.release()
+                instance = null
+            }
+        }
+
         private val TAG: String = Predictor::class.java.simpleName
     }
 }

@@ -56,7 +56,7 @@ data class OcrConfig(
      * */
     var isRunRec: Boolean = true,
 
-    var isUseOpencl: Boolean = false,
+    var isUseOpencl: Boolean = true,
 
     /**
      * 是否绘制文字位置

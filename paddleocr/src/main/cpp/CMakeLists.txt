@@ -4,6 +4,7 @@
 # Sets the minimum version of CMake required to build the native library.
 
 cmake_minimum_required(VERSION 3.4.1)
+project("paddleocr")
 
 # Creates and names a library, sets it as either STATIC or SHARED, and provides
 # the relative paths to its source code. You can define multiple libraries, and
@@ -12,12 +13,12 @@ cmake_minimum_required(VERSION 3.4.1)
 
 set(PaddleLite_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../PaddleLite")
 include_directories(${PaddleLite_DIR}/cxx/include)
+find_package(OpenCV REQUIRED CONFIG)
+message(STATUS "OpenCV found via Prefab")
+message(STATUS "OpenCV_DIR: ${OpenCV_DIR}")
+message(STATUS "OpenCV_FOUND: ${OpenCV_FOUND}")
+message(STATUS "CMAKE_LIBRARY_OUTPUT_DIRECTORY: ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}")
 
-set(OpenCV_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../../OpenCV/sdk/native/jni")
-message(STATUS "opencv dir: ${OpenCV_DIR}")
-find_package(OpenCV REQUIRED)
-message(STATUS "OpenCV libraries: ${OpenCV_LIBS}")
-include_directories(${OpenCV_INCLUDE_DIRS})
 aux_source_directory(. SOURCES)
 set(CMAKE_CXX_FLAGS
         "${CMAKE_CXX_FLAGS} -ffast-math -Ofast -Os"
@@ -69,7 +70,7 @@ target_link_libraries(
         # Specifies the target library.
         Native
         paddle_light_api_shared
-        ${OpenCV_LIBS}
+        OpenCV::opencv_java4
         GLESv2
         EGL
         jnigraphics

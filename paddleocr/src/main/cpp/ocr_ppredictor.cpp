@@ -147,6 +147,37 @@ cv::Mat DetResizeImg(const cv::Mat img, int max_size_len,
   return resize_img;
 }
 
+void OCR_PPredictor::infer_det(cv::Mat &origin, int max_size_len, std::vector<OCRPredictResult> &ocr_results) {
+  std::vector<float> mean = {0.485f, 0.456f, 0.406f};
+  std::vector<float> scale = {1 / 0.229f, 1 / 0.224f, 1 / 0.225f};
+
+  PredictorInput input = _det_predictor->get_first_input();
+
+  std::vector<float> ratio_hw;
+  cv::Mat input_image = DetResizeImg(origin, max_size_len, ratio_hw);
+  input_image.convertTo(input_image, CV_32FC3, 1 / 255.0f);
+  const float *dimg = reinterpret_cast<const float *>(input_image.data);
+  int input_size = input_image.rows * input_image.cols;
+
+  input.set_dims({1, 3, input_image.rows, input_image.cols});
+
+  neon_mean_scale(dimg, input.get_mutable_float_data(), input_size, mean,
+                  scale);
+  LOGI("ocr cpp det shape %d,%d", input_image.rows,input_image.cols);
+  std::vector<PredictorOutput> results = _det_predictor->infer();
+  PredictorOutput &res = results.at(0);
+  std::vector<std::vector<std::vector<int>>> filtered_box = calc_filtered_boxes(
+          res.get_float_data(), res.get_size(), input_image.rows, input_image.cols, origin);
+  LOGI("ocr cpp det Filter_box size %ld", filtered_box.size());
+
+  for(int i = 0;i<filtered_box.size();i++){
+    LOGI("ocr cpp box  %d,%d,%d,%d,%d,%d,%d,%d", filtered_box[i][0][0],filtered_box[i][0][1], filtered_box[i][1][0],filtered_box[i][1][1], filtered_box[i][2][0],filtered_box[i][2][1], filtered_box[i][3][0],filtered_box[i][3][1]);
+    OCRPredictResult res;
+    res.points = filtered_box[i];
+    ocr_results.push_back(res);
+  }
+}
+
 void OCR_PPredictor::infer_rec(const cv::Mat &origin_img, int run_cls, OCRPredictResult& ocr_result) {
   std::vector<float> mean = {0.5f, 0.5f, 0.5f};
   std::vector<float> scale = {1 / 0.5f, 1 / 0.5f, 1 / 0.5f};
@@ -215,72 +246,6 @@ void OCR_PPredictor::infer_rec(const cv::Mat &origin_img, int run_cls, OCRPredic
   
   crop_img.release();
   input_image.release();
-}
-
-void OCR_PPredictor::infer_rec(const cv::Mat &origin_img, int run_cls, OCRPredictResult& ocr_result) {
-  std::vector<float> mean = {0.5f, 0.5f, 0.5f};
-  std::vector<float> scale = {1 / 0.5f, 1 / 0.5f, 1 / 0.5f};
-  std::vector<int64_t> dims = {1, 3, 0, 0};
-
-  PredictorInput input = _rec_predictor->get_first_input();
-
-  const std::vector<std::vector<int>> &box = ocr_result.points;
-  cv::Mat crop_img;
-  if(box.size()>0){
-    crop_img = get_rotate_crop_image(origin_img, box);
-  }
-  else{
-    crop_img = origin_img;
-  }
-
-  if(run_cls){
-    ClsPredictResult cls_res = infer_cls(crop_img);
-    crop_img = cls_res.img;
-    ocr_result.cls_score = cls_res.cls_score;
-    ocr_result.cls_label = cls_res.cls_label;
-  }
-
-
-  float wh_ratio = float(crop_img.cols) / float(crop_img.rows);
-  cv::Mat input_image = crnn_resize_img(crop_img, wh_ratio);
-  input_image.convertTo(input_image, CV_32FC3, 1 / 255.0f);
-  const float *dimg = reinterpret_cast<const float *>(input_image.data);
-  int input_size = input_image.rows * input_image.cols;
-
-  dims[2] = input_image.rows;
-  dims[3] = input_image.cols;
-  input.set_dims(dims);
-
-  neon_mean_scale(dimg, input.get_mutable_float_data(), input_size, mean,
-                  scale);
-
-  std::vector<PredictorOutput> results = _rec_predictor->infer();
-  const float *predict_batch = results.at(0).get_float_data();
-  const std::vector<int64_t> predict_shape = results.at(0).get_shape();
-
-  // ctc decode
-  int argmax_idx;
-  int last_index = 0;
-  float score = 0.f;
-  int count = 0;
-  float max_value = 0.0f;
-
-  for (int n = 0; n < predict_shape[1]; n++) {
-    argmax_idx = int(argmax(&predict_batch[n * predict_shape[2]],
-                            &predict_batch[(n + 1) * predict_shape[2]]));
-    max_value =
-        float(*std::max_element(&predict_batch[n * predict_shape[2]],
-                                &predict_batch[(n + 1) * predict_shape[2]]));
-    if (argmax_idx > 0 && (!(n > 0 && argmax_idx == last_index))) {
-      score += max_value;
-      count += 1;
-      ocr_result.word_index.push_back(argmax_idx);
-    }
-    last_index = argmax_idx;
-  }
-  score /= count;
-  ocr_result.score = score;
-  LOGI("ocr cpp rec word size %ld", count);
 }
 
 ClsPredictResult OCR_PPredictor::infer_cls(const cv::Mat &img, float thresh) {
