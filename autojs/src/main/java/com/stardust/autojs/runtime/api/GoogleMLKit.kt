@@ -73,12 +73,17 @@ class GoogleMLKit {
 
     }
 
-    fun ocr(imageWrapper: ImageWrapper, language: String): GoogleMLKitOcrResult? {
+    @JvmOverloads
+    fun ocr(
+        imageWrapper: ImageWrapper,
+        language: String,
+        rotation: Int = 0
+    ): GoogleMLKitOcrResult? {
         val textRecognizer = TextRecognition.getClient(getLanguage(language))
         var ocrResults: GoogleMLKitOcrResult? = null
         val controller = CountDownLatch(1)
 
-        textRecognizer.process(InputImage.fromBitmap(imageWrapper.bitmap, 0))
+        textRecognizer.process(InputImage.fromBitmap(imageWrapper.bitmap, rotation))
             .addOnSuccessListener { result ->
                 Log.d(TAG, "ocr: success")
                 ocrResults = result.mapToOcrResults()
