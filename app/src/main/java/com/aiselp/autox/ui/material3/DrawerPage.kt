@@ -5,6 +5,7 @@ import android.app.Activity
 import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.provider.Settings
 import android.util.Log
 import android.widget.Toast
@@ -382,7 +383,8 @@ private fun PermissionGroup(drawerState: DrawerState) {
                 NotificationUsageRightSwitch()
                 UsageStatsPermissionSwitch()
                 ShizukuPermissionSwitch()
-                ScreenRecordPermissionSwitch(drawerState)
+                MediaProjectionPermissionSwitch(drawerState)
+                OverlayPermissionSwitch(drawerState)
                 PublishNotificationSwitch()
             }
         }
@@ -390,58 +392,74 @@ private fun PermissionGroup(drawerState: DrawerState) {
 }
 
 @Composable
-fun ScreenRecordPermissionSwitch(drawerState: DrawerState) {
+fun MediaProjectionPermissionSwitch(drawerState: DrawerState) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
-    val shizukuAvailable = ShizukuClient.instance.available && ShizukuClient.instance.userPermission
     var isGranted by remember { mutableStateOf(false) }
-    var shizukuService by remember { mutableStateOf<IShizukuUserService?>(null) }
 
     LaunchedEffect(drawerState.isOpen) {
         if (drawerState.isOpen) {
-            val packageName = GlobalAppContext.get().packageName
-
-            isGranted = runCatching {
-                if (shizukuAvailable) {
-                    ShizukuClient.instance.setupService(packageName).join()
-                    val service = ShizukuClient.instance.ensureShizukuService()
-                    shizukuService = service
-                    service.runShellCommand(0, "appops get $packageName PROJECT_MEDIA").contains("allow")
-                } else null
-            }.getOrNull() ?: runCatching {
-                Runtime.getRuntime().exec(arrayOf("su", "-c", "appops get $packageName PROJECT_MEDIA")).let { process ->
-                    val result = process.inputStream.bufferedReader().readText()
-                    process.waitFor()
-                    process.destroy()
-                    result.contains("allow")
-                }
-            }.getOrDefault(false)
+            isGranted = ShizukuClient.checkAppOpsPermission("PROJECT_MEDIA")
         }
     }
 
     SettingOptionSwitch(
         icon = Icons.Default.PlayArrow,
-        title = stringResource(R.string.screen_record_permission),
+        title = stringResource(R.string.media_projection_permission),
         checked = isGranted,
         tint = Color(0xFFE91E63),
         onCheckedChange = { enable ->
             scope.launch {
-                val packageName = GlobalAppContext.get().packageName
-                val mode = if (enable) "allow" else "ask"
-
-                val success = runCatching {
-                    if (shizukuAvailable) shizukuService?.runShellCommand(0, "appops set $packageName PROJECT_MEDIA $mode")?.contains("\"code\":0") == true
-                    else null
-                }.getOrNull() ?: runCatching {
-                    Runtime.getRuntime().exec(arrayOf("su", "-c", "appops set $packageName PROJECT_MEDIA $mode")).waitFor() == 0
-                }.getOrDefault(false)
+                val success = ShizukuClient.setAppOpsPermission("PROJECT_MEDIA", enable)
 
                 if (success) {
                     isGranted = enable
-                    toast(context, if (enable) R.string.screen_record_permission_enabled else R.string.screen_record_permission_disabled)
+                    toast(context, if (enable) R.string.media_projection_permission_enabled else R.string.media_projection_permission_disabled)
                 } else {
-                    toast(context, R.string.screen_record_permission_need_shizuku)
+                    toast(context, R.string.media_projection_permission_need_shizuku)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+fun OverlayPermissionSwitch(drawerState: DrawerState) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isGranted by remember { mutableStateOf(false) }
+
+    val overlaySettingsLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) {
+        scope.launch {
+            isGranted = ShizukuClient.checkAppOpsPermission("SYSTEM_ALERT_WINDOW")
+        }
+    }
+
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            isGranted = ShizukuClient.checkAppOpsPermission("SYSTEM_ALERT_WINDOW")
+        }
+    }
+
+    SettingOptionSwitch(
+        icon = Icons.Default.Settings,
+        title = stringResource(R.string.overlay_permission),
+        checked = isGranted,
+        tint = Color(0xFF4CAF50),
+        onCheckedChange = { enable ->
+            scope.launch {
+                val success = ShizukuClient.setAppOpsPermission("SYSTEM_ALERT_WINDOW", enable)
+
+                if (success) {
+                    isGranted = enable
+                } else {
+                    toast(context, R.string.overlay_permission_need_shizuku)
+
+                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                    intent.data = Uri.parse("package:${context.packageName}")
+                    overlaySettingsLauncher.launch(intent)
                 }
             }
         }
