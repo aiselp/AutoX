@@ -6,11 +6,14 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.provider.Settings
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,8 +28,15 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.DrawerState
 import androidx.compose.material3.HorizontalDivider
@@ -73,6 +83,7 @@ import com.stardust.app.permission.PermissionsSettingsUtil
 import com.stardust.autojs.IndependentScriptService
 import com.stardust.autojs.core.accessibility.AccessibilityProxyAccessor
 import com.stardust.autojs.core.pref.PrefKey
+import com.stardust.autojs.core.shizuku.IShizukuUserService
 import com.stardust.autojs.core.shizuku.ShizukuClient
 import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
@@ -123,11 +134,13 @@ fun DrawerPage(drawerState: DrawerState) {
                 Text(text = stringResource(R.string.text_service), style = textStyle)
                 AccessibilityServiceSwitch(drawerState = drawerState)
                 StableModeSwitch()
-                NotificationUsageRightSwitch()
+                //NotificationUsageRightSwitch()
                 ForegroundServiceSwitch()
-                UsageStatsPermissionSwitch()
-                ShizukuPermissionSwitch()
-                PublishNotificationSwitch()
+                //UsageStatsPermissionSwitch()
+                //ShizukuPermissionSwitch()
+                //(drawerState = drawerState)
+                //PublishNotificationSwitch()
+                PermissionGroup(drawerState = drawerState)
 
                 Text(text = stringResource(id = R.string.text_script_record), style = textStyle)
                 FloatingWindowSwitch()
@@ -330,6 +343,105 @@ fun ShizukuPermissionSwitch() {
                 if (intent != null) {
                     toast(context, "请在Shizuku中关闭权限")
                     context.startActivity(intent)
+                }
+            }
+        }
+    )
+}
+
+@Composable
+private fun PermissionGroup(drawerState: DrawerState) {
+    val prefs = PreferenceManager.getDefaultSharedPreferences(LocalContext.current)
+    var expanded by remember { mutableStateOf(prefs.getBoolean("permission_group_expanded", true)) }
+
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable {
+                    expanded = !expanded
+                    prefs.edit { putBoolean("permission_group_expanded", expanded) }
+                }
+                .padding(vertical = 12.dp)
+                .padding(end = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                text = stringResource(R.string.permission_management),
+                style = MaterialTheme.typography.titleMedium
+            )
+            Icon(
+                imageVector = if (expanded) Icons.Default.KeyboardArrowDown else Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null
+            )
+        }
+
+        AnimatedVisibility(visible = expanded) {
+            Column {
+                NotificationUsageRightSwitch()
+                UsageStatsPermissionSwitch()
+                ShizukuPermissionSwitch()
+                ScreenRecordPermissionSwitch(drawerState)
+                PublishNotificationSwitch()
+            }
+        }
+    }
+}
+
+@Composable
+fun ScreenRecordPermissionSwitch(drawerState: DrawerState) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+
+    val shizukuAvailable = ShizukuClient.instance.available && ShizukuClient.instance.userPermission
+    var isGranted by remember { mutableStateOf(false) }
+    var shizukuService by remember { mutableStateOf<IShizukuUserService?>(null) }
+
+    LaunchedEffect(drawerState.isOpen) {
+        if (drawerState.isOpen) {
+            val packageName = GlobalAppContext.get().packageName
+
+            isGranted = runCatching {
+                if (shizukuAvailable) {
+                    ShizukuClient.instance.setupService(packageName).join()
+                    val service = ShizukuClient.instance.ensureShizukuService()
+                    shizukuService = service
+                    service.runShellCommand(0, "appops get $packageName PROJECT_MEDIA").contains("allow")
+                } else null
+            }.getOrNull() ?: runCatching {
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "appops get $packageName PROJECT_MEDIA")).let { process ->
+                    val result = process.inputStream.bufferedReader().readText()
+                    process.waitFor()
+                    process.destroy()
+                    result.contains("allow")
+                }
+            }.getOrDefault(false)
+        }
+    }
+
+    SettingOptionSwitch(
+        icon = Icons.Default.PlayArrow,
+        title = stringResource(R.string.screen_record_permission),
+        checked = isGranted,
+        tint = Color(0xFFE91E63),
+        onCheckedChange = { enable ->
+            scope.launch {
+                val packageName = GlobalAppContext.get().packageName
+                val mode = if (enable) "allow" else "ask"
+
+                val success = runCatching {
+                    if (shizukuAvailable) shizukuService?.runShellCommand(0, "appops set $packageName PROJECT_MEDIA $mode")?.contains("\"code\":0") == true
+                    else null
+                }.getOrNull() ?: runCatching {
+                    Runtime.getRuntime().exec(arrayOf("su", "-c", "appops set $packageName PROJECT_MEDIA $mode")).waitFor() == 0
+                }.getOrDefault(false)
+
+                if (success) {
+                    isGranted = enable
+                    toast(context, if (enable) R.string.screen_record_permission_enabled else R.string.screen_record_permission_disabled)
+                } else {
+                    toast(context, R.string.screen_record_permission_need_shizuku)
                 }
             }
         }
