@@ -18,8 +18,8 @@ const paddle = {
     }
 }
 
-function initOcr(modelPath?: string | null, labelPath?: string | null, cpuThreadNum?: number | null, cpuPowerMode?: string | null): boolean {
-    return paddleApi.initOcr(modelPath, labelPath, cpuThreadNum, cpuPowerMode)
+function initOcr(modelPath?: string | null, cpuThreadNum?: number | null): boolean {
+    return paddleApi.initOcr(modelPath, cpuThreadNum)
 }
 
 function ocr(img: Autox.Image, path?: string): any[]

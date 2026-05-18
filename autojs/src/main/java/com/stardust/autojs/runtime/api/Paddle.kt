@@ -1,20 +1,22 @@
 package com.stardust.autojs.runtime.api
 
 import android.content.Context
-import com.equationl.paddleocr4android.CpuPowerMode
-import com.equationl.paddleocr4android.OcrConfig
-import com.equationl.paddleocr4android.OcrResult
-import com.equationl.paddleocr4android.Util.paddle.Predictor
+import com.equationl.ncnnandroidppocr.OcrConfig
+import com.equationl.ncnnandroidppocr.Predictor
+import com.equationl.ncnnandroidppocr.bean.AutoXResult
+import com.equationl.ncnnandroidppocr.bean.ImageSize
+//import com.equationl.ncnnandroidppocr.bean.ModelType
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.stardust.app.GlobalAppContext.get
 import com.stardust.autojs.core.image.ImageWrapper
+import com.equationl.ncnnandroidppocr.bean.Device
 
 class Paddle {
 
     private val predictor: Predictor
         get() = Predictor.getInstance()
-    private val availableProcessors = Runtime.getRuntime().availableProcessors()
+    //private val availableProcessors = Runtime.getRuntime().availableProcessors()
 
     private fun initOcr(context: Context, cpuThreadNum: Int, useSlim: Boolean) {
         predictor.initOcr(context, cpuThreadNum, useSlim)
@@ -38,53 +40,53 @@ class Paddle {
     @JvmOverloads
     fun initOcr(
         modelPath: String? = null,
-        labelPath: String? = null,
         cpuThreadNum: Int? = null,
-        cpuPowerMode: String? = null
     ): Boolean {
-        val defaultOcrConfig = OcrConfig()
-        val finalModelPath = modelPath ?: defaultOcrConfig.modelPath
-        val finalLabelPath = labelPath ?:  defaultOcrConfig.labelPath
-        val finalCpuThreadNum = cpuThreadNum ?: availableProcessors
-        val finalCpuPowerMode = parseCpuPowerMode(cpuPowerMode) ?: defaultOcrConfig.cpuPowerMode
-        return predictor.initOcr(get(), finalModelPath, finalLabelPath, finalCpuThreadNum, finalCpuPowerMode)
+        val config = OcrConfig().apply {
+            modelPath?.let { this.modelPath = it }
+            cpuThreadNum?.let { this.cpuThreadNum = it }
+        }
+        return predictor.initOcrWithConfig(get(), config)
     }
     fun mapToOcrConfig(map: MutableMap<String, Any>): OcrConfig {
         return OcrConfig().apply {
-            (map["modelPath"] as? String)?.let { modelPath = it }
-            (map["labelPath"] as? String)?.let { labelPath = it }
+            (map["useSlim"] as? Boolean)?.let {
+                useSlim = it
+                //modelPath = if (useSlim) "models/ocr_v5_for_cpu(slim)" else "models/ocr_v5_for_cpu"
+                imageSize = if (useSlim) ImageSize.Size320 else ImageSize.Size640
+            }
+            (map["modelPath"] as? String)?.let {
+                modelPath = it
+                useSlim = false
+            }
             (map["cpuThreadNum"] as? Number)?.toInt()?.let { cpuThreadNum = it }
-            (map["cpuPowerMode"] as? String)?.let { parseCpuPowerMode(it)?.let { mode -> cpuPowerMode = mode } }
             (map["scoreThreshold"] as? Number)?.toFloat()?.let { scoreThreshold = it }
-            (map["detLongSize"] as? Number)?.toInt()?.let { detLongSize = it }
-            (map["detModelFilename"] as? String)?.let { detModelFilename = it }
-            (map["recModelFilename"] as? String)?.let { recModelFilename = it }
-            (map["clsModelFilename"] as? String)?.let { clsModelFilename = it }
-            (map["isRunDet"] as? Boolean)?.let { isRunDet = it }
-            (map["isRunCls"] as? Boolean)?.let { isRunCls = it }
-            (map["isRunRec"] as? Boolean)?.let { isRunRec = it }
-            (map["isUseOpencl"] as? Boolean)?.let { isUseOpencl = it }
-            (map["isDrwwTextPositionBox"] as? Boolean)?.let { isDrwwTextPositionBox = it }
-        }
-    }
-    private fun parseCpuPowerMode(mode: String?): CpuPowerMode? {
-        return when (mode?.uppercase()) {
-            "LITE_POWER_HIGH" -> CpuPowerMode.LITE_POWER_HIGH
-            "LITE_POWER_LOW" -> CpuPowerMode.LITE_POWER_LOW
-            "LITE_POWER_FULL" -> CpuPowerMode.LITE_POWER_FULL
-            "LITE_POWER_NO_BIND" -> CpuPowerMode.LITE_POWER_NO_BIND
-            "LITE_POWER_RAND_HIGH" -> CpuPowerMode.LITE_POWER_RAND_HIGH
-            "LITE_POWER_RAND_LOW" -> CpuPowerMode.LITE_POWER_RAND_LOW
-            else -> null
+            (map["device"] as? String)?.let {
+                device = when (it.uppercase()) {
+                    "GPU" -> Device.GPU
+                    "Vulkan" -> Device.TurnipVulkan
+                    else -> Device.CPU
+                }
+            }
+            (map["imageSize"] as? String)?.let {
+                imageSize = ImageSize.valueOf(it)
+            }
+            //(map["modelType"] as? String)?.let { modelType = ModelType.valueOf(it) }
+            (map["useFp16"] as? Boolean)?.let { useFp16 = it }
+            (map["isDrawTextBox"] as? Boolean)?.let { isDrawTextBox = it }
+            (map["detParamFilename"] as? String)?.let { detParamFilename = it }
+            (map["detBinFilename"] as? String)?.let { detBinFilename = it }
+            (map["recParamFilename"] as? String)?.let { recParamFilename = it }
+            (map["recBinFilename"] as? String)?.let { recBinFilename = it }
         }
     }
 
     @JvmOverloads
     fun ocr(
         image: ImageWrapper,
-        cpuThreadNum: Int = availableProcessors,
+        cpuThreadNum: Int = 0,
         useSlim: Boolean = true
-    ): List<OcrResult> {
+    ): List<AutoXResult> {
         val bitmap = image.bitmap
         if (bitmap == null || bitmap.isRecycled) {
             return emptyList()
@@ -92,31 +94,31 @@ class Paddle {
         if (!predictor.isLoaded()) {
             initOcr(get(), cpuThreadNum, useSlim)
         }
-        return predictor.runOcr(bitmap, cpuThreadNum)
+        return predictor.runOcr(bitmap)
     }
 
     fun ocr(
         image: ImageWrapper,
         cpuThreadNum: Int,
         myModelPath: String
-    ): List<OcrResult> {
+    ): List<AutoXResult> {
 
         val bitmap = image.bitmap
         if (bitmap == null || bitmap.isRecycled) {
             return emptyList()
         }
         if (!predictor.isLoaded()) {
-            initOcr(get(), myModelPath)
+            initOcr(myModelPath, cpuThreadNum)
         }
-        return predictor.runOcr(bitmap, cpuThreadNum)
+        return predictor.runOcr(bitmap)
     }
 
-    fun ocr(image: ImageWrapper, useSlim: Boolean): List<OcrResult> {
-        return ocr(image, availableProcessors, useSlim)
+    fun ocr(image: ImageWrapper, useSlim: Boolean): List<AutoXResult> {
+        return ocr(image, 0, useSlim)
     }
 
-    fun ocr(image: ImageWrapper, myModelPath: String): List<OcrResult> {
-        return ocr(image, availableProcessors, myModelPath)
+    fun ocr(image: ImageWrapper, myModelPath: String): List<AutoXResult> {
+        return ocr(image, 0, myModelPath)
     }
 
     fun release(): Boolean {
