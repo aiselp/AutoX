@@ -25,7 +25,7 @@ class OCRNative {
         detModelPath: String,
         recParamPath: String,
         recModelPath: String,
-        sizeid: Int,
+        targetSize: Int,
         cpugpu: Int,
         useFp16: Boolean = true,
         numThreads: Int = Runtime.getRuntime().availableProcessors()

@@ -24,6 +24,8 @@ class Predictor private constructor() {
     private var lastConfigHash: Int = 0
     var warmupIterNum: Int = 1
 
+    private val defaultModelPath = ocrConfig.modelPath
+
     private var ocrNative: OCRNative? = null
     private var inferenceTime: Float = 0f
     private var inputImage: Bitmap? = null
@@ -71,7 +73,7 @@ class Predictor private constructor() {
     fun initOcr(appCtx: Context, cpuThreadNum: Int, useSlim: Boolean): Boolean {
         ocrConfig.cpuThreadNum = cpuThreadNum
         //ocrConfig.modelPath =  if (useSlim) "models/ocr_v5_for_cpu(slim)" else "models/ocr_v5_for_cpu"
-        ocrConfig.imageSize = if (useSlim) ImageSize.Size320 else ImageSize.Size640
+        ocrConfig.imageSize = if (useSlim) 256 else 512
 
         var retry = 3
         while (retry-- > 0) {
@@ -127,14 +129,27 @@ class Predictor private constructor() {
                 config.detBinFilename.hashCode() +
                 config.recParamFilename.hashCode() +
                 config.recBinFilename.hashCode() +
+                config.imageSize.hashCode() +
                 config.device.hashCode() +
-                config.useFp16.hashCode()
+                config.useFp16.hashCode() +
+                config.cpuThreadNum.hashCode()
+    }
+
+    private fun validateImageSize(size: Int): Int {
+        if (ocrConfig.modelPath == defaultModelPath) {
+            return when {
+                size < 128 -> 128
+                size > 512 -> 512
+                else -> size
+            }
+        }
+        return size
     }
 
     @Throws(Exception::class)
     private fun loadModel(appCtx: Context, config: OcrConfig): Boolean {
         try {
-            Log.d(TAG, "modelPath: ${config.modelPath}")
+            Log.d(TAG, "modelPath: ${config.modelPath}, modelLoaded: $modelLoaded")
 
             val currentHash = hashConfig(config)
 
@@ -160,15 +175,15 @@ class Predictor private constructor() {
             val detModelPath = "$realPath/${config.detBinFilename}"
             val recParamPath = "$realPath/${config.recParamFilename}"
             val recModelPath = "$realPath/${config.recBinFilename}"
-
-            Log.d(TAG, "detParamPath: $detParamPath")
+            val targetSize = validateImageSize(config.imageSize)
+            Log.d(TAG, "detParamPath: $detParamPath, targetSize: $targetSize, imageSize: ${config.imageSize}")
 
             val success = native.loadModelByPath(
                 detParamPath,
                 detModelPath,
                 recParamPath,
                 recModelPath,
-                config.imageSize.ordinal,
+                targetSize,
                 config.device.ordinal,
                 config.useFp16,
                 config.cpuThreadNum
@@ -384,7 +399,6 @@ class Predictor private constructor() {
 
     @JavascriptInterface
     fun checkInitSuccess(): Boolean {
-        return true
         if (initSuccess) return true
 
         val testBitmap = createTestBitmap()

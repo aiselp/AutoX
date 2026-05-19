@@ -141,9 +141,9 @@ JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loa
 }
 
 // public native boolean loadModelByPath(String detParamPath, String detModelPath, String recParamPath, String recModelPath, int sizeid, int cpugpu, boolean useFp16);
-JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loadModelByPath(JNIEnv* env, jobject thiz, jstring detParamPath, jstring detModelPath, jstring recParamPath, jstring recModelPath, jint sizeid, jint cpugpu, jboolean useFp16, jint numThreads)
+JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loadModelByPath(JNIEnv* env, jobject thiz, jstring detParamPath, jstring detModelPath, jstring recParamPath, jstring recModelPath, jint target_size, jint cpugpu, jboolean useFp16, jint numThreads)
 {
-    if (sizeid < 0 || sizeid > 6 || cpugpu < 0 || cpugpu > 2)
+    if (cpugpu < 0 || cpugpu > 2)
     {
         return JNI_FALSE;
     }
@@ -161,17 +161,6 @@ JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loa
 
     __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "loadModelByPath det_param=%s det_model=%s rec_param=%s rec_model=%s useFp16=%d",
                         det_parampath_cstr, det_modelpath_cstr, rec_parampath_cstr, rec_modelpath_cstr, (int)useFp16);
-
-    const int sizetypes[7] =
-    {
-        320,
-        400,
-        480,
-        560,
-        640,
-        720,
-        1080
-    };
 
     bool use_fp16 = (bool)useFp16;
     bool use_gpu = (int)cpugpu == 1;
@@ -218,7 +207,7 @@ JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loa
                 g_ppocrv5->setDetThreadNum(numThreads);
             }
 
-            g_ppocrv5->set_target_size(sizetypes[(int)sizeid]);
+            g_ppocrv5->set_target_size(target_size);
         }
     }
 
@@ -417,7 +406,7 @@ JNIEXPORT jobject JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_dete
     double endTime = ncnn::get_current_time();
     jlong inferenceTime = (jlong)(endTime - startTime);
 
-    __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "detectBitmap: detected %zu objects in %lld ms", objects.size(), inferenceTime);
+    __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "detectBitmap: detected %zu objects in %ld ms", objects.size(), inferenceTime);
 
     return createOcrResult(env, objects, inferenceTime);
 }

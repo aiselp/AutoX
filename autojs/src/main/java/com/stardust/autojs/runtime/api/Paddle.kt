@@ -1,10 +1,10 @@
 package com.stardust.autojs.runtime.api
 
 import android.content.Context
+import android.util.Log
 import com.equationl.ncnnandroidppocr.OcrConfig
 import com.equationl.ncnnandroidppocr.Predictor
 import com.equationl.ncnnandroidppocr.bean.AutoXResult
-import com.equationl.ncnnandroidppocr.bean.ImageSize
 //import com.equationl.ncnnandroidppocr.bean.ModelType
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
@@ -53,7 +53,7 @@ class Paddle {
             (map["useSlim"] as? Boolean)?.let {
                 useSlim = it
                 //modelPath = if (useSlim) "models/ocr_v5_for_cpu(slim)" else "models/ocr_v5_for_cpu"
-                imageSize = if (useSlim) ImageSize.Size320 else ImageSize.Size640
+                imageSize = if (useSlim) 256 else 512
             }
             (map["modelPath"] as? String)?.let {
                 modelPath = it
@@ -68,9 +68,7 @@ class Paddle {
                     else -> Device.CPU
                 }
             }
-            (map["imageSize"] as? String)?.let {
-                imageSize = ImageSize.valueOf(it)
-            }
+            (map["imageSize"] as? Number)?.toInt()?.let { imageSize = it }
             //(map["modelType"] as? String)?.let { modelType = ModelType.valueOf(it) }
             (map["useFp16"] as? Boolean)?.let { useFp16 = it }
             (map["isDrawTextBox"] as? Boolean)?.let { isDrawTextBox = it }

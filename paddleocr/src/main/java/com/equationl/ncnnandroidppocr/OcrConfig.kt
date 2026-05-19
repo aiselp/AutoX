@@ -1,7 +1,6 @@
 package com.equationl.ncnnandroidppocr
 
 import com.equationl.ncnnandroidppocr.bean.Device
-import com.equationl.ncnnandroidppocr.bean.ImageSize
 //import com.equationl.ncnnandroidppocr.bean.ModelType
 
 data class OcrConfig(
@@ -10,7 +9,7 @@ data class OcrConfig(
     var cpuThreadNum: Int = 0,
     var scoreThreshold: Float = 0.5f,
     var device: Device = Device.CPU,
-    var imageSize: ImageSize = ImageSize.Size640,
+    var imageSize: Int = 128,
     //var modelType: ModelType = ModelType.Mobile,
     var useFp16: Boolean = true,
     var isDrawTextBox: Boolean = false,
