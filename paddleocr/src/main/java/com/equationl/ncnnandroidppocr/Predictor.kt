@@ -75,18 +75,7 @@ class Predictor private constructor() {
         //ocrConfig.modelPath =  if (useSlim) "models/ocr_v5_for_cpu(slim)" else "models/ocr_v5_for_cpu"
         ocrConfig.imageSize = if (useSlim) 256 else 512
 
-        var retry = 3
-        while (retry-- > 0) {
-            try {
-                if (init(appCtx) && checkInitSuccess()) {
-                    return true
-                }
-            } catch (e: Exception) {
-                Log.e(TAG, "initOcr failed, retry left: $retry", e)
-            }
-            if (retry > 0) Thread.sleep(100)
-        }
-        return false
+        return init(appCtx)
     }
 
     @JavascriptInterface
@@ -118,7 +107,17 @@ class Predictor private constructor() {
             ocrConfig.cpuThreadNum in 0..maxCores -> ocrConfig.cpuThreadNum
             else -> 0
         }
-        modelLoaded = loadModel(appCtx, ocrConfig)
+        var retry = 3
+        while (retry-- > 0) {
+            try {
+                loadModel(appCtx, ocrConfig)
+                if (modelLoaded && checkInitSuccess()) break
+            } catch (e: Exception) {
+                Log.e(TAG, "init failed, retry left: $retry", e)
+            }
+            if (retry > 0) Thread.sleep(100)
+        }
+
         Log.d(TAG, "Predictor init: $modelLoaded")
         return modelLoaded
     }
@@ -158,6 +157,7 @@ class Predictor private constructor() {
             }
 
             releaseModel()
+            modelLoaded = false
 
             if (config.modelPath.isEmpty()) {
                 throw Exception("modelPath is Empty!")

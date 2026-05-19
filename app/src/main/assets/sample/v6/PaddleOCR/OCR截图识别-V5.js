@@ -261,7 +261,7 @@ function reinitOcr() {
 }
 
 reinitOcr()
-captureAndOcr()
+//captureAndOcr()
 
 // 设备切换函数
 function switchDevice(device) {
