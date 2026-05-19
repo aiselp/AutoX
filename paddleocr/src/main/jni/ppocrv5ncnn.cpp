@@ -334,7 +334,7 @@ static jobject createOcrResult(JNIEnv* env, const std::vector<Object>& objects, 
     // Create final OcrResult (drawBitmap is null, will be set in Kotlin layer if needed)
     jstring jFullText = env->NewStringUTF(fullText.c_str());
     jobject ocrResult = env->NewObject(ocrResultClass, ocrResultConstructor,
-                                       jFullText, inferenceTime, textLinesList, nullptr);
+                                       jFullText, inferenceTime, textLinesList, (jobject)nullptr);
 
     env->DeleteLocalRef(jFullText);
     env->DeleteLocalRef(textLinesList);

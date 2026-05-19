@@ -1,16 +1,15 @@
 package com.stardust.autojs.runtime.api
 
+//import com.equationl.ncnnandroidppocr.bean.ModelType
 import android.content.Context
-import android.util.Log
 import com.equationl.ncnnandroidppocr.OcrConfig
 import com.equationl.ncnnandroidppocr.Predictor
 import com.equationl.ncnnandroidppocr.bean.AutoXResult
-//import com.equationl.ncnnandroidppocr.bean.ModelType
+import com.equationl.ncnnandroidppocr.bean.Device
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
 import com.stardust.app.GlobalAppContext.get
 import com.stardust.autojs.core.image.ImageWrapper
-import com.equationl.ncnnandroidppocr.bean.Device
 
 class Paddle {
 
