@@ -8,7 +8,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.ViewConfiguration
 import androidx.annotation.RequiresApi
-import com.stardust.concurrent.VolatileBox
 import com.stardust.concurrent.VolatileDispose
 import com.stardust.util.ScreenMetrics
 
@@ -16,12 +15,14 @@ import com.stardust.util.ScreenMetrics
  * Created by Stardust on 2017/5/16.
  */
 
-class GlobalActionAutomator(private val mHandler: Handler?, private val serviceProvider: () -> AccessibilityService) {
+class GlobalActionAutomator(private val serviceProvider: () -> AccessibilityService) {
 
     private val service: AccessibilityService
         get() = serviceProvider()
 
     private var mScreenMetrics: ScreenMetrics? = null
+
+    private val mHandler: Handler = Handler(Looper.getMainLooper())
 
     fun setScreenMetrics(screenMetrics: ScreenMetrics?) {
         mScreenMetrics = screenMetrics
@@ -195,15 +196,10 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
         for (stroke in strokes) {
             builder.addStroke(stroke)
         }
-        val handler = mHandler
-        return if (handler == null) {
-            gesturesWithoutHandler(builder.build())
-        } else {
-            gesturesWithHandler(handler, builder.build())
-        }
+        return gesturesWithHandler(builder.build())
     }
 
-    private fun gesturesWithHandler(handler: Handler, description: GestureDescription): Boolean {
+    private fun gesturesWithHandler(description: GestureDescription): Boolean {
         val result = VolatileDispose<Boolean>()
         service.dispatchGesture(description, object : AccessibilityService.GestureResultCallback() {
             override fun onCompleted(gestureDescription: GestureDescription) {
@@ -213,27 +209,8 @@ class GlobalActionAutomator(private val mHandler: Handler?, private val serviceP
             override fun onCancelled(gestureDescription: GestureDescription) {
                 result.setAndNotify(false)
             }
-        }, handler)
+        }, mHandler)
         return result.blockedGet()
-    }
-
-    private fun gesturesWithoutHandler(description: GestureDescription): Boolean {
-        prepareLooperIfNeeded()
-        val result = VolatileBox(false)
-        val handler = Looper.myLooper()?.let { Handler(it) }
-        service.dispatchGesture(description, object : AccessibilityService.GestureResultCallback() {
-            override fun onCompleted(gestureDescription: GestureDescription) {
-                result.set(true)
-                quitLoop()
-            }
-
-            override fun onCancelled(gestureDescription: GestureDescription) {
-                result.set(false)
-                quitLoop()
-            }
-        }, handler)
-        Looper.loop()
-        return result.get()
     }
 
     fun gesturesAsync(vararg strokes: GestureDescription.StrokeDescription) {

@@ -1,5 +1,6 @@
 package com.stardust.autojs.engine.module
 
+import android.util.Log
 import org.mozilla.javascript.BaseFunction
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Script
@@ -196,12 +197,19 @@ class ScopeRequire(
         }
     }
 
+    @Synchronized
+    fun clearCache() {
+        moduleCache.clear()
+        loadingModules.clear()
+        Log.i(LOG_TAG, "all modules have been cleared")
+    }
+
     override fun getFunctionName() = "require"
     override fun getArity() = 1
     override fun getLength() = 1
 
     companion object {
-//        private const val serialVersionUID = 1L
+        private const val LOG_TAG = "ScopeRequire"
 
         private fun executeOptionalScript(
             script: Script?, cx: Context,

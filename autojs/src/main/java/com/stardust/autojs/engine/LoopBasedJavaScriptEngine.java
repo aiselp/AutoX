@@ -25,6 +25,7 @@ public class LoopBasedJavaScriptEngine extends RhinoJavaScriptEngine {
 
     private Handler mHandler;
     private boolean mLooping = false;
+    private volatile boolean mDestroyed = false;
 
     public LoopBasedJavaScriptEngine(Context context) {
         super(context);
@@ -77,7 +78,19 @@ public class LoopBasedJavaScriptEngine extends RhinoJavaScriptEngine {
 
     @Override
     public void forceStop() {
-        getRuntime().loopers.forceStop();
+        // 获取引擎线程的 Looper
+        Looper engineLooper = mHandler.getLooper();
+        if (engineLooper != Looper.getMainLooper()) {
+            // 向引擎线程投递 destroy，确保 Context.exit() 在正确的线程执行
+            mHandler.post(this::destroy);
+            // 安全退出引擎线程的 Looper（会先处理完已投递的 destroy 消息）
+            engineLooper.quitSafely();
+        } else {
+            // 极端情况：如果引擎 Looper 不存在或是主线程，直接同步清理
+            destroy();
+        }
+
+        // 关闭关联 Activity（如果有）
         Activity activity = (Activity) getTag("activity");
         if (activity != null) {
             activity.finish();
@@ -87,6 +100,10 @@ public class LoopBasedJavaScriptEngine extends RhinoJavaScriptEngine {
 
     @Override
     public synchronized void destroy() {
+        if (mDestroyed) return;
+        mDestroyed = true;
+        // 此时已经在引擎线程执行，无需再投递
+        mHandler.removeCallbacksAndMessages(null);
         getRuntime().loopers.forceStop();
         super.destroy();
     }

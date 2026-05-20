@@ -14,6 +14,7 @@ public abstract class JavaScriptEngine extends ScriptEngine.AbstractScriptEngine
         implements ScriptEngine.EngineEvent {
     private ScriptRuntime mRuntime;
     private Object mExecArgv;
+    private volatile boolean mDestroyed = false;
 
     @Override
     public Object execute(JavaScriptSource scriptSource) {
@@ -60,6 +61,8 @@ public abstract class JavaScriptEngine extends ScriptEngine.AbstractScriptEngine
 
     @Override
     public synchronized void destroy() {
+        if (mDestroyed) return;
+        mDestroyed = true;
         mRuntime.onExit();
         super.destroy();
     }

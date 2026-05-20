@@ -5,7 +5,6 @@ import android.accessibilityservice.GestureDescription
 import android.graphics.Bitmap
 import android.graphics.Rect
 import android.os.Build
-import android.os.Handler
 import android.view.Display
 import android.view.accessibility.AccessibilityNodeInfo
 import androidx.annotation.RequiresApi
@@ -29,10 +28,7 @@ import kotlinx.coroutines.runBlocking
  * Created by Stardust on 2017/4/2.
  */
 
-class SimpleActionAutomator(
-    private val mAccessibilityBridge: AccessibilityBridge,
-    private val handler: () -> Handler
-) {
+class SimpleActionAutomator(private val mAccessibilityBridge: AccessibilityBridge) {
 
     private lateinit var mGlobalActionAutomator: GlobalActionAutomator
 
@@ -358,7 +354,7 @@ class SimpleActionAutomator(
         ScriptRuntime.requiresApi(24)
         if (!::mGlobalActionAutomator.isInitialized) {
             mGlobalActionAutomator =
-                GlobalActionAutomator(handler()) {
+                GlobalActionAutomator {
                     ensureAccessibilityServiceEnabled()
                     return@GlobalActionAutomator mAccessibilityBridge.service!!
                 }
