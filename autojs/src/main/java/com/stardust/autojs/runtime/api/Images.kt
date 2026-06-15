@@ -248,16 +248,40 @@ class Images(
         limit: Int,
         transparentMask: Boolean = false
     ): List<TemplateMatching.Match> {
+        val templates: List<ImageWrapper?> = listOf(template)
+        return matchMultiTemplates(
+            image,
+            templates,
+            weakThreshold,
+            threshold,
+            rect,
+            maxLevel,
+            limit,
+            transparentMask
+        )
+    }
+
+    @JvmOverloads
+    fun matchMultiTemplates(
+        image: ImageWrapper?,
+        templates: List<ImageWrapper?>,
+        weakThreshold: Float,
+        threshold: Float,
+        rect: Rect?,
+        maxLevel: Int,
+        limit: Int,
+        transparentMask: Boolean = false
+    ): List<TemplateMatching.Match> {
         initOpenCvIfNeeded()
         if (image == null) throw NullPointerException("image = null")
-        if (template == null) throw NullPointerException("template = null")
+        if (templates.isEmpty() || templates.any { it == null }) throw NullPointerException("template = null")
         var src = image.mat
         if (rect != null) {
             src = Mat(src, rect)
         }
 
-        val result = TemplateMatching.fastTemplateMatching(
-            src, template.mat, Imgproc.TM_CCOEFF_NORMED,
+        val result = TemplateMatching.fastMultiTemplateMatching(
+            src, templates.map { it?.mat }, Imgproc.TM_CCOEFF_NORMED,
             weakThreshold, threshold, maxLevel, limit, transparentMask
         )
         for (match in result) {
