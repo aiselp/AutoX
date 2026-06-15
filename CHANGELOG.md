@@ -2,6 +2,14 @@
 autoxjs 整个项目的一些更新日志,双版本号为稳定版（内容以修复的bug为主），单版本号为激进版本、发布新内容。
 
 ## [Unreleased](https://github.com/kkevsekk1/AutoX/compare/7.0.5...HEAD) 未发布
+## [7.2.2] - 2026-6-13
+by [colman-lee](https://github.com/colman-lee)
+* 解决退出脚本时内存泄露问题
+* 解决无障碍模式的内存泄露问题
+* GoogleMLKitOcr增加旋转角度可选参数
+* GoogleMLKitOcr新增toSortedArray(level: Int)
+* device增加获取当前屏幕方向
+
 ## [7.2.1] - 2025-12-21
 修复一些问题
 
