@@ -66,6 +66,20 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
         context.languageVersion = Context.VERSION_ES6
         context.locale = Locale.getDefault()
         context.wrapFactory = wrapFactory
+        context.setTrackUnhandledPromiseRejections(true)
+    }
+
+    override fun doTopCall(
+        callable: org.mozilla.javascript.Callable,
+        cx: Context,
+        scope: Scriptable,
+        thisObj: Scriptable?,
+        args: Array<out Any?>
+    ): Any? {
+        val result = super.doTopCall(callable, cx, scope, thisObj, args)
+        // 处理 Promise microtask 队列
+        cx.processMicrotasks()
+        return result
     }
 
     override fun onContextCreated(cx: Context) {

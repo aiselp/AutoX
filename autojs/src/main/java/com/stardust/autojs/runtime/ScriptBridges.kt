@@ -44,6 +44,11 @@ class ScriptBridges {
                 (Context.javaToJS(target, scope) as? Scriptable) ?: Undefined.SCRIPTABLE_UNDEFINED,
                 arg
             )
+            // 不经过 doTopCall，需要单独处理 microtask
+            context.processMicrotasks()
+            context.getUnhandledPromiseTracker().process { reason ->
+                engine?.runtime?.console?.log("Unhandled Promise rejection: $reason")
+            }
         } catch (e: Exception) {
             if (Looper.getMainLooper() == Looper.myLooper()) {
                 engine?.runtime?.exit(e) ?: throw e

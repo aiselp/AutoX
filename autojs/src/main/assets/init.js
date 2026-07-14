@@ -39,7 +39,7 @@ runtime.init();
     global.keyboard = Object.create(runtime.keyboard);
 
     global.process = require('process')
-    global.Promise = require('bluebird');
+    // global.Promise = require('bluebird');
 
 
     //初始化全局函数
