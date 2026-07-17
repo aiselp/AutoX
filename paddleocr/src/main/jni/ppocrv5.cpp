@@ -165,39 +165,6 @@ int PPOCRv5::load(const char* det_parampath, const char* det_modelpath, const ch
     return 0;
 }
 
-int PPOCRv5::load(AAssetManager* mgr, const char* det_parampath, const char* det_modelpath, const char* rec_parampath, const char* rec_modelpath, bool use_fp16, bool use_gpu)
-{
-    ppocrv5_det.clear();
-    ppocrv5_rec.clear();
-
-    ppocrv5_det.opt.use_fp16_packed = use_fp16;
-    ppocrv5_det.opt.use_fp16_storage = use_fp16;
-    ppocrv5_det.opt.use_fp16_arithmetic = use_fp16;
-
-#if NCNN_VULKAN
-    ppocrv5_det.opt.use_vulkan_compute = use_gpu;
-#endif
-
-    ppocrv5_det.load_param(mgr, det_parampath);
-    ppocrv5_det.load_model(mgr, det_modelpath);
-
-    // default to 1 thread, as we rec multiple lines in parallel
-    ppocrv5_rec.opt.num_threads = 1;
-
-    ppocrv5_rec.opt.use_fp16_packed = use_fp16;
-    ppocrv5_rec.opt.use_fp16_storage = use_fp16;
-    ppocrv5_rec.opt.use_fp16_arithmetic = use_fp16;
-
-#if NCNN_VULKAN
-    ppocrv5_rec.opt.use_vulkan_compute = use_gpu;
-#endif
-
-    ppocrv5_rec.load_param(mgr, rec_parampath);
-    ppocrv5_rec.load_model(mgr, rec_modelpath);
-
-    return 0;
-}
-
 void PPOCRv5::set_target_size(int _target_size)
 {
     target_size = _target_size;

@@ -2,11 +2,9 @@ package com.equationl.ncnnandroidppocr.cpp
 
 import android.content.res.AssetManager
 import android.graphics.Bitmap
-import com.equationl.ncnnandroidppocr.bean.OcrResult
+import com.equationl.ncnnandroidppocr.bean.NcnnOcrResult
 
 class OCRNative {
-    external fun loadModel(mgr: AssetManager?, modelid: Int, sizeid: Int, cpugpu: Int): Boolean
-
     /**
      * 从本地文件路径加载模型
      *
@@ -43,14 +41,14 @@ class OCRNative {
      * @param bitmap 要识别的图片
      * @return OCR 识别结果
      */
-    external fun detectBitmap(bitmap: Bitmap): OcrResult?
+    external fun detectBitmap(bitmap: Bitmap): NcnnOcrResult?
 
     /**
      * 识别本地图片文件
      * @param imagePath 图片文件路径
      * @return OCR 识别结果
      */
-    external fun detectImagePath(imagePath: String): OcrResult?
+    external fun detectImagePath(imagePath: String): NcnnOcrResult?
 
     companion object {
         init {

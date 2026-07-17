@@ -14,11 +14,14 @@ import kotlin.math.max
 import kotlin.math.min
 import androidx.core.graphics.toColorInt
 import androidx.core.graphics.createBitmap
+import com.equationl.ncnnandroidppocr.OcrConfig.Companion.IMAGE_SIZE_FULL
+import com.equationl.ncnnandroidppocr.OcrConfig.Companion.IMAGE_SIZE_SLIM
 import java.lang.ref.WeakReference
 
 class Predictor private constructor() {
 
     var ocrConfig = OcrConfig()
+        private set
     var initSuccess = false
     var modelLoaded: Boolean = false
     private var lastConfigHash: Int = 0
@@ -73,7 +76,7 @@ class Predictor private constructor() {
     fun initOcr(appCtx: Context, cpuThreadNum: Int, useSlim: Boolean): Boolean {
         ocrConfig.cpuThreadNum = cpuThreadNum
         //ocrConfig.modelPath =  if (useSlim) "models/ocr_v5_for_cpu(slim)" else "models/ocr_v5_for_cpu"
-        ocrConfig.imageSize = if (useSlim) 256 else 512
+        ocrConfig.imageSize = if (useSlim) IMAGE_SIZE_SLIM else IMAGE_SIZE_FULL
 
         return init(appCtx)
     }
@@ -245,7 +248,7 @@ class Predictor private constructor() {
     // ============ 识别方法 ============
 
     @JavascriptInterface
-    fun runOcr(inputImage: Bitmap?): List<AutoXResult> {
+    fun runOcr(inputImage: Bitmap?): List<OcrResult> {
         cancelPendingRelease()
         if (inputImage == null) return emptyList()
 
@@ -323,10 +326,10 @@ class Predictor private constructor() {
         }
     }
 
-    private var rawResultArray: List<AutoXResult>? = null
+    private var rawResultArray: List<OcrResult>? = null
 
-    private fun transformToAutoXResult(ncnnResult: OcrResult): List<AutoXResult> {
-        val results = mutableListOf<AutoXResult>()
+    private fun transformToAutoXResult(ncnnResult: NcnnOcrResult): List<OcrResult> {
+        val results = mutableListOf<OcrResult>()
 
         for (textLine in ncnnResult.textLines) {
             if (textLine.confidence < ocrConfig.scoreThreshold) continue
@@ -343,7 +346,7 @@ class Predictor private constructor() {
                 bottom = max(bottom, point.y)
             }
 
-            results.add(AutoXResult(
+            results.add(OcrResult(
                 confidence = textLine.confidence,
                 inferenceTime = ncnnResult.inferenceTime.toFloat(),
                 text = textLine.text,
@@ -355,7 +358,7 @@ class Predictor private constructor() {
         return results
     }
 
-    private fun drawResults(results: List<AutoXResult>) {
+    private fun drawResults(results: List<OcrResult>) {
         if (!isDrawTextBox) return
 
         outputImage?.recycle()
@@ -386,7 +389,7 @@ class Predictor private constructor() {
         }
     }
 
-    private fun transformData(results: List<AutoXResult>?): List<AutoXResult> {
+    private fun transformData(results: List<OcrResult>?): List<OcrResult> {
         if (results.isNullOrEmpty()) return emptyList()
 
         val sorted = results.sorted()

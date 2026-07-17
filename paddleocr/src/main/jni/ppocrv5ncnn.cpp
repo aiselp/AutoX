@@ -63,83 +63,6 @@ JNIEXPORT void JNI_OnUnload(JavaVM* vm, void* reserved)
     ncnn::destroy_gpu_instance();
 }
 
-// public native boolean loadModel(AssetManager mgr, int modelid, int sizeid, int cpugpu);
-JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loadModel(JNIEnv* env, jobject thiz, jobject assetManager, jint modelid, jint sizeid, jint cpugpu)
-{
-    if (modelid < 0 || modelid > 1 || sizeid < 0 || sizeid > 6 || cpugpu < 0 || cpugpu > 2)
-    {
-        return JNI_FALSE;
-    }
-
-    AAssetManager* mgr = AAssetManager_fromJava(env, assetManager);
-
-    __android_log_print(ANDROID_LOG_DEBUG, "ncnn", "loadModel %p", mgr);
-
-    const char* modeltypes[2] =
-    {
-        "mobile",
-        "server"
-    };
-
-    const int sizetypes[7] =
-    {
-        320,
-        400,
-        480,
-        560,
-        640,
-        720,
-        1080
-    };
-
-    std::string det_parampath = std::string("PP_OCRv5_") + modeltypes[(int)modelid] + "_det.ncnn.param";
-    std::string det_modelpath = std::string("PP_OCRv5_") + modeltypes[(int)modelid] + "_det.ncnn.bin";
-    std::string rec_parampath = std::string("PP_OCRv5_") + modeltypes[(int)modelid] + "_rec.ncnn.param";
-    std::string rec_modelpath = std::string("PP_OCRv5_") + modeltypes[(int)modelid] + "_rec.ncnn.bin";
-    bool use_fp16 = (int)modelid == 0; // fp16 for server model cause nan result
-    bool use_gpu = (int)cpugpu == 1;
-    bool use_turnip = (int)cpugpu == 2;
-
-    // reload
-    {
-        ncnn::MutexLockGuard g(lock);
-
-        {
-            static int old_modelid = 0;
-            static int old_cpugpu = 0;
-            if (modelid != old_modelid || cpugpu != old_cpugpu)
-            {
-                // model or cpugpu changed
-                delete g_ppocrv5;
-                g_ppocrv5 = 0;
-            }
-            old_modelid = modelid;
-            old_cpugpu = cpugpu;
-
-            ncnn::destroy_gpu_instance();
-
-            if (use_turnip)
-            {
-                ncnn::create_gpu_instance("libvulkan_freedreno.so");
-            }
-            else if (use_gpu)
-            {
-                ncnn::create_gpu_instance();
-            }
-
-            if (!g_ppocrv5)
-            {
-                g_ppocrv5 = new PPOCRv5;
-
-                g_ppocrv5->load(mgr, det_parampath.c_str(), det_modelpath.c_str(), rec_parampath.c_str(), rec_modelpath.c_str(), use_fp16, use_gpu || use_turnip);
-            }
-            g_ppocrv5->set_target_size(sizetypes[(int)sizeid]);
-        }
-    }
-
-    return JNI_TRUE;
-}
-
 // public native boolean loadModelByPath(String detParamPath, String detModelPath, String recParamPath, String recModelPath, int sizeid, int cpugpu, boolean useFp16);
 JNIEXPORT jboolean JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_loadModelByPath(JNIEnv* env, jobject thiz, jstring detParamPath, jstring detModelPath, jstring recParamPath, jstring recModelPath, jint target_size, jint cpugpu, jboolean useFp16, jint numThreads)
 {
@@ -238,7 +161,7 @@ JNIEXPORT void JNICALL Java_com_equationl_ncnnandroidppocr_cpp_OCRNative_release
 static jobject createOcrResult(JNIEnv* env, const std::vector<Object>& objects, jlong inferenceTime)
 {
     // Find all required classes
-    jclass ocrResultClass = env->FindClass("com/equationl/ncnnandroidppocr/bean/OcrResult");
+    jclass ocrResultClass = env->FindClass("com/equationl/ncnnandroidppocr/bean/NcnnOcrResult");
     jclass ocrTextLineResultClass = env->FindClass("com/equationl/ncnnandroidppocr/bean/OcrTextLineResult");
     jclass ocrTextResultClass = env->FindClass("com/equationl/ncnnandroidppocr/bean/OcrTextResult");
     jclass pointClass = env->FindClass("android/graphics/Point");
