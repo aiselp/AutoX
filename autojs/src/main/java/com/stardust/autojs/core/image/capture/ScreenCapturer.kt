@@ -61,6 +61,16 @@ class ScreenCapturer(
         mVirtualDisplay = createVirtualDisplay(screenWidth, screenHeight, screenDensity)
     }
 
+    fun isValid(): Boolean {
+        if (!available) return false
+
+        return try {
+            mVirtualDisplay.display?.isValid == true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     private fun createImageReader(width: Int, height: Int): ImageReader {
         return ImageReader.newInstance(width, height, PixelFormat.RGBA_8888, 3).apply {
             setOnImageAvailableListener({

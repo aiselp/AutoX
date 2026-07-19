@@ -56,6 +56,18 @@ images.requestScreenCapture = function (landscape: boolean) {
     return javaImages.requestScreenCapture(orientation);
 }
 
+images.requestScreenCaptureLegacy = function (landscape: boolean) {
+    const ScreenCapturer = com.stardust.autojs.core.image.capture.ScreenCapturer;
+    var orientation = ScreenCapturer.ORIENTATION_AUTO;
+    if (landscape === true) {
+        orientation = ScreenCapturer.ORIENTATION_LANDSCAPE;
+    }
+    if (landscape === false) {
+        orientation = ScreenCapturer.ORIENTATION_PORTRAIT;
+    }
+    return javaImages.requestScreenCaptureLegacy(orientation);
+};
+
 images.save = function (img: Image, path: string, format?: ImageFormat, quality?: number) {
     format = format || "png";
     quality = quality == undefined ? 100 : quality;
@@ -434,11 +446,12 @@ function initIfNeeded() {
     javaImages.initOpenCvIfNeeded();
 }
 
-asGlobal(images, ['requestScreenCapture', 'captureScreen', 'findImage', 'findImageInRegion',
+asGlobal(images, ['requestScreenCapture', 'requestScreenCaptureLegacy', 'captureScreen', 'findImage', 'findImageInRegion',
     'findColor', 'findColorInRegion', 'findColorEquals', 'findMultiColors']);
 
 declare global {
     var requestScreenCapture: typeof images['requestScreenCapture']
+    var requestScreenCaptureLegacy: typeof images['requestScreenCaptureLegacy']
     var captureScreen: () => Image
     var findImage: typeof images['findImage']
     var findImageInRegion: typeof images['findImageInRegion']

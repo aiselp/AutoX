@@ -154,6 +154,45 @@ class ShizukuClient private constructor() : Shizuku.OnRequestPermissionResultLis
             Shizuku.addBinderReceivedListener(client)
             client
         }
+
+        suspend fun setAppOpsPermission(op: String, allow: Boolean): Boolean {
+            val packageName = GlobalAppContext.get().packageName
+            if (instance.packageName == null) {
+                instance.setupService(packageName).join()
+            }
+            val mode = if (allow) "allow" else "ask"
+
+            return runCatching {
+                if (instance.available && instance.userPermission) {
+                    val service = instance.ensureShizukuService()
+                    val result = service.runShellCommand(0, "appops set $packageName $op $mode")
+                    result.contains("\"code\":0")
+                } else null
+            }.getOrNull() ?: runCatching {
+                Runtime.getRuntime().exec(arrayOf("su", "-c", "appops set $packageName $op $mode")).waitFor() == 0
+            }.getOrDefault(false)
+        }
+
+        suspend fun checkAppOpsPermission(op: String): Boolean {
+            val packageName = GlobalAppContext.get().packageName
+            if (instance.packageName == null) {
+                instance.setupService(packageName).join()
+            }
+
+            return runCatching {
+                if (instance.available && instance.userPermission) {
+                    val service = instance.ensureShizukuService()
+                    val result = service.runShellCommand(0, "appops get $packageName $op")
+                    result.contains("allow")
+                } else null
+            }.getOrNull() ?: runCatching {
+                val process = Runtime.getRuntime().exec(arrayOf("su", "-c", "appops get $packageName $op"))
+                val result = process.inputStream.bufferedReader().readText()
+                process.waitFor()
+                process.destroy()
+                result.contains("allow")
+            }.getOrDefault(false)
+        }
     }
 
 

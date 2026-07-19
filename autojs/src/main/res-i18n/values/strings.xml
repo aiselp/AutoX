@@ -31,5 +31,6 @@
     <string name="text_permission_prompt">权限提示</string>
     <string name="text_permission_prompt_content">此应用需要以下权限才能运行</string>
     <string name="exit">退出</string>
+    <string name="text_root_permission_incomplete">root权限不完整！需要到Magisk中为本软件的「:script」授权</string>
 
 </resources>
