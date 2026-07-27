@@ -46,7 +46,7 @@ function fillConfig(c?: EngineConfig) {
     config.loopTimes = (c.loopTimes === undefined) ? 1 : c.loopTimes;
     if (c.arguments) {
         var args = c.arguments;
-        for (var key in arguments) {
+        for (var key in args) {
             if (Object.prototype.hasOwnProperty.call(args, key)) {
                 config.setArgument(key, args[key]);
             }
