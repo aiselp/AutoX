@@ -325,6 +325,11 @@ images.findImage = function (img: Image, template: Image, options?: FindImageOpt
 
 images.matchTemplate = function (img: Image, template: Image,
     options?: FindImageOptions & { max?: number }) {
+     return images.matchMultiTemplates(img, [template], options);
+}
+
+images.matchMultiTemplates = function (img: Image, templates: Image[],
+    options?: FindImageOptions & { max?: number }) {
     initIfNeeded();
     options = options || {};
     var threshold = options.threshold || 0.9;
@@ -337,14 +342,12 @@ images.matchTemplate = function (img: Image, template: Image,
     var result;
     const transparentMask = !!options.transparentMask
     if (options.region) {
-        result = javaImages.matchTemplate(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, max, transparentMask);
+        result = javaImages.matchMultiTemplates(img, templates, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, max, transparentMask);
     } else {
-        result = javaImages.matchTemplate(img, template, weakThreshold, threshold, null, maxLevel, max, transparentMask);
+        result = javaImages.matchMultiTemplates(img, templates, weakThreshold, threshold, null, maxLevel, max, transparentMask);
     }
     return new MatchingResult(result);
 }
-
-
 
 images.findImageInRegion = function (img: Image, template: Image,
     x: number, y: number, width?: number, height?: number, threshold?: number) {
