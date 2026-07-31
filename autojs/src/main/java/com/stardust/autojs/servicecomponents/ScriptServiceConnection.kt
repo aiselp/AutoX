@@ -7,6 +7,7 @@ import android.content.ServiceConnection
 import android.os.Binder
 import android.os.Bundle
 import android.os.Debug
+import android.os.Handler
 import android.os.IBinder
 import android.util.Log
 import com.stardust.app.GlobalAppContext
@@ -27,10 +28,10 @@ class ScriptServiceConnection : ServiceConnection {
     val binderConsoleListener = BinderConsoleListener.ClientInterface()
     var binding: CompletableJob? = null
     var service: IBinder? = null
-    var application: Context? = null
+    var application: Context = GlobalAppContext.get()
     private val connected = Job()
     val consoleImpl: ConsoleImpl =
-        object : ConsoleImpl(UiHandler(GlobalAppContext.get())), BinderConsoleListener {
+        object : ConsoleImpl(UiHandler(application)), BinderConsoleListener {
             override fun onPrintln(log: LogEntry) {
                 println(log.level, log.content)
             }
@@ -46,6 +47,7 @@ class ScriptServiceConnection : ServiceConnection {
 
     @OptIn(DelicateCoroutinesApi::class)
     override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
+        Log.d(TAG, "Script service connected")
         this.service = service
         isConnected = true
         binding?.complete()
@@ -73,8 +75,18 @@ class ScriptServiceConnection : ServiceConnection {
     }
 
     private suspend fun <T> sendBinder(n: suspend TanBinder.() -> T): T {
-        awaitConnected()
-        return ScriptBinder.connect(service!!, n)
+        Log.d("ScriptServiceConnection", "sendBinder: before awaitConnected")
+        try {
+            awaitConnected()
+            Log.d("ScriptServiceConnection", "sendBinder: after awaitConnected, service=$service")
+        } catch (e: Exception) {
+            Log.e("ScriptServiceConnection", "sendBinder: awaitConnected failed", e)
+            throw e
+        }
+
+        return ScriptBinder.connect(service!!, n).also {
+            Log.d("ScriptServiceConnection", "sendBinder: connect completed")
+        }
     }
 
     suspend fun getAllScriptTasks(): MutableList<TaskInfo> = sendBinder {
@@ -157,17 +169,64 @@ class ScriptServiceConnection : ServiceConnection {
         send()
     }
 
-    suspend fun awaitConnected() = withTimeout(3000) {
-        if (isConnected) return@withTimeout
-        if (binding == null) {
-            if (application != null) {
-                bind(application!!)
-            } else {
-                throw IllegalStateException("ScriptServiceConnection not bind")
-            }
+    private fun isForegroundServiceEnabled(): Boolean {
+        return try {
+            // 方式1：通过反射调用 Pref
+            val prefClass = Class.forName("org.autojs.autojs.Pref")
+            val method = prefClass.getMethod("isForegroundServiceEnabled")
+            method.invoke(null) as Boolean
+        } catch (e: Exception) {
+            // 方式2：直接读取 SharedPreferences
+            val prefs = GlobalAppContext.get().getSharedPreferences("org.autojs.autojs_preferences", Context.MODE_PRIVATE)
+            prefs.getBoolean("foreground_service_enabled", false)
         }
-        Log.d(TAG, "awaitConnected")
+    }
+
+    private fun ensureForegroundService(context: Context) {
+        try {
+            if (IndependentScriptService.isForegroundRunning) {
+                Log.d(TAG, "Foreground service already running")
+                return
+            }
+
+            val isEnabled = isForegroundServiceEnabled()
+            Log.d(TAG, "Starting foreground service from awaitConnected")
+            IndependentScriptService.startForeground(context)
+            if (!isEnabled) {
+                Log.d(TAG, "Stop foreground service from awaitConnected after 5 seconds")
+
+                Handler(context.mainLooper).postDelayed({
+                    try {
+                        val stopIntent = Intent(context, IndependentScriptService::class.java).apply {
+                            action = IndependentScriptService.ACTION_STOP_FOREGROUND
+                        }
+                        context.startService(stopIntent)
+                    } catch (e: Exception) {
+                        Log.e("FlashService", "Stop failed", e)
+                    }
+                }, 5000)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to start foreground service", e)
+        }
+    }
+
+    suspend fun awaitConnected() = withTimeout(6000) {
+        Log.d(TAG, "awaitConnected: start, isConnected=$isConnected, binding=$binding")
+
+        if (isConnected) {
+            Log.d(TAG, "awaitConnected: already connected")
+            return@withTimeout
+        }
+        if (binding == null) {
+            Log.d(TAG, "awaitConnected: binding is null, calling bind")
+            bind(application)
+            ensureForegroundService(application)
+        }
+
+        Log.d(TAG, "awaitConnected: waiting for binding to complete, binding: $binding")
         binding!!.join()
+        Log.d(TAG, "awaitConnected: binding completed")
     }
 
     fun bind(context: Context) {

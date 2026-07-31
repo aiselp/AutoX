@@ -510,4 +510,12 @@
   <string name="text_reconnecting">Reconnecting</string>
   <string name="text_connecting">Connecting</string>
   <string name="text_handshake_failed">Handshake failed</string>
+  <string name="text_root_permission_incomplete">Root permission incomplete! Please grant permission to \":script\" in Magisk</string>
+  <string name="media_projection_permission">Media Projection Permission</string>
+  <string name="media_projection_permission_enabled">Enabled, auto-allow screen recording/casting</string>
+  <string name="media_projection_permission_disabled">Disabled, user confirmation required each time</string>
+  <string name="media_projection_permission_need_shizuku">Shizuku or Root permission required</string>
+  <string name="permission_management">Permission Management</string>
+  <string name="overlay_permission">Display over other apps</string>
+  <string name="overlay_permission_need_shizuku">No Shizuku or Root permission, please enable manually after redirect</string>
 </resources>

@@ -23,4 +23,5 @@
   <string name="text_drawer_open">Open the drop down menu</string>
   <string name="text_drawer_close">Close the drop down menu</string>
   <string name="no_read_phone_state_permissin">No permission to read device information</string>
+  <string name="text_root_permission_incomplete">Root permission incomplete! Please grant permission to \":script\" in Magisk</string>
 </resources>

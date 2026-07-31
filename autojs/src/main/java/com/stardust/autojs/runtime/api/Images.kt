@@ -19,6 +19,7 @@ import com.stardust.autojs.core.image.capture.ScreenCaptureRequester
 import com.stardust.autojs.core.opencv.Mat
 import com.stardust.autojs.core.opencv.OpenCVHelper
 import com.stardust.autojs.core.ui.inflater.util.Drawables
+import com.stardust.autojs.core.util.ScriptPromiseAdapter
 import com.stardust.autojs.runtime.ScriptRuntime
 import com.stardust.pio.UncheckedIOException
 import com.stardust.util.ScreenMetrics
@@ -64,6 +65,45 @@ class Images(
         }
     }
 
+    fun requestScreenCaptureLegacy(orientation: Int): ScriptPromiseAdapter {
+        val outerPromise = ScriptPromiseAdapter()
+        val weakImages = java.lang.ref.WeakReference(this)
+
+        try {
+            val images = weakImages.get() ?: run {
+                outerPromise.resolve(false)
+                return outerPromise
+            }
+
+            val innerPromise = images.mScreenCaptureRequester.requestScreenCaptureLegacy(
+                images.mContext,
+                orientation
+            )
+
+            innerPromise.onResolve(object : ScriptPromiseAdapter.Callback {
+                override fun call(arg: Any?) {
+                    outerPromise.resolve(arg)
+                }
+            })
+
+            innerPromise.onReject(object : ScriptPromiseAdapter.Callback {
+                override fun call(arg: Any?) {
+                    val img = weakImages.get()
+                    img?.mScriptRuntime?.toast(arg as String?)
+                    Log.e(Images::class.java.name, "请求截图权限失败: $arg")
+                    outerPromise.resolve(false)
+                }
+            })
+        } catch (e: Exception) {
+            val images = weakImages.get()
+            images?.mScriptRuntime?.toast(e.message)
+            Log.e(Images::class.java.name, "请求截图权限失败", e)
+            outerPromise.resolve(false)
+        }
+
+        return outerPromise
+    }
+
     fun stopScreenCapturer() {
         mScreenCaptureRequester.recycle()
     }
@@ -82,12 +122,22 @@ class Images(
         checkNotNull(screenCapture) { SecurityException("No screen capture permission") }
         val scheduler = AndroidSchedulers.from(mScriptRuntime.loopers.servantLooper)
         var disposable: Disposable? = null
+
+        // 使用弱引用包装回调
+        val weakRuntime = java.lang.ref.WeakReference(mScriptRuntime)
+        val weakImages = java.lang.ref.WeakReference(this)
+
         disposable = screenCapture.registerAsyncCapture(scheduler, {
             try {
+                val images = weakImages.get()
+                if (images == null) {
+                    disposable?.dispose()
+                    return@registerAsyncCapture
+                }
                 onNext.accept(it)
             } catch (e: Throwable) {
                 disposable?.dispose()
-                mScriptRuntime.exit(e)
+                weakRuntime.get()?.exit(e)
             }
         }).also {
             disposables.add(it)
@@ -190,6 +240,12 @@ class Images(
 
     fun releaseScreenCapturer() {
         disposables.forEach { it.dispose() }
+        disposables.clear()
+        try {
+            mScreenCaptureRequester.recycle()
+        } catch (e: Exception) {
+            Log.e(Images::class.java.name, "Error recycling screen capture", e)
+        }
     }
 
     @JvmOverloads
