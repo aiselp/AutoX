@@ -195,6 +195,22 @@
         </activity-alias>
 
         <service
+            android:name="org.autojs.autojs.devplugin.DevPluginServiceImpl"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.autojs.autojs.devplugin.IDevPluginService" />
+            </intent-filter>
+        </service>
+        <service
+            android:name="org.autojs.autojs.tool.AccessibilityProxyServiceImpl"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.stardust.autojs.core.accessibility.IAccessibilityProxyService" />
+            </intent-filter>
+        </service>
+        <service
             android:name="org.autojs.autojs.external.tile.LayoutBoundsTile"
             android:exported="true"
             android:process="@string/text_script_process_name"
@@ -224,6 +240,11 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+        <service
+            android:name="com.stardust.autojs.core.accessibility.AccessibilityProxyService"
+            android:process="@string/text_script_process_name"
+            android:enabled="true"
+            android:exported="true" />
 
         <receiver
             android:name="org.autojs.autojs.external.receiver.StaticBroadcastReceiver"
@@ -278,7 +299,7 @@
 
         <activity
             android:name="org.autojs.autojs.external.open.RunIntentActivity"
-            android:enabled="false"
+            android:enabled="true"
             android:exported="true"
             android:icon="@drawable/autojs_logo"
             android:label="@string/text_run_script"

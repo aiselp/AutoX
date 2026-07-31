@@ -11,8 +11,8 @@ import androidx.annotation.NonNull;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import com.stardust.app.GlobalAppContext;
+import com.stardust.autojs.core.accessibility.AccessibilityProxyAccessor;
 import com.stardust.autojs.core.console.GlobalConsole;
-import com.stardust.autojs.runtime.ScriptRuntime;
 import com.stardust.autojs.runtime.ScriptRuntimeV2;
 import com.stardust.autojs.runtime.accessibility.AccessibilityConfig;
 import com.stardust.autojs.runtime.api.AppUtils;
@@ -64,7 +64,8 @@ public class AutoJs extends com.stardust.autojs.AutoJs {
         @Override
         public void onReceive(Context context, Intent intent) {
             try {
-                ensureAccessibilityServiceEnabled();
+                //ensureAccessibilityServiceEnabled();
+                AccessibilityProxyAccessor.getInstance().ensureEnabled();
                 String action = intent.getAction();
                 if (LayoutBoundsFloatyWindow.class.getName().equals(action)) {
                     capture(LayoutBoundsFloatyWindow::new);

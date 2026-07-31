@@ -2,6 +2,60 @@
 autoxjs 整个项目的一些更新日志,双版本号为稳定版（内容以修复的bug为主），单版本号为激进版本、发布新内容。
 
 ## [Unreleased](https://github.com/kkevsekk1/AutoX/compare/7.0.5...HEAD) 未发布
+## [7.2.3] - 2026-7-27
+* 修复无障碍权限，app进程无法访问script进程的无障碍权限实例导致的bug
+
+* 添加传统的获取的截屏权限的方式（不跳转回AutoXJs界面）images.requestScreenCaptureLegacy()
+* 修复debug模式下截屏时ResourceMonitor导致的内存泄漏
+
+* 暴露DevPlugin接口给脚本，增加以下函数，让脚本触发App的连接到电脑或开启UsbDebug
+1. DevPlugin.connectToComputer(String url);
+2. DevPlugin.connectToSavedAddress();
+3. DevPlugin.disconnectFromComputer();
+4. DevPlugin.isComputerConnected();
+5. DevPlugin.getSavedServerAddress();
+6. DevPlugin.setServerAddress(String url);
+7. DevPlugin.clearServerAddress();
+8. DevPlugin.startUSBDebug();
+9. DevPlugin.stopUSBDebug();
+10. DevPlugin.isUSBDebugActive();
+
+* 修复serviceConnection.runScript报错后导致scope取消，脚本无法再运行的bug
+* 新增 在后台运行脚本时，维持5秒前台服务通知，降低运行失败的概率
+
+* 脚本悬浮窗FloatyWindow新增一个setCoverStatusBar(bool)函数，允许悬浮窗拖动到系统状态栏上
+
+* 替换paddleOcr为v4版本，提升文本识别准确率
+  移除了v2版本，只内置了一种模型，slim参数将无效
+  兼容v2版本函数，新增以下函数
+1. paddle.initOcr(modelPath[,labelPath, cpuThreadNum, cpuPowerMode]) 不传参数或者传null将使用默认值
+2. paddle.initOcrWithConfig(config) config为字典，参考OcrConfig.kt
+3. paddle.getOcrConfig() 获取当前paddleOcr配置
+4. paddle.release() 释放模型资源
+5. paddle.releaseDelayed(delayMillis) 延迟释放资源（默认3分钟）
+
+* fix: 修复PR报告的异常处理和缓冲区安全问题
+
+* fix: 修复截屏服务内存泄漏
+
+* 修复paddle.ts参数类型定义
+  添加paddle编译需要的文件到git
+  添加截图权限请求失败后的重试机制
+
+* 修复paddle内存泄漏
+
+* 侧边栏新增允许自动获取PROJECT_MEDIA权限的开关
+  收纳侧边栏里的五个权限开关到可展开栏里
+
+* 侧边栏新增获取悬浮窗权限的开关
+
+* opencv-mobile更改为4.13.0
+
+* 移除无用import和文件
+
+* 修改paddleOCR初始化测试位置
+
+* 更新paddleOCR模型到v6
 ## [7.2.2] - 2026-6-13
 by [colman-lee](https://github.com/colman-lee)
 * 解决退出脚本时内存泄露问题

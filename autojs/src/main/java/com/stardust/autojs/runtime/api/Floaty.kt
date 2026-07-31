@@ -138,6 +138,10 @@ class Floaty(private val mUiHandler: UiHandler, ui: UI, private val mRuntime: Sc
             runWithWindow { mWindow.setTouchable(touchable) }
         }
 
+        fun setCoverStatusBar(cover: Boolean) {
+            runWithWindow { mWindow.setCoverStatusBar(cover) }
+        }
+
         private fun runWithWindow(r: Runnable) {
             mUiHandler.post(r)
         }
