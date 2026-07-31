@@ -241,11 +241,6 @@ class Images(
     fun releaseScreenCapturer() {
         disposables.forEach { it.dispose() }
         disposables.clear()
-        try {
-            mScreenCaptureRequester.recycle()
-        } catch (e: Exception) {
-            Log.e(Images::class.java.name, "Error recycling screen capture", e)
-        }
     }
 
     @JvmOverloads
