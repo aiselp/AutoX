@@ -1,4 +1,4 @@
-import { XML } from "@/inline_modules/ui";
+import { XML } from "@/ui";
 
 export interface DialogBuildProperties {
     title?: string;

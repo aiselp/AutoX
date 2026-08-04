@@ -1,12 +1,10 @@
 import { defineGetter, exitIfError } from "@/utils"
-import './ui_jsx'
+import { h } from './ui_jsx'
 
 export type XML = {
     toXMLString(): string
 }
-
-
-export interface Ui {
+interface Ui {
     [key: string]: any
     view?: android.View
     run<T>(a: () => T): T
@@ -27,24 +25,24 @@ export interface Ui {
 
 declare var activity: any
 declare var threads: any
-const isUiThread = function (): boolean {
+export const isUiThread = function (): boolean {
     const Looper = android.os.Looper;
     return Looper.myLooper() == Looper.getMainLooper();
 }
 
-const statusBarColor = function (color: string | number) {
+export const statusBarColor = function (color: string | number) {
     if (typeof (color) == 'string') {
         color = android.graphics.Color.parseColor(color);
     }
     if (android.os.Build.VERSION.SDK_INT >= 21) {
-        ui.run(function () {
+        run(function () {
             activity.getWindow().setStatusBarColor(color);
         });
     }
 }
 
-const finish = function () {
-    ui.run(function () {
+export const finish = function () {
+    run(function () {
         activity.finish();
     });
 }
@@ -60,12 +58,12 @@ const __inflate__ = function (ctx: android.Context, xml: XML | string,
 }
 
 
-const findView = function (id: string): android.View | null {
-    return ui.findById(id);
+export const findView = function (id: string): android.View | null {
+    return findById(id);
 }
 
-const run = function <T>(action: () => T) {
-    if (ui.isUiThread()) {
+export const run = function <T>(action: () => T) {
+    if (isUiThread()) {
         return action();
     }
     var err = null;
@@ -87,14 +85,14 @@ const run = function <T>(action: () => T) {
     return result as T;
 }
 
-const post = function (action: () => void, delay?: number) {
+export const post = function (action: () => void, delay?: number) {
     if (delay == undefined) {
         runtime.getUiHandler().post(wrapUiAction(action));
     } else {
         runtime.getUiHandler().postDelayed(wrapUiAction(action), delay);
     }
 }
-class Widget {
+export class Widget {
     __attrs__: any = {}
     renderInternal() {
         return this.render();
@@ -148,86 +146,59 @@ class Widget {
     }
     onFinishInflation(_view: unknown) { }
 }
+export function layout(xml: XML | string) {
+    if (typeof (activity) == 'undefined') {
+        throw new Error("需要在ui模式下运行才能使用该函数");
+    }
+    runtime.ui.layoutInflater.setContext(activity);
+    var view = runtime.ui.layoutInflater.inflate(xml, activity.window.decorView, false);
+    setContentView(view);
+}
 
+export function layoutFile(file: string) {
+    layout(files.read(file));
+}
+export function inflate(xml: XML | string, parent?: any, attachToParent?: boolean) {
+    if (typeof (xml) !== 'string') {
+        xml = xml.toXMLString();
+    }
+    parent = parent || null;
+    attachToParent = !!attachToParent;
+    let ctx;
+    if (typeof (activity) == 'undefined') {
+        ctx = new android.view.ContextThemeWrapper(context, com.stardust.autojs.R.style.ScriptTheme);
+    } else {
+        ctx = activity;
+    }
+    runtime.ui.layoutInflater.setContext(ctx);
+    return runtime.ui.layoutInflater.inflate(xml.toString(), parent, attachToParent);
+}
+export function setContentView(view: android.View) {
+    ui.view = view;
+    run(function () {
+        activity.setContentView(view);
+    });
+}
+export function findById(id: string) {
+    if (!ui.view)
+        return null;
+    return findByStringId(ui.view, id);
+}
+export function findByStringId(view: android.View, id: string): android.View {
+    return com.stardust.autojs.core.ui.JsViewHelper.findViewByStringId(view, id);
+}
+function registerWidget(name: string, widget: () => any) {
+    if (typeof (widget) !== 'function') {
+        throw new TypeError('widget should be a class-like function');
+    }
+    ui.__widgets__[name] = widget;
+}
 var ui: Ui = {
     __widgets__: {}, __inflate__, Widget,
     run, post, isUiThread, finish, statusBarColor, findView,
-    layout: function (xml) {
-        if (typeof (activity) == 'undefined') {
-            throw new Error("需要在ui模式下运行才能使用该函数");
-        }
-        runtime.ui.layoutInflater.setContext(activity);
-        var view = runtime.ui.layoutInflater.inflate(xml, activity.window.decorView, false);
-        ui.setContentView(view);
-    },
-    layoutFile: function (file: string) {
-        ui.layout(files.read(file));
-    },
-    inflate: function (xml: XML | string, parent?: any, attachToParent?: boolean) {
-        if (typeof (xml) !== 'string') {
-            xml = xml.toXMLString();
-        }
-        parent = parent || null;
-        attachToParent = !!attachToParent;
-        let ctx;
-        if (typeof (activity) == 'undefined') {
-            ctx = new android.view.ContextThemeWrapper(context, com.stardust.autojs.R.style.ScriptTheme);
-        } else {
-            ctx = activity;
-        }
-        runtime.ui.layoutInflater.setContext(ctx);
-        return runtime.ui.layoutInflater.inflate(xml.toString(), parent, attachToParent);
-    },
-    registerWidget: function (name: string, widget: () => any) {
-        if (typeof (widget) !== 'function') {
-            throw new TypeError('widget should be a class-like function');
-        }
-        ui.__widgets__[name] = widget;
-    },
-    setContentView: function (view: android.View) {
-        ui.view = view;
-        ui.run(function () {
-            activity.setContentView(view);
-        });
-    },
-    findById: function (id: string) {
-        if (!ui.view)
-            return null;
-        return ui.findByStringId(ui.view, id);
-    },
-    findByStringId: function (view: android.View, id: string): android.View {
-        return com.stardust.autojs.core.ui.JsViewHelper.findViewByStringId(view, id);
-    },
-    h: (function () {
-        return eval(`
-            function h(tag) {
-  let attrs = {};
-  let children = [];
-  if (typeof arguments[1] === "object") {
-    attrs = arguments[1]||{};
-    children = Array.prototype.slice.call(arguments, 2);
-  } else {
-    children = Array.prototype.slice.call(arguments, 1);
-  }
-  // 创建 XML 标签
-  let xmlElement = new XML('<' + tag + ' />');
-  // 设置属性
-  for (let [key, value] of Object.entries(attrs)) {
-    xmlElement.@[key] = value;
-  }
-
-  // 添加子元素
-  children.forEach((child) => {
-    if (typeof child === "string") {
-      xmlElement.appendChild(child); // 处理文本节点
-    } else {
-      xmlElement.appendChild(child); // 处理 XML 对象
-    }
-  });
-  return xmlElement;
-}
-            `)
-    })()
+    layout, layoutFile, inflate,
+    registerWidget,
+    setContentView, findById, findByStringId, h
 };
 defineGetter(ui, "emitter", () => activity ? activity.getEventEmitter() : null);
 
@@ -413,4 +384,4 @@ proxy.__proxy__ = {
 };
 
 
-export default proxy;
+export { proxy };
