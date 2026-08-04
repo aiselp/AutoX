@@ -1,4 +1,4 @@
-import { XML } from "./ui";
+import { XML } from "@/ui";
 
 function window(xml: XML | string) {
     if (typeof (xml) !== 'string') {

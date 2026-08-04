@@ -4,7 +4,8 @@ import _base64 from './base64'
 import _shell from './shell'
 import './inline_modules/files'
 import media, { Media } from './inline_modules/media'
-import ui, { Ui } from './inline_modules/ui'
+import * as _ui from './ui'
+import { proxy as ui_proxy } from './ui'
 import _selector from './inline_modules/selector'
 import _threads from './therads'
 import _floaty from './inline_modules/floaty'
@@ -27,7 +28,7 @@ import * as _web from './inline_modules/web'
 declare global {
     var shizuku: typeof _shizuku
     var media: Media
-    var ui: Ui
+    const ui: Omit<typeof _ui, 'proxy'>
     var shell: typeof _shell
     var base64: typeof _base64
     var selector: typeof _selector
@@ -51,7 +52,7 @@ declare global {
 
 setGlobalAnd$({
     selector: _selector,
-    ui: ui,
+    ui: ui_proxy,
     base64: _base64,
     shell: _shell,
     media: media,
