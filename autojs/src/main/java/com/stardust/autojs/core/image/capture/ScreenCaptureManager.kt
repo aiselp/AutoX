@@ -35,6 +35,7 @@ class ScreenCaptureManager : ScreenCaptureRequester {
             return
         }
 
+        recycle()
         val result = run {
             val result = CompletableDeferred<Intent>()
             TransparentActivity.requestNewActivity(context) { activity ->
@@ -85,9 +86,6 @@ class ScreenCaptureManager : ScreenCaptureRequester {
 
         // 绑定后立即启动服务
         context.startForegroundService(serviceIntent)
-
-        delay(50)  // 短暂等待服务启动
-
         serviceConnected.await()
     }
 

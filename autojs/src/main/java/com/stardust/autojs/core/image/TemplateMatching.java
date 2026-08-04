@@ -32,6 +32,7 @@ public class TemplateMatching {
     public static class Match {
         public final Point point;
         public final double similarity;
+        public Integer templateIndex = 0;
 
         public Match(Point point, double similarity) {
             this.point = point;
@@ -42,7 +43,8 @@ public class TemplateMatching {
         @Override
         public String toString() {
             return "Match{" +
-                    "point=" + point +
+                    "templateIndex=" + templateIndex +
+                    ", point=" + point +
                     ", similarity=" + similarity +
                     '}';
         }
@@ -73,86 +75,79 @@ public class TemplateMatching {
      * @return
      */
     public static List<Match> fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel, int limit, Boolean transparentMask) {
-        TimingLogger logger = new TimingLogger(LOG_TAG, "fast_tm");
-        // 创建资源回收列表
+        List<Mat> templates = Collections.singletonList(template);
+        return fastMultiTemplateMatching(img, templates, matchMethod, weakThreshold,
+                strictThreshold, maxLevel, limit, transparentMask);
+    }
+
+    /**
+     * 多模板匹配（高效版）
+     * 传入一张主图和多个模板，内部共享主图金字塔，一次完成所有模板的匹配。
+     *
+     * @param img             主图
+     * @param templates       模板列表
+     * @param matchMethod     匹配算法
+     * @param weakThreshold   弱阈值
+     * @param strictThreshold 强阈值
+     * @param maxLevel        金字塔层数（设为 MAX_LEVEL_AUTO 自动计算）
+     * @param limit           每层最多返回的候选点数量（控制计算量）
+     * @param transparentMask 是否启用透明蒙版
+     * @return 按模板顺序返回匹配结果列表；若某模板无匹配，则对应列表为空
+     */
+    public static List<Match> fastMultiTemplateMatching(Mat img,
+                                                        List<Mat> templates,
+                                                        int matchMethod,
+                                                        float weakThreshold,
+                                                        float strictThreshold,
+                                                        int maxLevel,
+                                                        int limit,
+                                                        Boolean transparentMask) {
+        TimingLogger logger = new TimingLogger(LOG_TAG, "fast_multi_tm");
         List<Mat> resourcesToRelease = new ArrayList<>();
 
         try {
+            // 确定全局最大金字塔层数（取所有模板允许层数的最大值）
+            int globalMaxLevel;
             if (maxLevel == MAX_LEVEL_AUTO) {
-                maxLevel = selectPyramidLevel(img, template);
-                logger.addSplit("selectPyramidLevel:" + maxLevel);
-            }
-            List<Match> finalMatchResult = new ArrayList<>();
-            List<Match> previousMatchResult = Collections.emptyList();
-            boolean isFirstMatching = true;
-            for (int level = maxLevel; level >= 0; level--) {
-                List<Match> currentMatchResult = new ArrayList<>();
-                Mat src = getPyramidDownAtLevel(img, level);
-                Mat currentTemplate = getPyramidDownAtLevel(template, level);
-                Mat currentMask = null;
-
-                if (transparentMask) {
-                    currentMask = TemplateMatchingKt.INSTANCE.processingAlphaChannel(currentTemplate);
+                globalMaxLevel = 0;
+                for (Mat template : templates) {
+                    int level = selectPyramidLevel(img, template);
+                    if (level > globalMaxLevel) globalMaxLevel = level;
                 }
+            } else {
+                globalMaxLevel = maxLevel;
+            }
 
-                // +++ 添加到释放列表 +++
+            // 构建主图金字塔（0 ~ globalMaxLevel）
+            List<Mat> imgPyramid = new ArrayList<>();
+            for (int level = 0; level <= globalMaxLevel; level++) {
+                Mat src = getPyramidDownAtLevel(img, level);
+                imgPyramid.add(src);
                 if (src != img) {
                     resourcesToRelease.add(src);
                 }
-                if (currentTemplate != template) {
-                    resourcesToRelease.add(currentTemplate);
-                }
-                if (currentMask != null) {
-                    resourcesToRelease.add(currentMask);
-                }
-
-                // 如果在上一轮中没有匹配到图片，则考虑是否退出匹配
-                if (previousMatchResult.isEmpty()) {
-                    // 如果不是第一次匹配，并且不满足shouldContinueMatching的条件，则直接退出匹配
-                    if (!isFirstMatching && !shouldContinueMatching(level, maxLevel)) {
-                        break;
-                    }
-                    Mat matchResult = matchTemplate(src, currentTemplate, matchMethod, currentMask);
-                    resourcesToRelease.add(matchResult);
-                    getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold, currentMatchResult, limit, null);
-                } else {
-                    for (Match match : previousMatchResult) {
-                        Rect r = getROI(match.point, src, currentTemplate);
-                        Mat m = new Mat(src, r);
-                        Mat matchResult = matchTemplate(m, currentTemplate, matchMethod, currentMask);
-
-                        // +++ 添加到释放列表 +++
-                        resourcesToRelease.add(m);
-                        resourcesToRelease.add(matchResult);
-
-                        getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold, currentMatchResult, limit, r);
-                    }
-                }
-
-                logger.addSplit("level:" + level + ", result:" + previousMatchResult);
-
-                // 把满足强阈值的点找出来，加到最终结果列表
-                if (!currentMatchResult.isEmpty()) {
-                    Iterator<Match> iterator = currentMatchResult.iterator();
-                    while (iterator.hasNext()) {
-                        Match match = iterator.next();
-                        if (match.similarity >= strictThreshold) {
-                            pyrUp(match.point, level);
-                            finalMatchResult.add(match);
-                            iterator.remove();
-                        }
-                    }
-                    // 如果所有结果都满足强阈值，则退出循环，返回最终结果
-                    if (currentMatchResult.isEmpty()) {
-                        break;
-                    }
-                }
-                isFirstMatching = false;
-                previousMatchResult = currentMatchResult;
             }
-            logger.addSplit("result:" + finalMatchResult);
+
+            List<Match> allResults = new ArrayList<>();
+            for (int i = 0; i < templates.size(); i++) {
+                List<Match> result = matchTemplateWithPyramid(imgPyramid,
+                        templates.get(i),
+                        globalMaxLevel,
+                        matchMethod,
+                        weakThreshold,
+                        strictThreshold,
+                        limit,
+                        transparentMask,
+                        resourcesToRelease);
+                for (Match r : result) {
+                    r.templateIndex = i;
+                }
+                allResults.addAll(result);
+            }
+
+            logger.addSplit("multi_templates: " + templates.size());
             logger.dumpToLog();
-            return finalMatchResult;
+            return allResults;
         } finally {
             for (Mat mat : resourcesToRelease) {
                 try {
@@ -164,6 +159,103 @@ public class TemplateMatching {
         }
     }
 
+    /**
+     * 利用已有的主图金字塔对单个模板进行匹配
+     *
+     * @param imgPyramid         主图金字塔（0 为原图）
+     * @param template           单个模板原图
+     * @param globalMaxLevel     全局最大层数（用于限制模板自身层数）
+     * @param matchMethod        匹配算法
+     * @param weakThreshold      弱阈值
+     * @param strictThreshold    强阈值
+     * @param limit              每层最大候选数
+     * @param transparentMask    是否处理透明通道
+     * @param resourcesToRelease 资源回收列表
+     * @return 匹配结果（坐标已映射回原图）
+     */
+    private static List<Match> matchTemplateWithPyramid(List<Mat> imgPyramid,
+                                                        Mat template,
+                                                        int globalMaxLevel,
+                                                        int matchMethod,
+                                                        float weakThreshold,
+                                                        float strictThreshold,
+                                                        int limit,
+                                                        Boolean transparentMask,
+                                                        List<Mat> resourcesToRelease) {
+        // 计算模板自身的最大可行层数
+        int tMaxLevel = selectPyramidLevel(imgPyramid.get(0), template);
+        tMaxLevel = Math.min(tMaxLevel, globalMaxLevel);
+
+        // 构建模板金字塔
+        List<Mat> templatePyramid = new ArrayList<>();
+        for (int level = 0; level <= tMaxLevel; level++) {
+            Mat t = getPyramidDownAtLevel(template, level);
+            templatePyramid.add(t);
+            if (t != template) {
+                resourcesToRelease.add(t);
+            }
+        }
+
+        List<Match> finalMatchResult = new ArrayList<>();
+        List<Match> previousMatchResult = Collections.emptyList();
+        boolean isFirstMatching = true;
+
+        for (int level = tMaxLevel; level >= 0; level--) {
+            List<Match> currentMatchResult = new ArrayList<>();
+            Mat src = imgPyramid.get(level);
+            Mat currentTemplate = templatePyramid.get(level);
+            Mat currentMask = null;
+
+            if (transparentMask) {
+                currentMask = TemplateMatchingKt.INSTANCE.processingAlphaChannel(currentTemplate);
+                resourcesToRelease.add(currentMask);
+            }
+
+            if (previousMatchResult.isEmpty()) {
+                // 决定是否继续匹配（根据弱阈值跳过部分层）
+                if (!isFirstMatching && !shouldContinueMatching(level, tMaxLevel)) {
+                    break;
+                }
+                // 全图匹配
+                Mat matchResult = matchTemplate(src, currentTemplate, matchMethod, currentMask);
+                resourcesToRelease.add(matchResult);
+                getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold,
+                        currentMatchResult, limit, null);
+            } else {
+                // 在上一层的匹配点附近进行局部匹配
+                for (Match match : previousMatchResult) {
+                    Rect r = getROI(match.point, src, currentTemplate);
+                    Mat m = new Mat(src, r);
+                    Mat matchResult = matchTemplate(m, currentTemplate, matchMethod, currentMask);
+                    resourcesToRelease.add(m);
+                    resourcesToRelease.add(matchResult);
+                    getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold,
+                            currentMatchResult, limit, r);
+                }
+            }
+
+            // 强阈值处理：达到 strictThreshold 的结果直接加入最终列表，并停止该模板后续匹配
+            if (!currentMatchResult.isEmpty()) {
+                Iterator<Match> iterator = currentMatchResult.iterator();
+                while (iterator.hasNext()) {
+                    Match match = iterator.next();
+                    if (match.similarity >= strictThreshold) {
+                        pyrUp(match.point, level);    // 坐标还原至原图尺寸
+                        finalMatchResult.add(match);
+                        iterator.remove();
+                    }
+                }
+                if (currentMatchResult.isEmpty()) {
+                    break;  // 所有候选都满足强阈值，提前终止
+                }
+            }
+
+            isFirstMatching = false;
+            previousMatchResult = currentMatchResult;
+        }
+
+        return finalMatchResult;
+    }
 
     private static Mat getPyramidDownAtLevel(Mat m, int level) {
         if (level == 0) {
@@ -273,7 +365,7 @@ public class TemplateMatching {
             pos.y += rect.y;
         }
         logger.addSplit("value:" + value);
-        if(!Double.isFinite(value)){
+        if (!Double.isFinite(value)) {
             return getBestMatched(replaceNoFinite(tmResult), matchMethod, weakThreshold, rect);
         }
         return new Match(pos, value);
