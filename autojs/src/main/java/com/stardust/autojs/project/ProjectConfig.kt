@@ -116,6 +116,22 @@ data class ProjectConfig(
 
         }
 
+        /**
+         * 宽松读取 project.json/_config.json，不校验字段完整性
+         * 用于打包配置自动填充：只要文件存在即可读取
+         * packageName/versionName/versionCode 及其余打包相关属性
+         */
+        fun fromProjectLoose(path: File): ProjectConfig? {
+            if (!path.isFile) return null
+            return try {
+                GSON.fromJson(path.readText(), ProjectConfig::class.java)?.apply {
+                    projectDirectory = path.parentFile?.absolutePath
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         fun configFileOfDir(projectDir: String, configName: String = CONFIG_FILE_NAME): String {
             return PFiles.join(projectDir, configName)
         }

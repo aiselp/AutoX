@@ -205,8 +205,9 @@ class BuildViewModel(private val app: Application, private var source: String) :
     }
 
     fun saveConfig(
+        showToast: Boolean = true,
         onCompletion: () -> Unit = {
-            toast(
+            if (showToast) toast(
                 getApplication(),
                 R.string.text_save_successfully
             )
@@ -272,7 +273,8 @@ class BuildViewModel(private val app: Application, private var source: String) :
             updateAbiList(abis)
             if (ignoredDirs.isEmpty()) ignoredDirs = listOf(buildDir)
             name = viewModel.appName
-            versionCode = viewModel.versionCode.toInt()
+            //版本号可能为空串，直接toInt会抛异常导致保存失败
+            versionCode = viewModel.versionCode.toIntOrNull() ?: 1
             versionName = viewModel.versionName
             packageName = viewModel.packageName
             mainScript = viewModel.mainScriptFile
@@ -568,6 +570,16 @@ class BuildViewModel(private val app: Application, private var source: String) :
         if (file.isFile) { //如果是文件
             directory = file.parent
             sourcePath = file.path
+            //优先加载上次保存的打包配置(脚本同名_config.json)，否则读取脚本目录下的project.json自动填充
+            val lastSavedConfigFile = File(directory, getConfigName1(true))
+            val configFile = if (lastSavedConfigFile.isFile) lastSavedConfigFile
+            else File(file.parentFile, ProjectConfig.CONFIG_FILE_NAME)
+            ProjectConfig.fromProjectLoose(configFile)?.let {
+                oldProjectConfig = it
+                isOldProjectConfigExist = true
+                projectConfig = it.copy()
+                syncViewModelByConfig(projectConfig)
+            }
         } else { //如果是目录
             directory = file.path
             oldProjectConfig = ProjectConfig.fromProject(file)
@@ -624,6 +636,8 @@ class BuildViewModel(private val app: Application, private var source: String) :
 
     fun buildApk() = mainScope.launch {
         syncToProjectConfig()
+        //打包前自动保存配置，下次进入打包页时自动加载上次配置
+        saveConfig(showToast = false)
         doBuildingApk()
     }
 
