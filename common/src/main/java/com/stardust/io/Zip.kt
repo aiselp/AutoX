@@ -17,6 +17,8 @@ object Zip {
                 var z: ZipEntry?
                 while (zis.nextEntry.also { z = it } != null) {
                     val entry = z ?: continue
+                    //部分APK(zipflinger/aapt2打包)会包含文件名为空的条目，跳过，避免把目录当文件打开导致EISDIR
+                    if (entry.name.isEmpty()) continue
                     val file = File(dir, entry.name)
                     if (entry.isDirectory) {
                         file.mkdirs()
