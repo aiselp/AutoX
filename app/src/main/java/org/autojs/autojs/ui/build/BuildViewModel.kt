@@ -3,6 +3,7 @@ package org.autojs.autojs.ui.build
 import android.app.Application
 import android.net.Uri
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -471,6 +472,41 @@ class BuildViewModel(private val app: Application, private var source: String) :
                     isRequiredPublishNotificationPermission = true
                 }
             }
+        }
+    }
+
+    /**
+     * 选择图标后立即复制到缓存目录，避免高版本安卓的临时content://地址在打包时失效
+     */
+    fun selectIcon(uri: Uri?) {
+        icon = copyToCache(uri, "logo")
+    }
+
+    /**
+     * 选择启动图标后立即复制到缓存目录
+     */
+    fun selectSplashIcon(uri: Uri?) {
+        splashIcon = copyToCache(uri, "splashIcon")
+    }
+
+    private fun copyToCache(uri: Uri?, name: String): Uri? {
+        if (uri == null) return null
+        //已经是本地文件则直接使用
+        if (uri.scheme == "file") return uri
+        return try {
+            val iconDir = File(app.cacheDir, "icons")
+            if (!iconDir.exists()) iconDir.mkdirs()
+            val ext = app.contentResolver.getType(uri)?.let {
+                MimeTypeMap.getSingleton().getExtensionFromMimeType(it)
+            } ?: "png"
+            val file = File(iconDir, "$name-${System.currentTimeMillis()}.$ext")
+            app.contentResolver.openInputStream(uri)?.use { input ->
+                file.outputStream().use { output -> input.copyTo(output) }
+            }
+            file.toUri()
+        } catch (e: Exception) {
+            Log.e(TAG, "copy icon to cache failed", e)
+            uri
         }
     }
 
