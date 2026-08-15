@@ -13,11 +13,7 @@ object Constant {
         val GOOGLE_ML_KIT_OCR = listOf("libmlkit_google_ocr_pipeline.so")
         val PADDLE_OCR = listOf(
             "libc++_shared.so",
-            "libpaddle_light_api_shared.so",
-            "libhiai.so",
-            "libhiai_ir.so",
-            "libhiai_ir_build.so",
-            "libNative.so"
+            "libppocrv5ncnn.so"
         )
         val TESSERACT_OCR = listOf(
             "libtesseract.so",
