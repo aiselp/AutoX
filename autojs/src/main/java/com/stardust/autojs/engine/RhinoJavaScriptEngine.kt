@@ -14,6 +14,7 @@ import com.stardust.autojs.rhino.TopLevelScope
 import com.stardust.autojs.runtime.ScriptRuntime
 import com.stardust.autojs.script.JavaScriptFileSource
 import com.stardust.autojs.script.JavaScriptSource
+import com.stardust.autojs.util.ObjectWatcher
 import com.stardust.pio.UncheckedIOException
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.Script
@@ -104,13 +105,11 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
         // 清除 require 缓存，释放所有 ModuleScope
         if (::require.isInitialized) {
             require.clearCache()
+            ObjectWatcher.watch(require, "$this::$require")
         }
-        try {
-            // 退出当前线程的 Rhino Context
-            Context.exit()
-        } catch (e: IllegalStateException) {
-            Log.w(LOG_TAG, "Context.exit() on wrong thread", e)
-        }
+        // 退出当前线程的 Rhino Context
+        Context.exit()
+        ObjectWatcher.watch(this, this.toString())
     }
 
     override fun init() {
