@@ -2,6 +2,12 @@
 autoxjs 整个项目的一些更新日志,双版本号为稳定版（内容以修复的bug为主），单版本号为激进版本、发布新内容。
 
 ## [Unreleased](https://github.com/kkevsekk1/AutoX/compare/7.0.5...HEAD) 未发布
+## [7.2.4] - 2026-10-3
+新增API & 7.2.3版本Bug修复 (#202)
+* 新增多图片模板匹配API: matchMultiTemplates
+* 解决多脚本环境下，脚本停止影响共享截图权限的问题
+* 添加通知栏停止所有脚本
+
 ## [7.2.3] - 2026-7-27
 * 修复无障碍权限，app进程无法访问script进程的无障碍权限实例导致的bug
 
