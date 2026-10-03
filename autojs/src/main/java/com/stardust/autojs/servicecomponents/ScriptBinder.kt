@@ -98,7 +98,7 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
         }
     }
 
-    private fun stopAllScript() = AutoJs.instance.scriptEngineService.stopAll()
+    private fun stopAllScript() = AutoJs.instance.scriptEngineService.stopAllAndToast()
 
     private fun registerGlobalScriptListener(data: Parcel) {
         val binder = data.readStrongBinder()

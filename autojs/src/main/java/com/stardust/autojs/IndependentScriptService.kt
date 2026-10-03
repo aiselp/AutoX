@@ -80,7 +80,20 @@ class IndependentScriptService : AbstractAutoService() {
             .setChannelId(CHANEL_ID)
             .setVibrate(LongArray(0))
             .setOngoing(true)
-
+            .addAction(
+                R.drawable.ic_close_white_24dp,
+                getString(R.string.text_stop_all_script),
+                PendingIntent.getService(
+                    this, 2,
+                    Intent(
+                        ACTION_STOP_ALL_SCRIPT,
+                        null,
+                        this,
+                        IndependentScriptService::class.java
+                    ),
+                    PendingIntent.FLAG_IMMUTABLE
+                )
+            )
         return builder.build()
     }
 
@@ -95,6 +108,9 @@ class IndependentScriptService : AbstractAutoService() {
                 isForegroundRunning = false
                 stopServiceInternal()
             }
+
+            ACTION_STOP_ALL_SCRIPT -> AutoJs.instance.scriptEngineService.stopAllAndToast()
+
         }
         return super.onStartCommand(intent, flags, startId)
     }
@@ -125,6 +141,8 @@ class IndependentScriptService : AbstractAutoService() {
         private val CHANEL_ID = IndependentScriptService::class.java.name + "_foreground"
         const val ACTION_START_FOREGROUND = "action_start_foreground"
         const val ACTION_STOP_FOREGROUND = "action_stop_foreground"
+        const val ACTION_STOP_ALL_SCRIPT = "action_stop_all_script"
+
         @Volatile
         var isForegroundRunning = false
             private set
