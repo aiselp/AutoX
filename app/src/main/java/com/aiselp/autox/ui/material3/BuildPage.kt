@@ -217,7 +217,7 @@ private fun ConfigCard(model: BuildViewModel) {
     val selectIconLauncher = rememberLauncherForActivityResult(
         contract = ShortcutIconSelectResult(),
         onResult = {
-            it?.let { model.icon = it }
+            it?.let { model.selectIcon(it) }
         }
     )
 
@@ -304,7 +304,7 @@ private fun PackagingOptionCard(model: BuildViewModel) {
 private fun RunConfigCard(model: BuildViewModel) {
     val selectIconLauncher = rememberLauncherForActivityResult(
         contract = ShortcutIconSelectResult(),
-        onResult = { it?.let { model.splashIcon = it } }
+        onResult = { it?.let { model.selectSplashIcon(it) } }
     )
     BuildCard(stringResource(R.string.text_run_config)) {
         InputBox(

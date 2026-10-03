@@ -3,6 +3,7 @@ package org.autojs.autojs.ui.build
 import android.app.Application
 import android.net.Uri
 import android.util.Log
+import android.webkit.MimeTypeMap
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -204,8 +205,9 @@ class BuildViewModel(private val app: Application, private var source: String) :
     }
 
     fun saveConfig(
+        showToast: Boolean = true,
         onCompletion: () -> Unit = {
-            toast(
+            if (showToast) toast(
                 getApplication(),
                 R.string.text_save_successfully
             )
@@ -271,7 +273,8 @@ class BuildViewModel(private val app: Application, private var source: String) :
             updateAbiList(abis)
             if (ignoredDirs.isEmpty()) ignoredDirs = listOf(buildDir)
             name = viewModel.appName
-            versionCode = viewModel.versionCode.toInt()
+            //版本号可能为空串，直接toInt会抛异常导致保存失败
+            versionCode = viewModel.versionCode.toIntOrNull() ?: 1
             versionName = viewModel.versionName
             packageName = viewModel.packageName
             mainScript = viewModel.mainScriptFile
@@ -474,6 +477,41 @@ class BuildViewModel(private val app: Application, private var source: String) :
         }
     }
 
+    /**
+     * 选择图标后立即复制到缓存目录，避免高版本安卓的临时content://地址在打包时失效
+     */
+    fun selectIcon(uri: Uri?) {
+        icon = copyToCache(uri, "logo")
+    }
+
+    /**
+     * 选择启动图标后立即复制到缓存目录
+     */
+    fun selectSplashIcon(uri: Uri?) {
+        splashIcon = copyToCache(uri, "splashIcon")
+    }
+
+    private fun copyToCache(uri: Uri?, name: String): Uri? {
+        if (uri == null) return null
+        //已经是本地文件则直接使用
+        if (uri.scheme == "file") return uri
+        return try {
+            val iconDir = File(app.cacheDir, "icons")
+            if (!iconDir.exists()) iconDir.mkdirs()
+            val ext = app.contentResolver.getType(uri)?.let {
+                MimeTypeMap.getSingleton().getExtensionFromMimeType(it)
+            } ?: "png"
+            val file = File(iconDir, "$name-${System.currentTimeMillis()}.$ext")
+            app.contentResolver.openInputStream(uri)?.use { input ->
+                file.outputStream().use { output -> input.copyTo(output) }
+            }
+            file.toUri()
+        } catch (e: Exception) {
+            Log.e(TAG, "copy icon to cache failed", e)
+            uri
+        }
+    }
+
     private suspend fun saveLogo() {
         val uri = icon?.let { saveIcon(it, "logo")?.toUri() }
         icon = uri
@@ -532,6 +570,16 @@ class BuildViewModel(private val app: Application, private var source: String) :
         if (file.isFile) { //如果是文件
             directory = file.parent
             sourcePath = file.path
+            //优先加载上次保存的打包配置(脚本同名_config.json)，否则读取脚本目录下的project.json自动填充
+            val lastSavedConfigFile = File(directory, getConfigName1(true))
+            val configFile = if (lastSavedConfigFile.isFile) lastSavedConfigFile
+            else File(file.parentFile, ProjectConfig.CONFIG_FILE_NAME)
+            ProjectConfig.fromProjectLoose(configFile)?.let {
+                oldProjectConfig = it
+                isOldProjectConfigExist = true
+                projectConfig = it.copy()
+                syncViewModelByConfig(projectConfig)
+            }
         } else { //如果是目录
             directory = file.path
             oldProjectConfig = ProjectConfig.fromProject(file)
@@ -588,6 +636,8 @@ class BuildViewModel(private val app: Application, private var source: String) :
 
     fun buildApk() = mainScope.launch {
         syncToProjectConfig()
+        //打包前自动保存配置，下次进入打包页时自动加载上次配置
+        saveConfig(showToast = false)
         doBuildingApk()
     }
 
