@@ -310,10 +310,9 @@ function bind(value: string) {
         var j = value.indexOf("}}", i + 1);
         if (j < 0)
             return value;
-        value = value.substring(0, i) +
-            evalInContext(value.substring(i + 2, j), ctx) +
-            value.substring(j + 2);
-        i = j + 1;
+        var rep = String(evalInContext(value.substring(i + 2, j), ctx));
+        value = value.substring(0, i) + rep + value.substring(j + 2);
+        i = i + rep.length - 1;
     }
     return value;
 }
