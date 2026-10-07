@@ -143,7 +143,8 @@ class JsBridge(private val webView: WebView) {
             args: Array<out Any>?
         ) {
             val arr = args?.toList()
-            val data: String = arr?.elementAtOrNull(0) as? String ?: ""
+            // Rhino 字符串拼接产生 ConsString(非 java.lang.String),按 CharSequence 取串
+            val data: String = (arr?.elementAtOrNull(0) as? CharSequence)?.toString() ?: ""
             val fn = arr?.elementAtOrNull(1) as? BaseFunction
             ktFn?.invoke(data, fn?.let { Handle(fn) })
             jsFn?.call(cx, scope, thisObj, args)
