@@ -82,19 +82,21 @@ class Paddle {
         return predictor.initOcrWithConfig(get(), config)
     }
     fun mapToOcrConfig(map: MutableMap<String, Any>): OcrConfig {
+        // Rhino 字符串拼接产生 ConsString(非 java.lang.String),按 CharSequence 取串
+        fun str(key: String) = (map[key] as? CharSequence)?.toString()
         return OcrConfig().apply {
             (map["useSlim"] as? Boolean)?.let {
                 useSlim = it
                 //modelPath = if (useSlim) "models/ocr_v5_for_cpu(slim)" else "models/ocr_v5_for_cpu"
                 imageSize = if (useSlim) IMAGE_SIZE_SLIM else IMAGE_SIZE_FULL
             }
-            (map["modelPath"] as? String)?.let {
+            str("modelPath")?.let {
                 modelPath = it
                 useSlim = false
             }
             (map["cpuThreadNum"] as? Number)?.toInt()?.let { cpuThreadNum = it }
             (map["scoreThreshold"] as? Number)?.toFloat()?.let { scoreThreshold = it }
-            (map["device"] as? String)?.let {
+            str("device")?.let {
                 device = when (it.uppercase()) {
                     "GPU" -> Device.GPU
                     "Vulkan" -> Device.TurnipVulkan
@@ -105,10 +107,10 @@ class Paddle {
             //(map["modelType"] as? String)?.let { modelType = ModelType.valueOf(it) }
             (map["useFp16"] as? Boolean)?.let { useFp16 = it }
             (map["isDrawTextBox"] as? Boolean)?.let { isDrawTextBox = it }
-            (map["detParamFilename"] as? String)?.let { detParamFilename = it }
-            (map["detBinFilename"] as? String)?.let { detBinFilename = it }
-            (map["recParamFilename"] as? String)?.let { recParamFilename = it }
-            (map["recBinFilename"] as? String)?.let { recBinFilename = it }
+            str("detParamFilename")?.let { detParamFilename = it }
+            str("detBinFilename")?.let { detBinFilename = it }
+            str("recParamFilename")?.let { recParamFilename = it }
+            str("recBinFilename")?.let { recBinFilename = it }
         }
     }
 
