@@ -90,17 +90,7 @@ android {
         jniLibs.pickFirsts.addAll(
             listOf(
                 "lib/arm64-v8a/libc++_shared.so",
-                "lib/arm64-v8a/libhiai.so",
-                "lib/arm64-v8a/libhiai_ir.so",
-                "lib/arm64-v8a/libhiai_ir_build.so",
-                "lib/arm64-v8a/libNative.so",
-                "lib/arm64-v8a/libpaddle_light_api(_shared.so",
-                "lib/armeabi-v7a/libc++_shared.so",
-                "lib/armeabi-v7a/libhiai.so",
-                "lib/armeabi-v7a/libhiai_ir.so",
-                "lib/armeabi-v7a/libhiai_ir_build.so",
-                "lib/armeabi-v7a/libNative.so",
-                "lib/armeabi-v7a/libpaddle_light_api(_shared.so"
+                "lib/armeabi-v7a/libc++_shared.so"
             )
         )
     }
