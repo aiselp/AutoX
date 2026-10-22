@@ -3,13 +3,12 @@ package org.autojs.autojs.ui.edit.theme
 import android.annotation.SuppressLint
 import android.content.Context
 import com.stardust.pio.UncheckedIOException
-import io.reactivex.Observable
-import io.reactivex.schedulers.Schedulers
-import io.reactivex.subjects.PublishSubject
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.schedulers.Schedulers
+import io.reactivex.rxjava3.subjects.PublishSubject
 import org.autojs.autojs.Pref
 import org.autojs.autojs.ui.util.isSystemNightMode
 import java.io.IOException
-import java.io.InputStream
 import java.io.InputStreamReader
 import java.util.*
 
@@ -20,60 +19,46 @@ object Themes {
     private const val ASSETS_THEMES_PATH = "editor/theme"
     private const val DEFAULT_THEME = "Quiet Light"
     private const val DARK_THEME = "Dark (Visual Studio)"
-    private var sThemes: MutableList<Theme>? = null
+    private var sThemes: List<Theme>? = null
     private var sDefaultTheme: Theme? = null
 
     @SuppressLint("CheckResult")
     @JvmStatic
-    fun getAllThemes(context: Context): Observable<List<Theme>?> {
-        if (sThemes != null) {
-            return Observable.just(sThemes)
-        }
-        val subject = PublishSubject.create<List<Theme>?>()
+    fun getAllThemes(context: Context): Observable<List<Theme>> {
+        sThemes?.let { return Observable.just(it) }
+        val subject = PublishSubject.create<List<Theme>>()
         getAllThemesInner(context)
             .subscribeOn(Schedulers.io())
-            .subscribe({ themes: List<Theme>? ->
-                themes?.let {
-                    setThemes(it)
-                    subject.onNext(sThemes!!)
-                    subject.onComplete()
-                }
-            }) { obj: Throwable -> obj.printStackTrace() }
+            .subscribe({ themes ->
+                setThemes(themes)
+                subject.onNext(sThemes!!)
+                subject.onComplete()
+            }, Throwable::printStackTrace)
         return subject
     }
 
-    fun getDefault(context: Context): Observable<Theme?> {
-        return if (sDefaultTheme != null) Observable.just(sDefaultTheme) else getAllThemes(context)
-            .map { sDefaultTheme }
+    fun getDefault(context: Context): Observable<Theme> {
+        return sDefaultTheme?.let { Observable.just(it) }
+            ?: getAllThemes(context).map { sDefaultTheme!! }
     }
 
     @Synchronized
     private fun setThemes(themes: List<Theme>) {
         if (sThemes != null) return
-        sThemes = Collections.unmodifiableList(themes)
-        sThemes?.let {
-            for (theme in it) {
-                if (DEFAULT_THEME == theme.name) {
-                    sDefaultTheme = theme
-                    return
-                }
-            }
-            sDefaultTheme = it[0]
+        sThemes = Collections.unmodifiableList(themes).also {
+            sDefaultTheme = it.firstOrNull { theme -> DEFAULT_THEME == theme.name } ?: it[0]
         }
     }
 
-    private fun getAllThemesInner(context: Context): Observable<MutableList<Theme>?> {
-        return if (sThemes != null) {
-            Observable.just(sThemes)
-        } else try {
+    private fun getAllThemesInner(context: Context): Observable<List<Theme>> {
+        sThemes?.let { return Observable.just(it) }
+        return try {
             Observable.fromArray(*context.assets.list(ASSETS_THEMES_PATH))
-                .map { file: String? -> context.assets.open("$ASSETS_THEMES_PATH/$file") }
-                .map { stream: InputStream? -> Theme.fromJson(InputStreamReader(stream)) }
-                .collectInto(ArrayList<Theme>() as MutableList<Theme>) { obj: MutableList<Theme>?, e: Theme ->
-                    obj!!.add(
-                        e
-                    )
+                .map { file: String ->
+                    context.assets.open("$ASSETS_THEMES_PATH/$file")
+                        .use { Theme.fromJson(InputStreamReader(it)) }
                 }
+                .toList()
                 .toObservable()
         } catch (e: IOException) {
             throw UncheckedIOException(e)
@@ -81,19 +66,12 @@ object Themes {
     }
 
     @JvmStatic
-    fun getCurrent(context: Context): Observable<Theme?> {
+    fun getCurrent(context: Context): Observable<Theme> {
         val currentTheme =
             (if (Pref.isNightModeEnabled() || context.isSystemNightMode()) DARK_THEME else Pref.getCurrentTheme())
                 ?: return getDefault(context)
         return getAllThemes(context)
-            .map { themes: List<Theme>? ->
-                themes?.let {
-                    for (theme in themes) {
-                        if (currentTheme == theme.name) return@map theme
-                    }
-                    return@map themes[0]
-                }
-            }
+            .map { themes -> themes.firstOrNull { it.name == currentTheme } ?: themes[0] }
     }
 
     @JvmStatic

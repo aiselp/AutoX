@@ -7,8 +7,8 @@ import android.content.Intent
 import android.util.Log
 import com.stardust.app.GlobalAppContext.toast
 import com.stardust.autojs.execution.ExecutionConfig
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.schedulers.Schedulers
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.schedulers.Schedulers
 import org.autojs.autojs.autojs.AutoJs
 import org.autojs.autojs.model.script.ScriptFile
 import org.autojs.autojs.timing.IntentTask

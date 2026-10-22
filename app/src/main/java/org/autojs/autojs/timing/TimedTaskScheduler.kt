@@ -3,8 +3,8 @@ package org.autojs.autojs.timing
 import android.annotation.SuppressLint
 import android.app.Application
 import android.util.Log
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.schedulers.Schedulers
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.schedulers.Schedulers
 import org.autojs.autojs.App
 import org.autojs.autojs.Pref
 import org.autojs.autojs.timing.work.AlarmManagerProvider

@@ -96,8 +96,6 @@ mlkit-text-recognition-japanese = { module = "com.google.mlkit:text-recognition-
 mlkit-text-recognition-korean = { module = "com.google.mlkit:text-recognition-korean", version.ref = "mlkit-text" }
 #rxjava
 quickie-bundled = { module = "io.github.g00fy2.quickie:quickie-bundled", version.ref = "quickie-bundled" }
-rxjava2 = "io.reactivex.rxjava2:rxjava:2.2.21"
-rxjava2-rxandroid = "io.reactivex.rxjava2:rxandroid:2.1.1"
 rxjava3 = "io.reactivex.rxjava3:rxjava:3.1.11"
 rxjava3-rxandroid = "io.reactivex.rxjava3:rxandroid:3.0.2"
 javet-android-node = "com.caoccao.javet:javet-node-android:5.0.2"

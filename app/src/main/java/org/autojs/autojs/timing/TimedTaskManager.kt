@@ -3,8 +3,8 @@ package org.autojs.autojs.timing
 import android.annotation.SuppressLint
 import android.app.Application
 import android.text.TextUtils
-import io.reactivex.Flowable
-import io.reactivex.Observable
+import io.reactivex.rxjava3.core.Flowable
+import io.reactivex.rxjava3.core.Observable
 import org.autojs.autojs.App
 import org.autojs.autojs.App.Companion.app
 import org.autojs.autojs.storage.database.IntentTaskDatabase

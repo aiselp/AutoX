@@ -1,6 +1,6 @@
 package org.autojs.autojs.model.explorer;
 
-import io.reactivex.Single;
+import io.reactivex.rxjava3.core.Single;
 
 public interface ExplorerProvider {
 

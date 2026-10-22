@@ -210,9 +210,7 @@ dependencies {
     //FlexibleDivider
     implementation("com.yqritc:recyclerview-flexibledivider:1.4.0")
 
-    // RxJava  Deprecated!!
-    implementation(libs.rxjava2)
-    implementation(libs.rxjava2.rxandroid)
+    implementation(libs.rxjava3.rxandroid)
     // Retrofit
     implementation(libs.retrofit2.retrofit)
     implementation(libs.retrofit2.converter.gson)

@@ -52,10 +52,10 @@ import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.snackbar.Snackbar
 import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.pio.PFiles
-import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.Disposable
-import io.reactivex.schedulers.Schedulers
+import io.reactivex.rxjava3.schedulers.Schedulers
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -279,7 +279,7 @@ open class ExplorerViewKt : FrameLayout, ViewTreeObserver.OnGlobalFocusChangeLis
         isRefreshing = true
         explorer!!.fetchChildren(currentPageState.currentPage)
             .subscribeOn(Schedulers.io())
-            .flatMapObservable { page: ExplorerPage? ->
+            .flatMapObservable { page: ExplorerPage ->
                 currentPageState.currentPage = page
                 Observable.fromIterable(page)
             }
