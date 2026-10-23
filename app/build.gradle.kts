@@ -247,9 +247,6 @@ dependencies {
     implementation(libs.bundles.ktor)
     //qr scan
     implementation(libs.quickie.bundled)
-    //Fab button with menu, please do not upgrade, download dependencies will be error after upgrade
-    //noinspection GradleDependency
-    implementation("com.leinardi.android:speed-dial.compose:1.0.0-alpha03")
     //TextView markdown
     implementation("io.noties.markwon:core:4.6.2")
     implementation(libs.androidx.viewpager2)

@@ -68,7 +68,6 @@ dependencies {
 
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.5.0")
     //implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.5.0")
-    implementation("androidx.exifinterface:exifinterface:1.4.2")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
