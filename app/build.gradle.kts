@@ -218,8 +218,6 @@ dependencies {
     //Glide
     implementation(libs.glide)
     ksp(libs.glide.ksp)
-    //joda time
-    implementation("net.danlew:android.joda:2.10.14")
     // Tasker Plugin
     implementation("com.twofortyfouram:android-plugin-client-sdk-for-locale:4.0.3")
     // MaterialDialogCommon

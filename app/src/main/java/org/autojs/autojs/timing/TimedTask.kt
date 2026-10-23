@@ -8,10 +8,10 @@ import com.stardust.autojs.execution.ExecutionConfig
 import org.autojs.autojs.external.ScriptIntents
 import org.autojs.autojs.storage.database.BaseModel
 import org.autojs.autoxjs.BuildConfig
-import org.joda.time.DateTime
-import org.joda.time.DateTimeConstants
-import org.joda.time.LocalDateTime
-import org.joda.time.LocalTime
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 class TimedTask : BaseModel {
@@ -66,8 +66,7 @@ class TimedTask : BaseModel {
         }
     private val nextTimeOfDailyTask: Long
         get() {
-            val time = LocalTime.fromMillisOfDay(millis)
-            val nextTimeMillis = time.toDateTimeToday().millis
+            val nextTimeMillis = millis.toLocalTimeOfDay().toEpochMillisToday()
             return if (System.currentTimeMillis() > nextTimeMillis) {
                 nextTimeMillis + TimeUnit.DAYS.toMillis(1)
             } else {
@@ -76,8 +75,8 @@ class TimedTask : BaseModel {
         }
     private val nextTimeOfWeeklyTask: Long
         get() {
-            var dayOfWeek = DateTime.now().dayOfWeek
-            var nextTimeMillis = LocalTime.fromMillisOfDay(millis).toDateTimeToday().millis
+            var dayOfWeek = LocalDate.now().dayOfWeek.value
+            var nextTimeMillis = millis.toLocalTimeOfDay().toEpochMillisToday()
             for (i in 0..7) {
                 if (getDayOfWeekTimeFlag(dayOfWeek) and timeFlag != 0L) {
                     if (System.currentTimeMillis() <= nextTimeMillis) {
@@ -87,7 +86,9 @@ class TimedTask : BaseModel {
                 dayOfWeek++
                 nextTimeMillis += TimeUnit.DAYS.toMillis(1)
             }
-            throw IllegalStateException("Should not happen! timeFlag = " + timeFlag + ", dayOfWeek = " + DateTime.now().dayOfWeek)
+            throw IllegalStateException(
+                "Should not happen! timeFlag = $timeFlag, dayOfWeek = ${LocalDate.now().dayOfWeek}"
+            )
         }
     val isDaily: Boolean
         get() = timeFlag == FLAG_EVERYDAY.toLong()
@@ -152,13 +153,13 @@ class TimedTask : BaseModel {
             var dayOfWeek = dayOfWeek
             dayOfWeek = (dayOfWeek - 1) % 7 + 1
             when (dayOfWeek) {
-                DateTimeConstants.SUNDAY -> return FLAG_SUNDAY.toLong()
-                DateTimeConstants.MONDAY -> return FLAG_MONDAY.toLong()
-                DateTimeConstants.SATURDAY -> return FLAG_SATURDAY.toLong()
-                DateTimeConstants.WEDNESDAY -> return FLAG_WEDNESDAY.toLong()
-                DateTimeConstants.TUESDAY -> return FLAG_TUESDAY.toLong()
-                DateTimeConstants.THURSDAY -> return FLAG_THURSDAY.toLong()
-                DateTimeConstants.FRIDAY -> return FLAG_FRIDAY.toLong()
+                DayOfWeek.SUNDAY.value -> return FLAG_SUNDAY.toLong()
+                DayOfWeek.MONDAY.value -> return FLAG_MONDAY.toLong()
+                DayOfWeek.SATURDAY.value -> return FLAG_SATURDAY.toLong()
+                DayOfWeek.WEDNESDAY.value -> return FLAG_WEDNESDAY.toLong()
+                DayOfWeek.TUESDAY.value -> return FLAG_TUESDAY.toLong()
+                DayOfWeek.THURSDAY.value -> return FLAG_THURSDAY.toLong()
+                DayOfWeek.FRIDAY.value -> return FLAG_FRIDAY.toLong()
             }
             throw IllegalArgumentException("dayOfWeek = $dayOfWeek")
         }
@@ -166,7 +167,7 @@ class TimedTask : BaseModel {
         @JvmStatic
         fun dailyTask(time: LocalTime, scriptPath: String, config: ExecutionConfig): TimedTask {
             return TimedTask(
-                time.millisOfDay.toLong(), FLAG_EVERYDAY.toLong(), scriptPath, config
+                time.toMillisOfDay(), FLAG_EVERYDAY.toLong(), scriptPath, config
             )
         }
 
@@ -177,7 +178,7 @@ class TimedTask : BaseModel {
             config: ExecutionConfig
         ): TimedTask {
             return TimedTask(
-                dateTime.toDateTime().millis,
+                dateTime.toEpochMillis(),
                 FLAG_DISPOSABLE.toLong(),
                 scriptPath,
                 config
@@ -191,7 +192,7 @@ class TimedTask : BaseModel {
             scriptPath: String,
             config: ExecutionConfig
         ): TimedTask {
-            return TimedTask(time.millisOfDay.toLong(), timeFlag, scriptPath, config)
+            return TimedTask(time.toMillisOfDay(), timeFlag, scriptPath, config)
         }
     }
 }
