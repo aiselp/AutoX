@@ -148,8 +148,6 @@ android {
     configurations.all {
         resolutionStrategy.force("com.google.code.findbugs:jsr305:3.0.1")
         exclude(group = "org.jetbrains", module = "annotations-java5")
-//        exclude(group = "com.atlassian.commonmark",) module = "commonmark"
-        exclude(group = "com.github.atlassian.commonmark-java", module = "commonmark")
     }
 
     packaging {
@@ -194,7 +192,8 @@ dependencies {
     // Material Dialogs  Deprecated!!
     implementation("com.afollestad.material-dialogs:core:0.9.2.3")
     // Common Markdown
-    implementation("com.github.atlassian:commonmark-java:commonmark-parent-0.9.0")
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.ext.heading.anchor)
     //MultiLevelListView
     implementation("com.github.hyb1996:android-multi-level-listview:1.1")
     //Licenses Dialog  Deprecated!!
@@ -237,7 +236,7 @@ dependencies {
     //qr scan
     implementation(libs.quickie.bundled)
     //TextView markdown
-    implementation("io.noties.markwon:core:4.6.2")
+    implementation(libs.markwon)
     implementation(libs.androidx.viewpager2)
     implementation(libs.coil)
     implementation(libs.coil.compose)

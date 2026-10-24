@@ -125,6 +125,10 @@ timscriptov-apksigner = "com.github.TimScriptov:apksigner:1.2.0"
 coil = { module = "io.coil-kt:coil", version.ref = "coil-compose-version" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil-compose-version" }
 coil-gif = { module = "io.coil-kt:coil-gif", version.ref = "coil-compose-version" }
+#markdown: commonmark 版本跟随 Markwon 的传递依赖
+commonmark = "com.atlassian.commonmark:commonmark:0.13.0"
+commonmark-ext-heading-anchor = "com.atlassian.commonmark:commonmark-ext-heading-anchor:0.13.0"
+markwon = "io.noties.markwon:core:4.6.2"
 [plugins]
 
 [bundles]
