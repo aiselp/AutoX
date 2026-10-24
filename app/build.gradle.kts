@@ -7,7 +7,6 @@ plugins {
     id("kotlin-android")
     id("com.jakewharton.butterknife")
     id("kotlin-kapt")//Deprecated!!
-    id("com.google.devtools.ksp")
 }
 
 java {
@@ -210,9 +209,6 @@ dependencies {
     implementation(libs.retrofit2.retrofit)
     implementation(libs.retrofit2.converter.gson)
     debugImplementation(libs.leakcanary.android)
-    //Glide
-    implementation(libs.glide)
-    ksp(libs.glide.ksp)
     // Tasker Plugin
     implementation("com.twofortyfouram:android-plugin-client-sdk-for-locale:4.0.3")
     // MaterialDialogCommon
@@ -233,8 +229,6 @@ dependencies {
     // Saved state module for ViewModel
     implementation(libs.lifecycle.viewmodel.savedstate)
     implementation(libs.lifecycle.service)
-    // Annotation processor
-    ksp(libs.lifecycle.compiler)
 
     implementation(libs.androidx.savedstate.ktx)
     implementation(libs.androidx.savedstate)
@@ -245,7 +239,9 @@ dependencies {
     //TextView markdown
     implementation("io.noties.markwon:core:4.6.2")
     implementation(libs.androidx.viewpager2)
+    implementation(libs.coil)
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
 }
 
 fun copyTemplateToAPP(isDebug: Boolean, to: File) {

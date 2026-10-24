@@ -13,6 +13,9 @@ import androidx.core.content.edit
 import androidx.core.os.LocaleListCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import androidx.work.Configuration
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
 import com.aiselp.autox.engine.NodeScriptEngine.Companion.initModuleResource
 import com.aiselp.autox.ui.material3.activity.ErrorReportActivity
 import com.google.mlkit.common.MlKit
@@ -39,10 +42,13 @@ import java.lang.ref.WeakReference
  * Created by Stardust on 2017/1/27.
  */
 
-class App : Application(), Configuration.Provider {
+class App : Application(), Configuration.Provider, ImageLoaderFactory {
     lateinit var dynamicBroadcastReceivers: DynamicBroadcastReceivers
         private set
 
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .components { add(GifDecoder.Factory()) }
+        .build()
 
     override fun onCreate() {
         super.onCreate()

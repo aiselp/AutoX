@@ -130,6 +130,8 @@ dependencies {
     implementation(libs.androidx.constraintlayout)
     implementation(libs.lifecycle.livedata.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
+    implementation(libs.coil)
+    implementation(libs.coil.gif)
     androidTestImplementation(libs.espresso.core)
     implementation("com.github.SenhLinsh:Utils-Everywhere:3.0.0")
     testImplementation(libs.junit)

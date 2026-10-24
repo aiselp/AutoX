@@ -55,8 +55,8 @@ dependencies {
     debugImplementation(libs.leakcanary.robject.watcher.android)
     testImplementation(libs.junit)
 
+    implementation(libs.coil)
     implementation(libs.coil.compose)
-    implementation(libs.glide)
     implementation(libs.documentfile)
     implementation(libs.preference.ktx)
     implementation(libs.javet.android.node)

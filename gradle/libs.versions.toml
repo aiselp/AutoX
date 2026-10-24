@@ -49,7 +49,6 @@ lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime", version.r
 lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 lifecycle-viewmodel-savedstate = { module = "androidx.lifecycle:lifecycle-viewmodel-savedstate", version.ref = "lifecycle" }
-lifecycle-compiler = { module = "androidx.lifecycle:lifecycle-compiler", version.ref = "lifecycle" }
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
 
 # androidx compose
@@ -123,12 +122,9 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
 
 timscriptov-apksigner = "com.github.TimScriptov:apksigner:1.2.0"
+coil = { module = "io.coil-kt:coil", version.ref = "coil-compose-version" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil-compose-version" }
-#Deprecated ========================================
-#Glide
-glide = "com.github.bumptech.glide:glide:4.8.0"
-glide-ksp = "com.github.bumptech.glide:ksp:4.14.2"
-glide-compiler = "com.github.bumptech.glide:compiler:4.12.0"
+coil-gif = { module = "io.coil-kt:coil-gif", version.ref = "coil-compose-version" }
 [plugins]
 
 [bundles]

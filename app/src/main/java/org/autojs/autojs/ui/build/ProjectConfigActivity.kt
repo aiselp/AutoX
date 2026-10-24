@@ -13,9 +13,8 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.addTextChangedListener
 import androidx.lifecycle.lifecycleScope
-import com.bumptech.glide.Glide
-import com.bumptech.glide.load.engine.DiskCacheStrategy
-import com.bumptech.glide.request.RequestOptions
+import coil.load
+import coil.request.CachePolicy
 import com.google.android.material.textfield.TextInputLayout
 import com.stardust.autojs.project.ProjectConfig
 import com.stardust.autojs.project.ProjectConfig.Companion.configFileOfDir
@@ -107,14 +106,10 @@ open class ProjectConfigActivity : AppCompatActivity() {
                     ?: kotlin.run { setRandomPackageName() }
                 val icon = projectConfig.icon
                 if (icon != null) {
-                    Glide.with(this@ProjectConfigActivity)
-                        .setDefaultRequestOptions(
-                            RequestOptions.skipMemoryCacheOf(true).diskCacheStrategy(
-                                DiskCacheStrategy.NONE
-                            )
-                        )
-                        .load(File(mDirectory, icon))
-                        .into(binding.icon)
+                    binding.icon.load(File(mDirectory, icon)) {
+                        memoryCachePolicy(CachePolicy.DISABLED)
+                        diskCachePolicy(CachePolicy.DISABLED)
+                    }
                 }
             }
         }
