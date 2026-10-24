@@ -154,12 +154,8 @@ android {
     }
 
     packaging {
-        //ktor netty implementation("io.ktor:ktor-server-netty:2.0.1")
-        resources.pickFirsts.addAll(
-            listOf(
-                "META-INF/io.netty.versions.properties", "META-INF/INDEX.LIST"
-            )
-        )
+        //ktor cio implementation("io.ktor:ktor-server-cio:2.0.3")
+        resources.pickFirsts.add("META-INF/INDEX.LIST")
     }
 
 }
