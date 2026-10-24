@@ -176,10 +176,6 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
-        <activity
-            android:name="org.autojs.autojs.ui.error.IssueReporterActivity"
-            android:theme="@style/IssueReporterTheme" />
-
         <activity android:name="org.autojs.autojs.external.tasker.TaskPrefEditActivity" />
 
         <activity-alias

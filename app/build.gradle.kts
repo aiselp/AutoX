@@ -195,12 +195,11 @@ dependencies {
     implementation(libs.compose.material3.adaptive.navigation.suite)
     // Personal libraries  Deprecated!!
     implementation("com.github.hyb1996:MutableTheme:1.0.0")
+    implementation(libs.material)
     // Material Dialogs  Deprecated!!
     implementation("com.afollestad.material-dialogs:core:0.9.2.3")
     // Common Markdown
     implementation("com.github.atlassian:commonmark-java:commonmark-parent-0.9.0")
-    // Android issue reporter (a github issue reporter)
-    implementation("com.heinrichreimersoftware:android-issue-reporter:1.3.1")
     //MultiLevelListView
     implementation("com.github.hyb1996:android-multi-level-listview:1.1")
     //Licenses Dialog  Deprecated!!
