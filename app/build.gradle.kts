@@ -229,7 +229,7 @@ dependencies {
 
     implementation(libs.bundles.ktor)
     //qr scan
-    implementation(libs.quickie.bundled)
+    implementation(libs.zxing.android.embedded)
     //TextView markdown
     implementation(libs.markwon)
     implementation(libs.androidx.viewpager2)

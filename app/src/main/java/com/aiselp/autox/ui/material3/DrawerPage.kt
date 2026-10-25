@@ -72,6 +72,8 @@ import com.aiselp.autox.ui.material3.components.SettingOptionSwitch
 import com.aiselp.autox.ui.material3.components.UpdateDialog
 import com.aiselp.autox.ui.material3.components.Watch
 import com.github.aiselp.autox.debug.MemoryInformation
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import com.stardust.app.GlobalAppContext
 import com.stardust.app.isOpPermissionGranted
 import com.stardust.app.permission.DrawOverlaysPermission.launchCanDrawOverlaysSettings
@@ -84,8 +86,6 @@ import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.toast
 import com.stardust.util.IntentUtil
-import io.github.g00fy2.quickie.QRResult
-import io.github.g00fy2.quickie.ScanQRCode
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -649,37 +649,32 @@ private fun ConnectComputerSwitch() {
 
 
     val scanCodeLauncher =
-        rememberLauncherForActivityResult(contract = ScanQRCode(), onResult = { result ->
-            when (result) {
-                is QRResult.QRSuccess -> {
-                    toast(context, result.content.rawValue)
-                    val url = result.content.rawValue!!
-                    if (url.matches(Regex("^(ws://|wss://).+$"))) {
-                        Pref.saveServerAddress(url)
-                        connectServer(url)
-                    } else {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.text_unsupported_qr_code),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-
-                QRResult.QRUserCanceled -> {}
-                QRResult.QRMissingPermission -> {}
-                is QRResult.QRError -> {
+        rememberLauncherForActivityResult(contract = ScanContract()) { result ->
+            result.contents?.let { url ->
+                toast(context, url)
+                if (url.matches(Regex("^(ws://|wss://).+$"))) {
+                    Pref.saveServerAddress(url)
+                    connectServer(url)
+                } else {
                     Toast.makeText(
                         context,
-                        result.exception.toString(),
-                        Toast.LENGTH_LONG
+                        context.getString(R.string.text_unsupported_qr_code),
+                        Toast.LENGTH_SHORT
                     ).show()
                 }
             }
-        })
+        }
     val dialog = object : DialogController() {}
     dialog.ConnectComputerDialog(
-        onScanCode = { scanCodeLauncher.launch(null) }
+        onScanCode = {
+            scanCodeLauncher.launch(
+                ScanOptions()
+                    .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    .setPrompt(context.getString(R.string.text_scan_qr))
+                    .setBeepEnabled(false)
+                    .setOrientationLocked(false)
+            )
+        }
     )
     LaunchedEffect(Unit) {
         DevPlugin.connectState.collect {

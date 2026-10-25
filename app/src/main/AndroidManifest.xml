@@ -107,6 +107,11 @@
         android:usesCleartextTraffic="true"
         tools:replace="android:label, android:allowBackup">
 
+        <activity
+            android:name="com.journeyapps.barcodescanner.CaptureActivity"
+            android:screenOrientation="portrait"
+            tools:replace="android:screenOrientation" />
+
         <meta-data
             android:name="android.max_aspect"
             android:value="2.1" />

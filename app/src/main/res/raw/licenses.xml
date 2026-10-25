@@ -31,10 +31,10 @@
         <license>Apache Software License 2.0</license>
     </notice>
     <notice>
-        <name>quickie : Android QR code scanning library</name>
-        <url>https://github.com/G00fY2/quickie</url>
+        <name>ZXing Android Embedded (includes ZXing core)</name>
+        <url>https://github.com/journeyapps/zxing-android-embedded</url>
         <copyright/>
-        <license>MIT License</license>
+        <license>Apache Software License 2.0</license>
     </notice>
     <notice>
         <name>LeakCanary</name>
