@@ -72,8 +72,8 @@ mozilla-rhino-tools = "org.mozilla:rhino-tools:1.8.1"
 opencv = "org.opencv:opencv:4.12.0"
 # commons
 commons-exec = "org.apache.commons:commons-exec:1.5.0"
-# byte-buddy-android
-byte-buddy-android = "net.bytebuddy:byte-buddy-android:1.15.11"
+# dex
+dalvik-dx = "com.jakewharton.android.repackaged:dalvik-dx:11.0.0_r3"
 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines-android" }
 google-gson = { module = "com.google.code.gson:gson", version.ref = "google-gson" }

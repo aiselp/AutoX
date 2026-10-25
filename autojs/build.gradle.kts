@@ -82,7 +82,7 @@ dependencies {
     api(libs.mozilla.rhino.tools)
     implementation(libs.opencv)
     // libs
-    implementation(libs.byte.buddy.android)
+    implementation(libs.dalvik.dx)
     implementation("cz.adaptech:tesseract4android:4.1.1")
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
