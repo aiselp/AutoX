@@ -7,6 +7,9 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import androidx.core.app.NotificationCompat
+import coil.ImageLoader
+import coil.ImageLoaderFactory
+import coil.decode.GifDecoder
 import com.aiselp.autox.ui.material3.activity.ErrorReportActivity
 import com.linsh.utilseverywhere.Utils
 import com.stardust.app.GlobalAppContext
@@ -20,7 +23,11 @@ import org.autojs.autoxjs.inrt.R
  * Created by Stardust on 2017/7/1.
  */
 
-class App : Application() {
+class App : Application(), ImageLoaderFactory {
+
+    override fun newImageLoader(): ImageLoader = ImageLoader.Builder(this)
+        .components { add(GifDecoder.Factory()) }
+        .build()
 
     override fun onCreate() {
         super.onCreate()

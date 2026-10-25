@@ -30,9 +30,11 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.autojs.autojs.ui.main.drawer.DrawerViewModel
 import org.autojs.autoxjs.R
-import org.joda.time.DateTimeZone
-import org.joda.time.Instant
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
+private val RELEASE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
 
 @Composable
 fun DialogController.UpdateDialog(
@@ -67,8 +69,8 @@ fun DialogController.UpdateDialog(
     ) {
         val date = rememberSaveable {
             Instant.parse(model.githubReleaseInfo!!.createdAt)
-                .toDateTime(DateTimeZone.getDefault())
-                .toString("yyyy-MM-dd HH:mm:ss")
+                .atZone(ZoneId.systemDefault())
+                .format(RELEASE_DATE_FORMATTER)
         }
         Column(
             Modifier

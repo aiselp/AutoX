@@ -1,5 +1,12 @@
+/*
+ * 当前 paddle OCR 使用 ncnn 实现，该例子仅作为演示，无法运行，因为自定义模型目录需要包含以下 4 个文件：
+ *   det.ncnn.param
+ *   det.ncnn.bin
+ *   rec.ncnn.param
+ *   rec.ncnn.bin
+ * 自定义模型路径必须是绝对路径，files.path() 会把相对路径转成绝对路径。
+ */
 let img = images.read("./0.jpg")
-// 新增：自定义模型路径(必须是绝对路径), files.path() 将相对路径转为绝对路径
 let myModelPath = files.path("./models");
 let start = new Date()
 // 识别图片中的文字，返回完整识别信息（兼容百度OCR格式）。

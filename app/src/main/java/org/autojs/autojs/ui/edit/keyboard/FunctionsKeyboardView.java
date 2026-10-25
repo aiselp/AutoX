@@ -35,7 +35,7 @@ import java.util.Map;
 
 import butterknife.BindView;
 import butterknife.ButterKnife;
-import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 
 /**
  * Created by Stardust on 2017/12/9.

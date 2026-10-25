@@ -73,12 +73,14 @@ import org.autojs.autojs.timing.TaskReceiver
 import org.autojs.autojs.timing.TimedTask
 import org.autojs.autojs.timing.TimedTask.Companion.getDayOfWeekTimeFlag
 import org.autojs.autojs.timing.TimedTaskManager
+import org.autojs.autojs.timing.toLocalDate
+import org.autojs.autojs.timing.toLocalDateTime
+import org.autojs.autojs.timing.toLocalTimeOfDay
 import org.autojs.autojs.ui.main.task.Task
 import org.autojs.autoxjs.R
-import org.joda.time.LocalDate
-import org.joda.time.LocalDateTime
-import org.joda.time.LocalTime
-import java.util.Date
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.util.Locale
 
 /**
@@ -312,21 +314,18 @@ class TimedTaskSettingActivity : AppCompatActivity() {
 
         class DisposableTask : TaskModel {
             private val time = LocalTime.now()
-            var timePickerState = TimePickerState(time.hourOfDay, time.minuteOfHour, true)
+            var timePickerState = TimePickerState(time.hour, time.minute, true)
             val datePickerState =
-                DatePickerState(Locale.getDefault(), initialSelectedDateMillis = Date().time)
+                DatePickerState(Locale.getDefault(), initialSelectedDateMillis = System.currentTimeMillis())
             val timeDialog = DialogController()
             val dateDialog = DialogController()
 
             override fun createTimedTask(context: Context, scriptFile: String): TimedTask? {
                 val date = datePickerState.selectedDateMillis.let {
                     if (it == null) return null
-                    LocalDate(it)
+                    it.toLocalDate()
                 }
-                val dateTime = LocalDateTime(
-                    date.year, date.monthOfYear, date.dayOfMonth,
-                    timePickerState.hour, timePickerState.minute
-                )
+                val dateTime = date.atTime(timePickerState.hour, timePickerState.minute)
                 if (dateTime.isBefore(LocalDateTime.now())) {
                     toast(context, R.string.text_disposable_task_time_before_now)
                     return null
@@ -335,29 +334,29 @@ class TimedTaskSettingActivity : AppCompatActivity() {
             }
 
             fun initModel(timedTask: TimedTask) {
-                val dateTime = LocalDateTime(timedTask.millis)
+                val dateTime = timedTask.millis.toLocalDateTime()
                 datePickerState.selectedDateMillis = timedTask.millis
-                timePickerState = TimePickerState(dateTime.hourOfDay, dateTime.minuteOfHour, true)
+                timePickerState = TimePickerState(dateTime.hour, dateTime.minute, true)
             }
         }
 
         class DailyTask : TaskModel {
             private val time = LocalTime.now()
-            var timePickerState = TimePickerState(time.hourOfDay, time.minuteOfHour, true)
+            var timePickerState = TimePickerState(time.hour, time.minute, true)
             override fun createTimedTask(context: Context, scriptFile: String): TimedTask? {
-                val time = LocalTime(timePickerState.hour, timePickerState.minute)
+                val time = LocalTime.of(timePickerState.hour, timePickerState.minute)
                 return TimedTask.dailyTask(time, scriptFile, ExecutionConfig.default)
             }
 
             fun initModel(timedTask: TimedTask) {
-                val dateTime = LocalTime.fromMillisOfDay(timedTask.millis)
-                timePickerState = TimePickerState(dateTime.hourOfDay, dateTime.minuteOfHour, true)
+                val timeOfDay = timedTask.millis.toLocalTimeOfDay()
+                timePickerState = TimePickerState(timeOfDay.hour, timeOfDay.minute, true)
             }
         }
 
         class WeeklyTask : TaskModel {
             private val time = LocalTime.now()
-            var timePickerState = TimePickerState(time.hourOfDay, time.minuteOfHour, true)
+            var timePickerState = TimePickerState(time.hour, time.minute, true)
             val chooseDays = mutableSetOf<Int>()
             override fun createTimedTask(context: Context, scriptFile: String): TimedTask? {
                 var timeFlag: Long = 0
@@ -368,13 +367,13 @@ class TimedTaskSettingActivity : AppCompatActivity() {
                     toast(context, R.string.text_weekly_task_should_check_day_of_week)
                     return null
                 }
-                val time = LocalTime(timePickerState.hour, timePickerState.minute)
+                val time = LocalTime.of(timePickerState.hour, timePickerState.minute)
                 return TimedTask.weeklyTask(time, timeFlag, scriptFile, ExecutionConfig.default)
             }
 
             fun initModel(timedTask: TimedTask) {
-                val dateTime = LocalTime.fromMillisOfDay(timedTask.millis)
-                timePickerState = TimePickerState(dateTime.hourOfDay, dateTime.minuteOfHour, true)
+                val timeOfDay = timedTask.millis.toLocalTimeOfDay()
+                timePickerState = TimePickerState(timeOfDay.hour, timeOfDay.minute, true)
                 for (i in 1..7) {
                     if (timedTask.hasDayOfWeek(i)) {
                         chooseDays.add(i)
@@ -564,10 +563,10 @@ class TimedTaskSettingActivity : AppCompatActivity() {
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 val date = datePickerState.selectedDateMillis.let {
-                    if (it == null) LocalDate()
-                    else LocalDate(it)
+                    if (it == null) LocalDate.now()
+                    else it.toLocalDate()
                 }
-                Text(text = "${date.year}-${date.monthOfYear}-${date.dayOfMonth}")
+                Text(text = "${date.year}-${date.monthValue}-${date.dayOfMonth}")
             }
         }
     }

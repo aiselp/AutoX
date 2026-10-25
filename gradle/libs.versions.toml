@@ -49,7 +49,6 @@ lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime", version.r
 lifecycle-viewmodel-ktx = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "lifecycle" }
 lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 lifecycle-viewmodel-savedstate = { module = "androidx.lifecycle:lifecycle-viewmodel-savedstate", version.ref = "lifecycle" }
-lifecycle-compiler = { module = "androidx.lifecycle:lifecycle-compiler", version.ref = "lifecycle" }
 lifecycle-service = { module = "androidx.lifecycle:lifecycle-service", version.ref = "lifecycle" }
 
 # androidx compose
@@ -82,7 +81,7 @@ google-gson = { module = "com.google.code.gson:gson", version.ref = "google-gson
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 # ktor
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor-version" }
-ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor-version" }
+ktor-server-cio = { module = "io.ktor:ktor-server-cio", version.ref = "ktor-version" }
 ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor-version" }
 ktor-client-websockets = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor-version" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor-version" }
@@ -96,8 +95,6 @@ mlkit-text-recognition-japanese = { module = "com.google.mlkit:text-recognition-
 mlkit-text-recognition-korean = { module = "com.google.mlkit:text-recognition-korean", version.ref = "mlkit-text" }
 #rxjava
 quickie-bundled = { module = "io.github.g00fy2.quickie:quickie-bundled", version.ref = "quickie-bundled" }
-rxjava2 = "io.reactivex.rxjava2:rxjava:2.2.21"
-rxjava2-rxandroid = "io.reactivex.rxjava2:rxandroid:2.1.1"
 rxjava3 = "io.reactivex.rxjava3:rxjava:3.1.11"
 rxjava3-rxandroid = "io.reactivex.rxjava3:rxandroid:3.0.2"
 javet-android-node = "com.caoccao.javet:javet-node-android:5.0.2"
@@ -125,16 +122,17 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version
 espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espresso-core" }
 
 timscriptov-apksigner = "com.github.TimScriptov:apksigner:1.2.0"
+coil = { module = "io.coil-kt:coil", version.ref = "coil-compose-version" }
 coil-compose = { module = "io.coil-kt:coil-compose", version.ref = "coil-compose-version" }
-#Deprecated ========================================
-#Glide
-glide = "com.github.bumptech.glide:glide:4.8.0"
-glide-ksp = "com.github.bumptech.glide:ksp:4.14.2"
-glide-compiler = "com.github.bumptech.glide:compiler:4.12.0"
+coil-gif = { module = "io.coil-kt:coil-gif", version.ref = "coil-compose-version" }
+#markdown: commonmark 版本跟随 Markwon 的传递依赖
+commonmark = "com.atlassian.commonmark:commonmark:0.13.0"
+commonmark-ext-heading-anchor = "com.atlassian.commonmark:commonmark-ext-heading-anchor:0.13.0"
+markwon = "io.noties.markwon:core:4.6.2"
 [plugins]
 
 [bundles]
-ktor = ["ktor-server-core", "ktor-server-netty", "ktor-server-websockets", "ktor-client-websockets", "ktor-client-okhttp", "ktor-client-core"]
+ktor = ["ktor-server-core", "ktor-server-cio", "ktor-server-websockets", "ktor-client-websockets", "ktor-client-okhttp", "ktor-client-core"]
 mlkit = [
     "mlkit-text-recognition",
     "mlkit-text-recognition-chinese",

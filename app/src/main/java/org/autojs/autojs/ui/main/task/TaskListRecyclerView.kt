@@ -41,8 +41,8 @@ import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.TaskInfo
 import com.stardust.autojs.workground.WrapContentLinearLayoutManager
 import com.yqritc.recyclerviewflexibledivider.HorizontalDividerItemDecoration
-import io.reactivex.android.schedulers.AndroidSchedulers
-import io.reactivex.disposables.Disposable
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.disposables.Disposable
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope

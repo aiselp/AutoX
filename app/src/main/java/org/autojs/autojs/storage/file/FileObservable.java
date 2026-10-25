@@ -7,8 +7,8 @@ import org.apache.commons.io.FileUtils;
 import java.io.File;
 import java.io.IOException;
 
-import io.reactivex.Observable;
-import io.reactivex.Observer;
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.core.Observer;
 
 public class FileObservable {
 

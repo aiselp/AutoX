@@ -10,10 +10,10 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.Callable;
 
-import io.reactivex.Flowable;
-import io.reactivex.Observable;
-import io.reactivex.schedulers.Schedulers;
-import io.reactivex.subjects.PublishSubject;
+import io.reactivex.rxjava3.core.Flowable;
+import io.reactivex.rxjava3.core.Observable;
+import io.reactivex.rxjava3.schedulers.Schedulers;
+import io.reactivex.rxjava3.subjects.PublishSubject;
 
 public abstract class Database<M extends BaseModel> {
 

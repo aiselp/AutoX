@@ -11,11 +11,13 @@ import android.util.Base64
 import android.view.View
 import android.widget.ImageView
 import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import androidx.core.graphics.drawable.toDrawable
 import androidx.core.net.toUri
-import com.bumptech.glide.Glide
-import com.bumptech.glide.request.target.SimpleTarget
-import com.bumptech.glide.request.transition.Transition
+import coil.imageLoader
+import coil.load
+import coil.request.ImageRequest
+import coil.size.Size
 import com.stardust.autojs.R
 import com.stardust.autojs.core.ui.inflater.ImageLoader
 import java.util.regex.Pattern
@@ -107,20 +109,11 @@ open class Drawables {
 
     private class DefaultImageLoader : ImageLoader {
         override fun loadInto(imageView: ImageView, uri: Uri?) {
-            Glide.with(imageView).load(uri).into(imageView)
+            imageView.load(uri)
         }
 
         override fun loadIntoBackground(view: View, uri: Uri?) {
-            Glide.with(view)
-                .load(uri)
-                .into(object : SimpleTarget<Drawable>() {
-                    override fun onResourceReady(
-                        resource: Drawable,
-                        transition: Transition<in Drawable>?
-                    ) {
-                        view.background = resource
-                    }
-                })
+            enqueue(view, uri) { view.background = it }
         }
 
         override fun load(view: View, uri: Uri?): Drawable {
@@ -128,27 +121,26 @@ open class Drawables {
         }
 
         override fun load(view: View, uri: Uri?, drawableCallback: ImageLoader.DrawableCallback) {
-            Glide.with(view)
-                .load(uri)
-                .into(object : SimpleTarget<Drawable>() {
-                    override fun onResourceReady(
-                        resource: Drawable,
-                        transition: Transition<in Drawable>?
-                    ) {
-                        drawableCallback.onLoaded(resource)
-                    }
-                })
+            enqueue(view, uri) { drawableCallback.onLoaded(it) }
         }
 
         override fun load(view: View, uri: Uri?, bitmapCallback: ImageLoader.BitmapCallback) {
-            Glide.with(view).asBitmap().load(uri).into(object : SimpleTarget<Bitmap>() {
-                override fun onResourceReady(
-                    resource: Bitmap,
-                    transition: Transition<in Bitmap>?
-                ) {
-                    bitmapCallback.onLoaded(resource)
-                }
-            })
+            enqueue(view, uri, allowHardware = false) { bitmapCallback.onLoaded(it.toBitmap()) }
+        }
+
+        private fun enqueue(
+            view: View,
+            uri: Uri?,
+            allowHardware: Boolean = true,
+            onSuccess: (Drawable) -> Unit
+        ) {
+            val request = ImageRequest.Builder(view.context)
+                .data(uri)
+                .size(Size.ORIGINAL)
+                .allowHardware(allowHardware)
+                .target(onSuccess = onSuccess)
+                .build()
+            view.context.imageLoader.enqueue(request)
         }
     }
 

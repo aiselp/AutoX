@@ -8,8 +8,8 @@ import com.aiselp.autox.ui.material3.components.BaseDialog
 import com.aiselp.autox.ui.material3.components.ComposeDialog
 import com.aiselp.autox.ui.material3.components.DialogTitle
 import com.stardust.pio.PFile
-import io.reactivex.Observable
-import io.reactivex.subjects.PublishSubject
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.subjects.PublishSubject
 import org.autojs.autojs.model.explorer.Explorer
 import org.autojs.autojs.model.explorer.ExplorerDirPage
 import org.autojs.autojs.model.explorer.ExplorerFileProvider
@@ -98,8 +98,8 @@ class FileChooserDialogBuilder(context: Context, title: String) {
     }
 
 
-    fun singleChoice(): Observable<PFile?> {
-        val result = PublishSubject.create<PFile?>()
+    fun singleChoice(): Observable<PFile> {
+        val result = PublishSubject.create<PFile>()
         singleChoice { file ->
             result.onNext(file)
             result.onComplete()

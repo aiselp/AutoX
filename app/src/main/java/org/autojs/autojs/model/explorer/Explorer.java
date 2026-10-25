@@ -10,8 +10,8 @@ import android.util.LruCache;
 
 import com.stardust.pio.PFile;
 
-import io.reactivex.Single;
-import io.reactivex.android.schedulers.AndroidSchedulers;
+import io.reactivex.rxjava3.core.Single;
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.annotations.NonNull;
 import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.functions.Consumer;

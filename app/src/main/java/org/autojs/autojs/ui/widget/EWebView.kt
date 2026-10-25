@@ -26,8 +26,8 @@ import com.stardust.autojs.execution.ScriptExecution
 import com.stardust.autojs.runtime.api.Files
 import com.stardust.autojs.runtime.api.SevenZip
 import com.stardust.autojs.script.StringScriptSource
-import io.reactivex.Observable
-import io.reactivex.android.schedulers.AndroidSchedulers
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import org.autojs.autojs.Pref
 import org.autojs.autojs.model.script.Scripts
 import org.autojs.autojs.tool.ImageSelector

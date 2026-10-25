@@ -8,10 +8,11 @@ import com.stardust.pio.PFiles.getSimplifiedPath
 import org.autojs.autojs.timing.IntentTask
 import org.autojs.autojs.timing.TimedTask
 import org.autojs.autojs.timing.TimedTaskManager.removeTask
+import org.autojs.autojs.timing.toLocalDateTime
 import org.autojs.autojs.ui.timing.TimedTaskSettingActivity
 import org.autojs.autoxjs.R
-import org.joda.time.format.DateTimeFormat
 import java.io.File
+import java.time.format.DateTimeFormatter
 
 /**
  * Created by Stardust on 2017/11/28.
@@ -21,6 +22,10 @@ interface Task : TaskInfo {
     class PendingTask : Task {
         var timedTask: TimedTask? = null
         var mIntentTask: IntentTask? = null
+
+        companion object {
+            private val NEXT_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy/MM/dd HH:mm")
+        }
 
         constructor(timedTask: TimedTask?) {
             this.timedTask = timedTask
@@ -43,8 +48,8 @@ interface Task : TaskInfo {
             get() {
                 return if (timedTask != null) {
                     val nextTime = timedTask!!.nextTime
-                    getString(R.string.text_next_run_time) + ": " + DateTimeFormat.forPattern("yyyy/MM/dd HH:mm")
-                        .print(nextTime)
+                    getString(R.string.text_next_run_time) + ": " + nextTime.toLocalDateTime()
+                        .format(NEXT_TIME_FORMATTER)
                 } else {
                     assert(mIntentTask != null)
                     val desc = TimedTaskSettingActivity.ACTION_DESC_MAP[mIntentTask!!.action]

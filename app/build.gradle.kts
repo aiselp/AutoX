@@ -7,7 +7,6 @@ plugins {
     id("kotlin-android")
     id("com.jakewharton.butterknife")
     id("kotlin-kapt")//Deprecated!!
-    id("com.google.devtools.ksp")
 }
 
 java {
@@ -149,17 +148,11 @@ android {
     configurations.all {
         resolutionStrategy.force("com.google.code.findbugs:jsr305:3.0.1")
         exclude(group = "org.jetbrains", module = "annotations-java5")
-//        exclude(group = "com.atlassian.commonmark",) module = "commonmark"
-        exclude(group = "com.github.atlassian.commonmark-java", module = "commonmark")
     }
 
     packaging {
-        //ktor netty implementation("io.ktor:ktor-server-netty:2.0.1")
-        resources.pickFirsts.addAll(
-            listOf(
-                "META-INF/io.netty.versions.properties", "META-INF/INDEX.LIST"
-            )
-        )
+        //ktor cio implementation("io.ktor:ktor-server-cio:2.0.3")
+        resources.pickFirsts.add("META-INF/INDEX.LIST")
     }
 
 }
@@ -195,12 +188,12 @@ dependencies {
     implementation(libs.compose.material3.adaptive.navigation.suite)
     // Personal libraries  Deprecated!!
     implementation("com.github.hyb1996:MutableTheme:1.0.0")
+    implementation(libs.material)
     // Material Dialogs  Deprecated!!
     implementation("com.afollestad.material-dialogs:core:0.9.2.3")
     // Common Markdown
-    implementation("com.github.atlassian:commonmark-java:commonmark-parent-0.9.0")
-    // Android issue reporter (a github issue reporter)
-    implementation("com.heinrichreimersoftware:android-issue-reporter:1.3.1")
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.ext.heading.anchor)
     //MultiLevelListView
     implementation("com.github.hyb1996:android-multi-level-listview:1.1")
     //Licenses Dialog  Deprecated!!
@@ -210,18 +203,11 @@ dependencies {
     //FlexibleDivider
     implementation("com.yqritc:recyclerview-flexibledivider:1.4.0")
 
-    // RxJava  Deprecated!!
-    implementation(libs.rxjava2)
-    implementation(libs.rxjava2.rxandroid)
+    implementation(libs.rxjava3.rxandroid)
     // Retrofit
     implementation(libs.retrofit2.retrofit)
     implementation(libs.retrofit2.converter.gson)
     debugImplementation(libs.leakcanary.android)
-    //Glide
-    implementation(libs.glide)
-    ksp(libs.glide.ksp)
-    //joda time
-    implementation("net.danlew:android.joda:2.10.14")
     // Tasker Plugin
     implementation("com.twofortyfouram:android-plugin-client-sdk-for-locale:4.0.3")
     // MaterialDialogCommon
@@ -242,8 +228,6 @@ dependencies {
     // Saved state module for ViewModel
     implementation(libs.lifecycle.viewmodel.savedstate)
     implementation(libs.lifecycle.service)
-    // Annotation processor
-    ksp(libs.lifecycle.compiler)
 
     implementation(libs.androidx.savedstate.ktx)
     implementation(libs.androidx.savedstate)
@@ -251,13 +235,12 @@ dependencies {
     implementation(libs.bundles.ktor)
     //qr scan
     implementation(libs.quickie.bundled)
-    //Fab button with menu, please do not upgrade, download dependencies will be error after upgrade
-    //noinspection GradleDependency
-    implementation("com.leinardi.android:speed-dial.compose:1.0.0-alpha03")
     //TextView markdown
-    implementation("io.noties.markwon:core:4.6.2")
+    implementation(libs.markwon)
     implementation(libs.androidx.viewpager2)
+    implementation(libs.coil)
     implementation(libs.coil.compose)
+    implementation(libs.coil.gif)
 }
 
 fun copyTemplateToAPP(isDebug: Boolean, to: File) {

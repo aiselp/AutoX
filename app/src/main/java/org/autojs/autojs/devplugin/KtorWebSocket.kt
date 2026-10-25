@@ -10,9 +10,9 @@ import io.ktor.client.plugins.websocket.webSocket
 import io.ktor.server.application.ApplicationStarted
 import io.ktor.server.application.ApplicationStopped
 import io.ktor.server.application.install
+import io.ktor.server.cio.CIO
 import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.mutableOriginConnectionPoint
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.DefaultWebSocketServerSession
@@ -38,7 +38,7 @@ class WebSocketServer {
         host: String = "0.0.0.0",
         onConnect: suspend DefaultWebSocketServerSession.() -> Unit = {},
     ) {
-        engine = embeddedServer(Netty, port, host) {
+        engine = embeddedServer(CIO, port, host) {
             install(WebSockets) {
                 pingPeriodMillis = this@WebSocketServer.pingInterval
                 timeoutMillis = this@WebSocketServer.timeoutMillis

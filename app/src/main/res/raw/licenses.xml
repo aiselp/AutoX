@@ -25,12 +25,6 @@
         <license>Apache Software License 2.0</license>
     </notice>
     <notice>
-        <name>FloatingActionButtonSpeedDial : A Floating Action Button Speed Dial implementation for Android that follows the Material Design specification</name>
-        <url>https://github.com/leinardi/FloatingActionButtonSpeedDial</url>
-        <copyright/>
-        <license>Apache Software License 2.0</license>
-    </notice>
-    <notice>
         <name>accompanist : A collection of extension libraries for Jetpack Compose</name>
         <url>https://github.com/google/accompanist</url>
         <copyright/>
@@ -75,12 +69,6 @@
         <name>Alipay ZeroSdk</name>
         <copyright>Copyright 2016 Fung Go (fython)</copyright>
         <url>https://github.com/fython/AlipayZeroSdk</url>
-        <license>Apache Software License 2.0</license>
-    </notice>
-    <notice>
-        <name>android-issue-reporter</name>
-        <copyright/>
-        <url>https://github.com/HeinrichReimer/android-issue-reporter</url>
         <license>Apache Software License 2.0</license>
     </notice>
     <notice>

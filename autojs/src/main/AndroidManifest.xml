@@ -47,9 +47,6 @@
 
     <application>
         <activity
-            android:name="leakcanary.internal.activity.LeakActivity"
-            android:process="@string/text_script_process_name" />
-        <activity
             android:name=".execution.ScriptExecuteActivity"
             android:configChanges="fontScale|keyboard|keyboardHidden|locale|navigation|orientation|screenLayout|screenSize|uiMode"
             android:process="@string/text_script_process_name"

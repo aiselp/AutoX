@@ -1,7 +1,4 @@
 initVersions(file("project-versions.json"))
-plugins {
-    id("com.google.devtools.ksp") version "$kotlin_version-1.0.20" apply false
-}
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
 
