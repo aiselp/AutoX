@@ -266,7 +266,7 @@ class ApkBuilder(
 
     @Throws(FileNotFoundException::class)
     fun editManifest(): ManifestEditor {
-        manifestEditor = ManifestEditorWithAuthorities(FileInputStream(manifestFile))
+        manifestEditor = ManifestEditorWithAuthorities(manifestFile.readBytes())
         return manifestEditor!!
     }
 
@@ -418,8 +418,8 @@ class ApkBuilder(
         }
     }
 
-    private inner class ManifestEditorWithAuthorities(manifestInputStream: InputStream) :
-        ManifestEditor(manifestInputStream) {
+    private inner class ManifestEditorWithAuthorities(sourceManifestData: ByteArray) :
+        ManifestEditor(sourceManifestData) {
         override fun onAttr(attr: AxmlWriter.Attr) {
             if (projectConfig!!.launchConfig.isHideLauncher && attr.value is StringItem && "android.intent.category.LAUNCHER" == (attr.value as StringItem).data) {
                 Log.e("attr", "onAttr: " + (attr.value as StringItem).data + "----" + "")

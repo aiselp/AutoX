@@ -1,9 +1,6 @@
 package com.stardust.autojs.apkbuilder;
 
-import org.apache.commons.io.IOUtils;
-
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.OutputStream;
 
 import pxb.android.StringItem;
@@ -19,7 +16,7 @@ public class ManifestEditor {
 
 
     private static final String NS_ANDROID = "http://schemas.android.com/apk/res/android";
-    private InputStream mManifestInputStream;
+    private final byte[] mSourceManifestData;
     private int mVersionCode = -1;
     private String mVersionName;
     private String mAppName;
@@ -27,8 +24,8 @@ public class ManifestEditor {
     private byte[] mManifestData;
 
 
-    public ManifestEditor(InputStream manifestInputStream) {
-        mManifestInputStream = manifestInputStream;
+    public ManifestEditor(byte[] sourceManifestData) {
+        mSourceManifestData = sourceManifestData;
     }
 
     public ManifestEditor setVersionCode(int versionCode) {
@@ -52,14 +49,10 @@ public class ManifestEditor {
     }
 
     public ManifestEditor commit() throws IOException {
-        try {
-            AxmlWriter writer = new MutableAxmlWriter();
-            AxmlReader reader = new AxmlReader(IOUtils.readFully(mManifestInputStream, mManifestInputStream.available()));
-            reader.accept(writer);
-            mManifestData = writer.toByteArray();
-        } finally {
-            mManifestInputStream.close();
-        }
+        AxmlWriter writer = new MutableAxmlWriter();
+        AxmlReader reader = new AxmlReader(mSourceManifestData);
+        reader.accept(writer);
+        mManifestData = writer.toByteArray();
         return this;
     }
 

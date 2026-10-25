@@ -72,7 +72,6 @@ mozilla-rhino-tools = "org.mozilla:rhino-tools:1.8.1"
 opencv = "org.opencv:opencv:4.12.0"
 # commons
 commons-exec = "org.apache.commons:commons-exec:1.5.0"
-commons-io = "commons-io:commons-io:2.6"
 # byte-buddy-android
 byte-buddy-android = "net.bytebuddy:byte-buddy-android:1.15.11"
 
