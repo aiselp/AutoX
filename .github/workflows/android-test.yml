@@ -31,6 +31,8 @@ jobs:
         run: ./gradlew app:buildDocs
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
+      - name: Install NDK for strip task
+        run: sdkmanager --install "ndk;26.1.10909125"
       - name: Build with Gradle
         run: | 
           ./gradlew autojs:buildJsModule
