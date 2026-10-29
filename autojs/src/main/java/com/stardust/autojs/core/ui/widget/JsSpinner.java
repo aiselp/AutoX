@@ -8,10 +8,13 @@ import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AbsListView;
 import android.widget.ArrayAdapter;
 import android.widget.TextView;
 
-public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
+import com.stardust.autojs.core.ui.ViewExtras;
+
+public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner implements AttrSupport {
 
     private float mTextSize = -1;
     private int mTextStyle = -1;
@@ -20,6 +23,13 @@ public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
     private float mEntryTextSize = -1;
     private int mEntryTextStyle = -1;
     private int mEntryTextColor = 0;
+
+    private int mEntryHeight = -1;
+
+    private int mDropdownTextColorNormal;
+    private int mDropdownTextColorSelected;
+    private int mDropdownBgColorNormal;
+    private int mDropdownBgColorSelected;
 
     public JsSpinner(Context context) {
         super(context);
@@ -44,7 +54,6 @@ public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
     public JsSpinner(Context context, AttributeSet attrs, int defStyleAttr, int mode, Resources.Theme popupTheme) {
         super(context, attrs, defStyleAttr, mode, popupTheme);
     }
-
 
     public float getTextSize() {
         return mTextSize;
@@ -84,7 +93,6 @@ public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
         }
     }
 
-
     public int getTextStyle() {
         return mTextStyle;
     }
@@ -113,6 +121,59 @@ public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
         }
     }
 
+    public void setDropDownMaxHeight(int maxHeightPx) {
+        try {
+            java.lang.reflect.Method method = androidx.appcompat.widget.AppCompatSpinner.class
+                    .getDeclaredMethod("getInternalPopup");
+            method.setAccessible(true);
+            Object popup = method.invoke(this);
+            if (popup != null) {
+                java.lang.reflect.Method setHeight = popup.getClass()
+                        .getMethod("setHeight", int.class);
+                setHeight.invoke(popup, maxHeightPx);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void setDropDownItemHeight(int heightPx) {
+        mEntryHeight = heightPx;
+    }
+
+    public void setDropdownTextColors(int normalColor, int selectedColor) {
+        mDropdownTextColorNormal = normalColor;
+        mDropdownTextColorSelected = selectedColor;
+    }
+
+    public void setDropdownBackgroundColors(int normalColor, int selectedColor) {
+        mDropdownBgColorNormal = normalColor;
+        mDropdownBgColorSelected = selectedColor;
+    }
+
+    public void setDropdownItems(String[] items) {
+        int defaultHeight = (int) (48 * getContext().getResources().getDisplayMetrics().density);
+        setDropdownItems(items, defaultHeight, null, null);
+    }
+
+    public void setDropdownItems(String[] items, Integer itemHeight) {
+        setDropdownItems(items, itemHeight, null, null);
+    }
+
+    public void setDropdownItems(String[] items, Integer itemHeight, Integer itemLayout, Integer dropDownLayout) {
+        if (items == null || items.length == 0) return;
+
+        if (itemHeight != null) {
+            mEntryHeight = itemHeight;
+        }
+
+        int layoutRes = itemLayout != null ? itemLayout : android.R.layout.simple_spinner_item;
+        int dropDownRes = dropDownLayout != null ? dropDownLayout : android.R.layout.simple_spinner_dropdown_item;
+
+        Adapter adapter = new Adapter(getContext(), layoutRes, items);
+        adapter.setDropDownViewResource(dropDownRes);
+        setAdapter(adapter);
+    }
 
     public class Adapter extends ArrayAdapter<String> {
 
@@ -147,6 +208,7 @@ public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
                 return view;
             }
             TextView textView = (TextView) view;
+
             if (mEntryTextColor != 0) {
                 textView.setTextColor(mEntryTextColor);
             }
@@ -156,6 +218,31 @@ public class JsSpinner extends androidx.appcompat.widget.AppCompatSpinner {
             if (mEntryTextStyle != -1) {
                 textView.setTypeface(textView.getTypeface(), mEntryTextStyle);
             }
+
+            if (position == getSelectedItemPosition()) {
+                if (mDropdownTextColorSelected != 0) {
+                    textView.setTextColor(mDropdownTextColorSelected);
+                }
+                if (mDropdownBgColorSelected != 0) {
+                    textView.setBackgroundColor(mDropdownBgColorSelected);
+                }
+            } else {
+                if (mDropdownTextColorNormal != 0) {
+                    textView.setTextColor(mDropdownTextColorNormal);
+                }
+                if (mDropdownBgColorNormal != 0) {
+                    textView.setBackgroundColor(mDropdownBgColorNormal);
+                }
+            }
+
+            if (mEntryHeight > 0) {
+                AbsListView.LayoutParams lp = new AbsListView.LayoutParams(
+                        AbsListView.LayoutParams.MATCH_PARENT,
+                        mEntryHeight
+                );
+                textView.setLayoutParams(lp);
+            }
+
             return textView;
         }
     }

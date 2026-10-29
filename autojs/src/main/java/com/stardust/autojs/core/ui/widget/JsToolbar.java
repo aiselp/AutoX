@@ -12,7 +12,7 @@ import android.util.AttributeSet;
 
 import com.stardust.autojs.R;
 
-public class JsToolbar extends Toolbar {
+public class JsToolbar extends Toolbar implements AttrSupport {
 
     public JsToolbar(Context context) {
         super(context);

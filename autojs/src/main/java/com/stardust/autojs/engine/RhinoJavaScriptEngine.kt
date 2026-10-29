@@ -2,13 +2,13 @@ package com.stardust.autojs.engine
 
 import android.util.Log
 import android.view.View
-import com.stardust.autojs.core.ui.ViewExtras
 import com.stardust.autojs.engine.module.AssetAndUrlModuleSourceProvider
 import com.stardust.autojs.engine.module.ScopeRequire
 import com.stardust.autojs.execution.ExecutionConfig
 import com.stardust.autojs.project.ScriptConfig
 import com.stardust.autojs.rhino.AndroidContextFactory
 import com.stardust.autojs.rhino.AutoJsContext
+import com.stardust.autojs.rhino.InjectedNativeJavaObject
 import com.stardust.autojs.rhino.RhinoAndroidHelper
 import com.stardust.autojs.rhino.TopLevelScope
 import com.stardust.autojs.runtime.ScriptRuntime
@@ -21,12 +21,10 @@ import org.mozilla.javascript.Script
 import org.mozilla.javascript.Scriptable
 import org.mozilla.javascript.ScriptableObject
 import org.mozilla.javascript.commonjs.module.provider.SoftCachingModuleScriptProvider
+import org.mozilla.javascript.lc.type.TypeInfo
 import java.io.IOException
 import java.io.InputStreamReader
-
-/**
- * Created by Stardust on 2017/4/2.
- */
+import java.net.URI
 
 open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Context) :
     JavaScriptEngine() {
@@ -34,14 +32,14 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
     private val wrapFactory = WrapFactory()
     val context: Context = enterContext()
     private val mScriptable: TopLevelScope = createScope(this.context)
-    lateinit var thread: Thread
+    var thread: Thread? = null
         private set
 
     private val initScript: Script by lazy<Script> {
         try {
             val reader = InputStreamReader(mAndroidContext.assets.open("init.js"))
             val script = context.compileReader(reader, SOURCE_NAME_INIT, 1, null)
-            script
+            script!!
         } catch (e: IOException) {
             throw UncheckedIOException(e)
         }
@@ -50,10 +48,6 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
 
     val scriptable: Scriptable
         get() = mScriptable
-
-    init {
-
-    }
 
     override fun put(name: String, value: Any?) {
         ScriptableObject.putProperty(mScriptable, name, Context.javaToJS(value, mScriptable))
@@ -84,7 +78,6 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
         } catch (e: IOException) {
             throw UncheckedIOException(e)
         }
-
     }
 
     fun hasFeature(feature: String): Boolean {
@@ -92,24 +85,24 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
         return config != null && config.scriptConfig.hasFeature(feature)
     }
 
-
     override fun forceStop() {
         Log.d(LOG_TAG, "forceStop: interrupt Thread: $thread")
-        thread.interrupt()
+        thread?.interrupt()
     }
-
 
     @Synchronized
     override fun destroy() {
         super.destroy()
-        // 清除 require 缓存，释放所有 ModuleScope
         if (::require.isInitialized) {
             require.clearCache()
-            ObjectWatcher.watch(require, "$this::$require")
+            ObjectWatcher.watch(require, "$this::${require}")
         }
-        // 退出当前线程的 Rhino Context
-        Context.exit()
-        ObjectWatcher.watch(this, this.toString())
+        try {
+            Context.exit()
+        } catch (e: IllegalStateException) {
+            Log.w(LOG_TAG, "Context.exit() on wrong thread", e)
+        }
+        ObjectWatcher.watch(this, toString())
     }
 
     override fun init() {
@@ -161,29 +154,46 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
         }
     }
 
-
     private inner class WrapFactory : AndroidContextFactory.WrapFactory() {
+        override fun wrap(
+            cx: Context?,
+            scope: Scriptable?,
+            obj: Any?,
+            staticType: TypeInfo?
+        ): Any? {
+            val objName = obj?.javaClass?.name
+            if (objName != null) {
+                Log.d("WrapFactory", "wrap: obj=$objName")
+            }
+            if (obj is View) {
+                Log.d("WrapFactory", "View in wrap!")
+                val runtime = this@RhinoJavaScriptEngine.runtime
+                return InjectedNativeJavaObject(scope, obj, staticType, runtime)
+            }
+            return super.wrap(cx, scope, obj, staticType)
+        }
+
         override fun wrapAsJavaObject(
             cx: Context?,
             scope: Scriptable?,
-            javaObject: Any?,
-            staticType: Class<*>?
+            obj: Any?,
+            staticType: TypeInfo?
         ): Scriptable? {
-            //Log.d(LOG_TAG, "wrapAsJavaObject: java = " + javaObject + ", result = " + result + ", scope = " + scope);
-            return if (javaObject is View) {
-                ViewExtras.getNativeView(scope, javaObject, staticType, runtime)
-            } else {
-                super.wrapAsJavaObject(cx, scope, javaObject, staticType)
+            val objName = obj?.javaClass?.name
+            if (objName != null) {
+                Log.d("WrapFactory", "wrapAsJavaObject: obj=$objName")
             }
+            if (obj is View) {
+                Log.d("WrapFactory", "View in wrapAsJavaObject!")
+                val runtime = this@RhinoJavaScriptEngine.runtime
+                return InjectedNativeJavaObject(scope, obj, staticType, runtime)
+            }
+            return super.wrapAsJavaObject(cx, scope, obj, staticType)
         }
-
     }
 
     companion object {
         const val SOURCE_NAME_INIT = "<init>"
         private const val LOG_TAG = "RhinoJavaScriptEngine"
-
     }
-
-
 }

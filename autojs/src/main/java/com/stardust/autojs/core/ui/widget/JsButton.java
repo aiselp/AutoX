@@ -12,7 +12,7 @@ import android.widget.Button;
  */
 
 @SuppressLint("AppCompatCustomView")
-public class JsButton extends Button {
+public class JsButton extends Button implements AttrSupport {
     public JsButton(Context context) {
         super(context);
     }

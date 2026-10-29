@@ -1,36 +1,45 @@
 package com.stardust.autojs.rhino;
 
+import android.util.Log;
+
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.NativeFunction;
-import org.mozilla.javascript.NativeObject;
+import org.mozilla.javascript.Function;
 import org.mozilla.javascript.Scriptable;
+import org.mozilla.javascript.ScriptableObject;
 import org.mozilla.javascript.UniqueTag;
 
-/**
- * Created by Stardust on 2017/5/17.
- */
+public class ProxyObject extends ScriptableObject {
 
-public class ProxyObject extends NativeObject {
+    private Function mGetter;
+    private Function mSetter;
 
-    private NativeFunction mGetter;
-    private NativeFunction mSetter;
+    @Override
+    public String getClassName() {
+        return "ProxyObject";
+    }
 
     @Override
     public void put(String name, Scriptable start, Object value) {
-        if (name.equals("__proxy__")) {
-            NativeObject proxy = (NativeObject) value;
-            Object getter = proxy.get("get", start);
-            if (getter instanceof NativeFunction) {
-                mGetter = (NativeFunction) getter;
+        Log.d("ProxyObject", "put(" + name + ", " + value + ")");
+        if (!name.equals("__proxy__") || !(value instanceof Scriptable)) {
+            if (mSetter != null) {
+                mSetter.call(Context.getCurrentContext(), start, start, new Object[]{name, value});
+                return;
+            } else {
+                super.put(name, start, value);
+                return;
             }
-            Object setter = proxy.get("set", start);
-            if (setter instanceof NativeFunction) {
-                mSetter = (NativeFunction) setter;
-            }
-        } else if (mSetter != null) {
-            mSetter.call(Context.getCurrentContext(), start, start, new Object[]{name, value});
-        } else {
-            super.put(name, start, value);
+        }
+        Scriptable proxy = (Scriptable) value;
+        Object getter = proxy.get("get", start);
+        if (getter instanceof Function) {
+            mGetter = (Function) getter;
+            Log.d("ProxyObject", "__proxy__ set, mGetter=" + mGetter);
+        }
+        Object setter = proxy.get("set", start);
+        if (setter instanceof Function) {
+            mSetter = (Function) setter;
+            Log.d("ProxyObject", "__proxy__ set, mSetter=" + mSetter);
         }
     }
 
@@ -40,12 +49,12 @@ public class ProxyObject extends NativeObject {
 
     @Override
     public Object get(String name, Scriptable start) {
-        Object value = super.get(name, start);
-        if (value != null && value != UniqueTag.NOT_FOUND) {
-            return value;
+        if ("bindingContext".equals(name) || "__noSuchMethod__".equals(name)) {
+            return super.get(name, start);
         }
-        if (mGetter != null) {
-            value = mGetter.call(Context.getCurrentContext(), start, start, new Object[]{name});
+        Object value = super.get(name, start);
+        if ((value == null || value == UniqueTag.NOT_FOUND) && mGetter != null) {
+            return mGetter.call(Context.getCurrentContext(), start, start, new Object[]{name});
         }
         return value;
     }

@@ -16,8 +16,12 @@ public class ViewExtras {
 
     private static final String LOG_TAG = "ViewExtras";
     private NativeView mNativeView;
-
     private ViewAttributes mViewAttributes;
+    private static ResourceParser sResourceParser;
+
+    public static void setResourceParser(ResourceParser parser) {
+        sResourceParser = parser;
+    }
 
     public static ViewExtras get(View view) {
         ViewExtras extras;
@@ -32,6 +36,9 @@ public class ViewExtras {
         return extras;
     }
 
+    public static ViewAttributes getViewAttributes(View view) {
+        return getViewAttributes(view, sResourceParser);
+    }
 
     public static ViewAttributes getViewAttributes(View view, ResourceParser parser) {
         ViewExtras extras = get(view);
@@ -42,7 +49,6 @@ public class ViewExtras {
         }
         return attributes;
     }
-
 
     public static NativeView getNativeView(Scriptable scope, View view, Class<?> staticType, ScriptRuntime runtime) {
         ViewExtras extras = get(view);
@@ -57,6 +63,35 @@ public class ViewExtras {
     public static NativeView getNativeView(View view) {
         ViewExtras extras = get(view);
         return extras.getNativeView();
+    }
+
+    public static void setAttr(View view, String name, Object value) {
+        ViewExtras extras = get(view);
+        ViewAttributes attrs = extras.getViewAttributes();
+        if (attrs == null) {
+            attrs = ViewAttributesFactory.create(sResourceParser, view);
+            extras.setViewAttributes(attrs);
+        }
+        attrs.setAttr(name, String.valueOf(value));
+    }
+
+    public static Object getAttr(View view, String name) {
+        ViewExtras extras = get(view);
+        ViewAttributes attrs = extras.getViewAttributes();
+        if (attrs != null) {
+            return attrs.getAttrValue(name);
+        }
+        return null;
+    }
+
+    public static NativeView getOrCreateNativeView(Scriptable scope, View view, ScriptRuntime runtime) {
+        ViewExtras extras = get(view);
+        NativeView nativeView = extras.getNativeView();
+        if (nativeView == null) {
+            nativeView = new NativeView(scope, view, view.getClass(), runtime);
+            extras.setNativeView(nativeView);
+        }
+        return nativeView;
     }
 
     public final NativeView getNativeView() {

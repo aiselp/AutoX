@@ -14,7 +14,7 @@ import com.stardust.autojs.core.ui.inflater.util.Drawables;
  * Created by Stardust on 2017/11/30.
  */
 
-public class JsImageView extends RoundedImageView {
+public class JsImageView extends RoundedImageView implements AttrSupport {
 
     private boolean mCircle;
     private Drawables mDrawables;
