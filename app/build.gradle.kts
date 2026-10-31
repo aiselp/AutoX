@@ -5,8 +5,6 @@ import java.util.Base64
 plugins {
     id("com.android.application")
     id("kotlin-android")
-    id("com.jakewharton.butterknife")
-    id("kotlin-kapt")//Deprecated!!
 }
 
 java {
@@ -176,9 +174,6 @@ dependencies {
     testImplementation(libs.junit)
     // Kotlin携程
     implementation(libs.kotlinx.coroutines.android)
-    // ButterKnife Deprecated!!
-    implementation("com.jakewharton:butterknife:10.2.1")
-    kapt("com.jakewharton:butterknife-compiler:10.2.3")
     // Android supports
     implementation(libs.preference.ktx)
     implementation(libs.appcompat) //
@@ -234,7 +229,7 @@ dependencies {
 
     implementation(libs.bundles.ktor)
     //qr scan
-    implementation(libs.quickie.bundled)
+    implementation(libs.zxing.android.embedded)
     //TextView markdown
     implementation(libs.markwon)
     implementation(libs.androidx.viewpager2)

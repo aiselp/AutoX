@@ -13,11 +13,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.autojs.autoxjs.R;
+import org.autojs.autoxjs.databinding.OperationDialogItemBinding;
 
 import java.util.ArrayList;
-
-import butterknife.BindView;
-import butterknife.ButterKnife;
 
 /**
  * Created by Stardust on 2017/10/20.
@@ -47,11 +45,6 @@ public class OptionListView extends LinearLayout {
             return this;
         }
 
-        public Builder bindItemClick(Object target) {
-            mOptionListView.mOnItemClickTarget = target;
-            return this;
-        }
-
         public Builder title(String title) {
             mOptionListView.mTitleView.setVisibility(VISIBLE);
             mOptionListView.mTitleView.setText(title);
@@ -71,7 +64,6 @@ public class OptionListView extends LinearLayout {
     private ArrayList<Integer> mIds = new ArrayList<>();
     private ArrayList<Integer> mIcons = new ArrayList<>();
     private ArrayList<String> mTexts = new ArrayList<>();
-    private Object mOnItemClickTarget;
     private RecyclerView mOptionList;
     private TextView mTitleView;
 
@@ -103,9 +95,6 @@ public class OptionListView extends LinearLayout {
             holder.itemView.setId(mIds.get(position));
             holder.text.setText(mTexts.get(position));
             holder.icon.setImageResource(mIcons.get(position));
-            if (mOnItemClickTarget != null) {
-                ButterKnife.bind(mOnItemClickTarget, holder.itemView);
-            }
         }
 
         @Override
@@ -117,14 +106,14 @@ public class OptionListView extends LinearLayout {
 
     class ViewHolder extends RecyclerView.ViewHolder {
 
-        @BindView(R.id.icon)
         ImageView icon;
-        @BindView(R.id.text)
         TextView text;
 
         public ViewHolder(View itemView) {
             super(itemView);
-            ButterKnife.bind(this, itemView);
+            OperationDialogItemBinding binding = OperationDialogItemBinding.bind(itemView);
+            icon = binding.icon;
+            text = binding.text;
         }
 
     }

@@ -12,7 +12,6 @@ androidx-test-ext-junit = "1.2.1"
 espresso-core = "3.6.1"
 appcompat = "1.7.0"
 material = "1.12.0"
-quickie-bundled = "1.10.0"
 savedstate = "1.2.1"
 mlkit-text = "16.0.1"
 junit-ktx = "1.2.1"
@@ -72,9 +71,8 @@ mozilla-rhino-tools = "org.mozilla:rhino-tools:1.8.1"
 opencv = "org.opencv:opencv:4.12.0"
 # commons
 commons-exec = "org.apache.commons:commons-exec:1.5.0"
-commons-io = "commons-io:commons-io:2.6"
-# byte-buddy-android
-byte-buddy-android = "net.bytebuddy:byte-buddy-android:1.15.11"
+# dex
+dalvik-dx = "com.jakewharton.android.repackaged:dalvik-dx:11.0.0_r3"
 
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines-android" }
 google-gson = { module = "com.google.code.gson:gson", version.ref = "google-gson" }
@@ -94,10 +92,11 @@ mlkit-text-recognition-devanagari = { module = "com.google.mlkit:text-recognitio
 mlkit-text-recognition-japanese = { module = "com.google.mlkit:text-recognition-japanese", version.ref = "mlkit-text" }
 mlkit-text-recognition-korean = { module = "com.google.mlkit:text-recognition-korean", version.ref = "mlkit-text" }
 #rxjava
-quickie-bundled = { module = "io.github.g00fy2.quickie:quickie-bundled", version.ref = "quickie-bundled" }
 rxjava3 = "io.reactivex.rxjava3:rxjava:3.1.11"
 rxjava3-rxandroid = "io.reactivex.rxjava3:rxandroid:3.0.2"
 javet-android-node = "com.caoccao.javet:javet-node-android:5.0.2"
+# qr
+zxing-android-embedded = "com.journeyapps:zxing-android-embedded:4.3.0"
 #shizuku
 shizuku-api = "dev.rikka.shizuku:api:13.1.5"
 shizuku-provider = "dev.rikka.shizuku:provider:13.1.5"
