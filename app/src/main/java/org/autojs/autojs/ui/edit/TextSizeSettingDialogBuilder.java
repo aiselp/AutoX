@@ -2,16 +2,14 @@ package org.autojs.autojs.ui.edit;
 
 import android.content.Context;
 import androidx.annotation.NonNull;
-import android.view.View;
+import android.view.LayoutInflater;
 import android.widget.SeekBar;
 import android.widget.TextView;
 
 import com.afollestad.materialdialogs.MaterialDialog;
 import org.autojs.autoxjs.R;
 import org.autojs.autojs.theme.dialog.ThemeColorMaterialDialogBuilder;
-
-import butterknife.BindView;
-import butterknife.ButterKnife;
+import org.autojs.autoxjs.databinding.DialogTextSizeSettingBinding;
 
 /**
  * Created by Stardust on 2018/2/24.
@@ -27,10 +25,7 @@ public class TextSizeSettingDialogBuilder extends ThemeColorMaterialDialogBuilde
 
     private static final int MIN = 2;
 
-    @BindView(R.id.seekbar)
     SeekBar mSeekBar;
-
-    @BindView(R.id.preview_text)
     TextView mPreviewText;
 
     private int mTextSize;
@@ -38,12 +33,13 @@ public class TextSizeSettingDialogBuilder extends ThemeColorMaterialDialogBuilde
 
     public TextSizeSettingDialogBuilder(@NonNull Context context) {
         super(context);
-        View view = View.inflate(context, R.layout.dialog_text_size_setting, null);
-        customView(view, false);
+        DialogTextSizeSettingBinding binding = DialogTextSizeSettingBinding.inflate(LayoutInflater.from(context));
+        customView(binding.getRoot(), false);
         title(R.string.text_text_size);
         positiveText(R.string.ok);
         negativeText(R.string.cancel);
-        ButterKnife.bind(this, view);
+        mSeekBar = binding.seekbar;
+        mPreviewText = binding.previewText;
         mSeekBar.setOnSeekBarChangeListener(this);
     }
 

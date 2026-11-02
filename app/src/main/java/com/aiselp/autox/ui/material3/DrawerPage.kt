@@ -83,8 +83,8 @@ import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.toast
 import com.stardust.util.IntentUtil
-import io.github.g00fy2.quickie.QRResult
-import io.github.g00fy2.quickie.ScanQRCode
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -628,37 +628,38 @@ private fun ConnectComputerSwitch() {
     val scope = rememberCoroutineScope()
     var enable by remember { mutableStateOf(DevPlugin.isActive) }
 
-
     val scanCodeLauncher =
-        rememberLauncherForActivityResult(contract = ScanQRCode(), onResult = { result ->
-            when (result) {
-                is QRResult.QRSuccess -> {
-                    toast(context, result.content.rawValue)
-                    val url = result.content.rawValue!!
-                    if (url.matches(Regex("^(ws://|wss://).+$"))) {
-                        Pref.saveServerAddress(url)
-                        connectServer(url)
-                    } else {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.text_unsupported_qr_code),
-                            Toast.LENGTH_SHORT
-                        ).show()
-                    }
-                }
-
-                QRResult.QRUserCanceled -> {}
-                QRResult.QRMissingPermission -> {}
-                is QRResult.QRError -> {
+        rememberLauncherForActivityResult(contract = ScanContract()) { result ->
+            // ZXing 扫码成功返回 contents 字符串，取消则返回 null
+            result.contents?.let { url ->
+                toast(context, url)
+                if (url.matches(Regex("^(ws://|wss://).+$"))) {
+                    Pref.saveServerAddress(url)
+                    connectServer(url)
+                } else {
                     Toast.makeText(
-                        context, result.exception.toString(), Toast.LENGTH_LONG
+                        context,
+                        context.getString(R.string.text_unsupported_qr_code),
+                        Toast.LENGTH_SHORT
                     ).show()
                 }
             }
-        })
+        }
+
     val dialog = object : DialogController() {}
+
     dialog.ConnectComputerDialog(
-        onScanCode = { scanCodeLauncher.launch(null) })
+        onScanCode = {
+            scanCodeLauncher.launch(
+                ScanOptions()
+                    .setDesiredBarcodeFormats(ScanOptions.QR_CODE)
+                    .setPrompt(context.getString(R.string.text_scan_qr))
+                    .setBeepEnabled(false)
+                    .setOrientationLocked(false)
+            )
+        }
+    )
+
     LaunchedEffect(Unit) {
         DevPlugin.connectState.collect {
             withContext(Dispatchers.Main) {
@@ -669,20 +670,26 @@ private fun ConnectComputerSwitch() {
             }
         }
     }
+
     SettingOptionSwitch(
         icon = {
             Icon(painterResource(id = R.drawable.ic_debug), null, tint = Color(0xFF008A38))
-        }, title = stringResource(
+        },
+        title = stringResource(
             id = if (!enable) R.string.text_connect_computer
             else R.string.text_connected_to_computer
-        ), checked = enable, onCheckedChange = {
+        ),
+        checked = enable,
+        onCheckedChange = {
             scope.launch {
                 if (it) {
                     dialog.show()
-                } else DevPlugin.close()
+                } else {
+                    DevPlugin.close()
+                }
             }
-        })
-
+        }
+    )
 }
 
 @Composable

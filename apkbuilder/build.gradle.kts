@@ -46,7 +46,6 @@ dependencies {
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.espresso.core)
     testImplementation(libs.junit)
-    api(libs.commons.io)
     implementation(libs.core.ktx)
 }
 repositories {

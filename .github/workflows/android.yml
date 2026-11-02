@@ -29,6 +29,8 @@ jobs:
           node-version: 20.x
       - name: Setup Android SDK
         uses: android-actions/setup-android@v4
+      - name: Install NDK for strip task
+        run: sdkmanager --install "ndk;26.1.10909125"
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6.3.0
 
