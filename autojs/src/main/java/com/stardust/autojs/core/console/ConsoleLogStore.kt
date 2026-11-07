@@ -18,7 +18,10 @@ import java.util.concurrent.atomic.AtomicInteger
  *   [maxFileBytes] 是软上限：写入按块进行，每块写入前才检查大小，所以文件可能略微超出一个块。
  * - 跨进程：写入进程以追加模式打开文件，其他进程可以随时读取（[readRecent]）或清空（[clear]）。
  *   清空时对活动文件只截断、不删除，这样写入进程手里的文件句柄依然有效。
+ * - 容错：日志存储只是辅助功能，读写失败只通过 [onError] 上报，不能影响应用启动和脚本运行
+ *   （读取发生在应用启动阶段，后台写线程里未捕获的异常还会让整个进程崩溃），所以这里有意捕获 Throwable。
  */
+@Suppress("TooGenericExceptionCaught")
 class ConsoleLogStore @JvmOverloads constructor(
     private val dir: File,
     private val maxFileBytes: Long = DEFAULT_MAX_FILE_BYTES,

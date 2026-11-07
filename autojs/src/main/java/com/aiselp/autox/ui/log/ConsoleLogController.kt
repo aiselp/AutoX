@@ -190,12 +190,19 @@ class ConsoleLogController(
         return false
     }
 
+    /**
+     * 写入系统剪贴板，返回是否成功。
+     *
+     * 内容超过 Binder 事务的大小上限时，系统服务会抛出 TransactionTooLargeException，
+     * 但 [android.content.ClipboardManager] 会把它（以及其他 RemoteException）统一包装成 RuntimeException
+     * （rethrowFromSystemServer），没有更具体的类型可以捕获。
+     */
+    @Suppress("TooGenericExceptionCaught")
     private fun setClipboard(text: String): Boolean {
         return try {
             ClipboardUtil.setClip(activity, text)
             true
         } catch (e: RuntimeException) {
-            // 内容超过 Binder 事务的大小上限时，系统会抛出 TransactionTooLargeException
             false
         }
     }
