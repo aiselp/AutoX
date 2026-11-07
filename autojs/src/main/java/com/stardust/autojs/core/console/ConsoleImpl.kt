@@ -30,7 +30,7 @@ open class ConsoleImpl @JvmOverloads constructor(
     private val mUiHandler: UiHandler,
     val globalConsole: Console? = null
 ) : AbstractConsole() {
-    private var maxLines = 5 * 1000
+    private var maxLines = DEFAULT_MAX_LINES
 
     interface LogListener {
         fun onNewLog(logEntry: LogEntry)
@@ -39,7 +39,16 @@ open class ConsoleImpl @JvmOverloads constructor(
     }
 
     val logPublish: PublishSubject<LogEntry> = PublishSubject.create()
+
+    /** 所有日志。读写时都需要对它加锁（`synchronized(allLogs)`）。 */
     val allLogs: ArrayList<LogEntry> = ArrayList()
+
+    /**
+     * 从 [allLogs] 头部累计移除的日志条数（因超出 [setMaxLines] 的上限被裁剪，或被 [clear] 清空）。
+     * [ConsoleView] 据此把自己的列表与 [allLogs] 对齐。读写时需要持有 [allLogs] 的锁。
+     */
+    var trimmedCount: Long = 0
+        private set
     private val mIdCounter = AtomicInteger(0)
     private val mConsoleFloaty = ConsoleFloaty(this)
 
@@ -73,15 +82,62 @@ open class ConsoleImpl @JvmOverloads constructor(
         val logEntry = LogEntry(mIdCounter.getAndIncrement(), level, charSequence.toString(), true)
         synchronized(allLogs) {
             allLogs.add(logEntry)
+            trimOverflowLocked()
         }
         globalConsole?.println(level, charSequence)
         mLogListener?.get()?.onNewLog(logEntry)
-
-        if (maxLines > 0 && allLogs.size > maxLines) {
-            clear()
-        }
         logPublish.onNext(logEntry)
         return null
+    }
+
+    /**
+     * 日志超过上限时只丢弃最旧的一部分，而不是整个清空，这样用户翻看或选中的日志不会突然消失。
+     * 一次多丢 10%，避免每打印一条日志都要搬移一次列表。
+     */
+    private fun trimOverflowLocked() {
+        val limit = maxLines
+        if (limit <= 0 || allLogs.size <= limit) return
+        val removeCount = (allLogs.size - limit + limit / 10).coerceAtMost(allLogs.size)
+        allLogs.subList(0, removeCount).clear()
+        trimmedCount += removeCount
+    }
+
+    /**
+     * 返回当前所有日志的快照。
+     */
+    fun snapshotLogs(): List<LogEntry> {
+        synchronized(allLogs) {
+            return ArrayList(allLogs)
+        }
+    }
+
+    /**
+     * 把 [store] 中保存的历史日志恢复到控制台最前面，并在其后加一条分隔提示。
+     * 应在控制台刚创建、还没有新日志时调用。
+     */
+    fun restoreHistory(store: ConsoleLogStore) {
+        val limit = if (maxLines > 0) maxLines else DEFAULT_MAX_LINES
+        // 给分隔提示留一个位置，恢复之后总条数不超过上限
+        val history = store.readRecent((limit - 1).coerceAtLeast(1))
+        if (history.isEmpty()) return
+        val restored = ArrayList<LogEntry>(history.size + 1)
+        for (entry in history) {
+            restored.add(LogEntry(mIdCounter.getAndIncrement(), entry.level, entry.content, true))
+        }
+        restored.add(
+            LogEntry(
+                mIdCounter.getAndIncrement(),
+                Log.INFO,
+                mUiHandler.context.getString(R.string.text_log_history_divider),
+                true
+            )
+        )
+        synchronized(allLogs) {
+            allLogs.addAll(0, restored)
+            trimOverflowLocked()
+        }
+        // 已有的视图需要据此整体刷新
+        mLogListener?.get()?.onLogClear()
     }
 
     override fun setTitle(title: CharSequence, color: String, size: Int) {
@@ -134,6 +190,7 @@ open class ConsoleImpl @JvmOverloads constructor(
 
     override fun clear() {
         synchronized(allLogs) {
+            trimmedCount += allLogs.size
             allLogs.clear()
         }
         if (mLogListener != null && mLogListener!!.get() != null) {
@@ -245,5 +302,9 @@ open class ConsoleImpl @JvmOverloads constructor(
         } else {
             super.error(data, *options)
         }
+    }
+
+    companion object {
+        private const val DEFAULT_MAX_LINES = 5 * 1000
     }
 }

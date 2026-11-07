@@ -1,6 +1,7 @@
 package com.stardust.autojs.core.console
 
 import android.content.Context
+import android.graphics.Color
 import android.text.TextUtils
 import android.util.AttributeSet
 import android.util.Log
@@ -17,12 +18,12 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import androidx.recyclerview.widget.SimpleItemAnimator
 import com.stardust.autojs.R
 import com.stardust.autojs.core.console.ConsoleImpl.LogListener
 import com.stardust.enhancedfloaty.ResizableExpandableFloatyWindow
 import com.stardust.util.MapBuilder
 import com.stardust.util.ViewUtils
-import java.util.LinkedList
 
 /**
  * Created by Stardust on 2017/5/2.
@@ -31,6 +32,13 @@ import java.util.LinkedList
  * TODO: 优化为无锁形式
  */
 class ConsoleView : FrameLayout, LogListener {
+    /**
+     * 多选状态变化的监听。
+     */
+    fun interface SelectionListener {
+        fun onSelectionChanged(selectionMode: Boolean, selectedCount: Int)
+    }
+
     val colors = SparseIntArray().apply {
         put(Log.VERBOSE, context.getColor(R.color.console_verbose))
         put(Log.DEBUG, context.getColor(R.color.console_debug))
@@ -45,8 +53,24 @@ class ConsoleView : FrameLayout, LogListener {
     private lateinit var submitButton: Button
     private var mWindow: ResizableExpandableFloatyWindow? = null
     private var mShouldStopRefresh = false
-    private val mLogEntries = LinkedList<LogEntry>()
+    private val mLogEntries = ArrayList<LogEntry>()
     private var mLogSize = -1f
+
+    /** 已经与 [mLogEntries] 对齐的 [ConsoleImpl.trimmedCount]。 */
+    private var mSyncedTrimmedCount = 0L
+
+    private val mSelectedIds = HashSet<Int>()
+    private var mSelectionAnchorId: Int? = null
+    private var mSelectionListener: SelectionListener? = null
+
+    /**
+     * 是否处于多选状态。多选状态下点击某一行会选中/取消选中该行，而不是选中行内文字。
+     */
+    var isSelectionMode = false
+        private set
+
+    val selectedCount: Int
+        get() = mSelectedIds.size
 
     constructor(context: Context) : super(context) {
         init(null)
@@ -77,6 +101,8 @@ class ConsoleView : FrameLayout, LogListener {
         val manager = LinearLayoutManager(context)
         mLogListRecyclerView.layoutManager = manager
         mLogListRecyclerView.adapter = Adapter()
+        // 点选日志行时不需要渐变动画，否则每次选中都会闪一下
+        (mLogListRecyclerView.itemAnimator as? SimpleItemAnimator)?.supportsChangeAnimations = false
         initEditText()
         initSubmitButton()
     }
@@ -115,6 +141,7 @@ class ConsoleView : FrameLayout, LogListener {
     fun setConsole(console: ConsoleImpl) {
         mConsole = console
         console.setConsoleView(this)
+        resetLogs()
     }
 
     override fun onNewLog(logEntry: LogEntry) {}
@@ -137,33 +164,73 @@ class ConsoleView : FrameLayout, LogListener {
     }
 
     override fun onLogClear() {
-        post {
-            mLogEntries.clear()
-            mLogListRecyclerView.adapter!!.notifyDataSetChanged()
+        post { resetLogs() }
+    }
+
+    /**
+     * 丢弃当前显示的内容和选中状态，下一次 [refreshLog] 会从 [ConsoleImpl.allLogs] 重新同步。
+     */
+    private fun resetLogs() {
+        val console = mConsole
+        mLogEntries.clear()
+        mSyncedTrimmedCount = if (console != null) {
+            synchronized(console.allLogs) { console.trimmedCount }
+        } else {
+            0L
+        }
+        mSelectedIds.clear()
+        mSelectionAnchorId = null
+        val wasSelecting = isSelectionMode
+        isSelectionMode = false
+        mLogListRecyclerView.adapter!!.notifyDataSetChanged()
+        if (wasSelecting) {
+            notifySelectionChanged()
         }
     }
 
+    /**
+     * 把 [ConsoleImpl.allLogs] 的变化同步到界面：
+     * 先移除被 [ConsoleImpl] 从头部裁剪掉的日志，再追加新日志。
+     */
     private fun refreshLog() {
         val console = mConsole ?: return
-        val oldSize = mLogEntries.size
-        val logEntries = console.allLogs
-        synchronized(logEntries) {
-            val size = logEntries.size
-            if (size == 0) {
-                return
+        val removeCount: Int
+        var added: List<LogEntry> = emptyList()
+        synchronized(console.allLogs) {
+            val trimmed = console.trimmedCount
+            val dropped = (trimmed - mSyncedTrimmedCount).coerceAtLeast(0L)
+            removeCount = minOf(dropped, mLogEntries.size.toLong()).toInt()
+            mSyncedTrimmedCount = trimmed
+            // 移除头部之后，界面上剩下的日志对应 allLogs 的前 keep 条
+            val keep = mLogEntries.size - removeCount
+            if (console.allLogs.size > keep) {
+                added = ArrayList(console.allLogs.subList(keep, console.allLogs.size))
             }
-            if (oldSize >= size) {
-                return
+        }
+        val adapter = mLogListRecyclerView.adapter!!
+        if (removeCount > 0) {
+            val removed = mLogEntries.subList(0, removeCount)
+            for (entry in removed) {
+                mSelectedIds.remove(entry.id)
             }
-            if (oldSize == 0) {
-                mLogEntries.addAll(logEntries)
-            } else {
-                for (i in oldSize until size) {
-                    mLogEntries.add(logEntries[i])
-                }
+            if (mSelectedIds.isEmpty() || mSelectionAnchorId?.let { it !in mSelectedIds } == true) {
+                mSelectionAnchorId = null
             }
-            mLogListRecyclerView.adapter!!.notifyItemRangeInserted(oldSize, size - 1)
-            mLogListRecyclerView.scrollToPosition(size - 1)
+            removed.clear()
+            adapter.notifyItemRangeRemoved(0, removeCount)
+            if (isSelectionMode) {
+                notifySelectionChanged()
+            }
+        }
+        if (added.isNotEmpty()) {
+            val oldSize = mLogEntries.size
+            // 用户停在底部时才跟随新日志滚动，往上翻看时不要把用户拉回底部
+            val stickToBottom = oldSize == 0 || !mLogListRecyclerView.canScrollVertically(1)
+            mLogEntries.addAll(added)
+            adapter.notifyItemRangeInserted(oldSize, added.size)
+            if (stickToBottom && !isSelectionMode) {
+                mLogListRecyclerView.scrollToPosition(mLogEntries.size - 1)
+            }
         }
     }
 
@@ -190,6 +257,87 @@ class ConsoleView : FrameLayout, LogListener {
 
     fun setLogSize(size: Int) {
         mLogSize = ViewUtils.spToPx(context, size.toFloat()).toInt().toFloat()
+    }
+
+    fun setSelectionListener(listener: SelectionListener?) {
+        mSelectionListener = listener
+        listener?.onSelectionChanged(isSelectionMode, mSelectedIds.size)
+    }
+
+    /**
+     * 进入多选状态。
+     */
+    fun enterSelectionMode() {
+        if (isSelectionMode) return
+        isSelectionMode = true
+        mLogListRecyclerView.adapter!!.notifyDataSetChanged()
+        notifySelectionChanged()
+    }
+
+    /**
+     * 退出多选状态并取消所有选中。
+     */
+    fun exitSelectionMode() {
+        if (!isSelectionMode) return
+        isSelectionMode = false
+        mSelectedIds.clear()
+        mSelectionAnchorId = null
+        mLogListRecyclerView.adapter!!.notifyDataSetChanged()
+        notifySelectionChanged()
+    }
+
+    /**
+     * 选中当前显示的所有日志（必要时先进入多选状态）。
+     */
+    fun selectAll() {
+        isSelectionMode = true
+        mSelectedIds.clear()
+        for (entry in mLogEntries) {
+            mSelectedIds.add(entry.id)
+        }
+        mSelectionAnchorId = mLogEntries.lastOrNull()?.id
+        mLogListRecyclerView.adapter!!.notifyDataSetChanged()
+        notifySelectionChanged()
+    }
+
+    /**
+     * 返回选中的日志，按显示顺序排列。
+     */
+    fun getSelectedEntries(): List<LogEntry> {
+        if (mSelectedIds.isEmpty()) return emptyList()
+        return mLogEntries.filter { it.id in mSelectedIds }
+    }
+
+    private fun toggleSelection(position: Int) {
+        val entry = mLogEntries.getOrNull(position) ?: return
+        if (mSelectedIds.remove(entry.id)) {
+            if (mSelectionAnchorId == entry.id) mSelectionAnchorId = null
+        } else {
+            mSelectedIds.add(entry.id)
+            mSelectionAnchorId = entry.id
+        }
+        mLogListRecyclerView.adapter!!.notifyItemChanged(position)
+        notifySelectionChanged()
+    }
+
+    /**
+     * 选中上一次点选的那一行到 [position] 之间的所有行；没有上一次点选的行时只选中 [position] 这一行。
+     */
+    private fun selectRangeTo(position: Int) {
+        val entry = mLogEntries.getOrNull(position) ?: return
+        val anchorPosition = mSelectionAnchorId?.let { id -> mLogEntries.indexOfFirst { it.id == id } } ?: -1
+        val from = if (anchorPosition >= 0) minOf(anchorPosition, position) else position
+        val to = if (anchorPosition >= 0) maxOf(anchorPosition, position) else position
+        for (i in from..to) {
+            mSelectedIds.add(mLogEntries[i].id)
+        }
+        mSelectionAnchorId = entry.id
+        mLogListRecyclerView.adapter!!.notifyItemRangeChanged(from, to - from + 1)
+        notifySelectionChanged()
+    }
+
+    private fun notifySelectionChanged() {
+        mSelectionListener?.onSelectionChanged(isSelectionMode, mSelectedIds.size)
     }
 
     private class ViewHolder(itemView: View, val logSize: Float) :
@@ -220,10 +368,37 @@ class ConsoleView : FrameLayout, LogListener {
             val logEntry = mLogEntries[position]
             holder.bindData(logEntry)
             holder.textView.setTextColor(colors[logEntry.level])
+            bindSelection(holder, logEntry)
         }
 
         override fun getItemCount(): Int {
             return mLogEntries.size
+        }
+
+        /**
+         * 普通状态下行内文字可以长按选中；多选状态下改为整行点选，并高亮选中的行。
+         */
+        private fun bindSelection(holder: ViewHolder, logEntry: LogEntry) {
+            val textView = holder.textView
+            if (isSelectionMode) {
+                if (textView.isTextSelectable) {
+                    textView.setTextIsSelectable(false)
+                }
+                val selected = logEntry.id in mSelectedIds
+                textView.setBackgroundColor(if (selected) SELECTED_BACKGROUND else Color.TRANSPARENT)
+                textView.setOnClickListener { toggleSelection(holder.adapterPosition) }
+                textView.setOnLongClickListener {
+                    selectRangeTo(holder.adapterPosition)
+                    true
+                }
+            } else {
+                textView.setOnClickListener(null)
+                textView.setOnLongClickListener(null)
+                textView.background = null
+                if (!textView.isTextSelectable) {
+                    textView.setTextIsSelectable(true)
+                }
+            }
         }
     }
 
@@ -237,5 +412,8 @@ class ConsoleView : FrameLayout, LogListener {
             .put(R.styleable.ConsoleView_color_assert, Log.ASSERT)
             .build()
         private const val REFRESH_INTERVAL = 100L
+
+        /** 多选状态下被选中行的背景色（半透明蓝色，在深色和浅色背景上都看得清文字）。 */
+        private const val SELECTED_BACKGROUND = 0x4D2196F3
     }
 }

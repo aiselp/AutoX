@@ -100,7 +100,7 @@ class AutoJs private constructor(application: Application) :
     }
 
     override fun createGlobalConsole(): GlobalConsole {
-        return GlobalConsole(uiHandler)
+        return GlobalConsole(uiHandler).apply { restorePersistedHistory() }
     }
 
     override fun initScriptEngineManager() {

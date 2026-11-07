@@ -13,6 +13,7 @@ import android.util.Log
 import com.stardust.app.GlobalAppContext
 import com.stardust.autojs.IndependentScriptService
 import com.stardust.autojs.core.console.ConsoleImpl
+import com.stardust.autojs.core.console.ConsoleLogStore
 import com.stardust.autojs.core.console.LogEntry
 import com.stardust.autojs.execution.ExecutionConfig
 import com.stardust.util.UiHandler
@@ -35,7 +36,14 @@ class ScriptServiceConnection : ServiceConnection {
             override fun onPrintln(log: LogEntry) {
                 println(log.level, log.content)
             }
+
+            override fun clear() {
+                super.clear()
+                ConsoleLogStore.forContext(application).clear()
+            }
         }.apply {
+            // 先恢复脚本进程写在磁盘上的历史日志，再订阅新日志，保证历史在前、新日志在后
+            restoreHistory(ConsoleLogStore.forContext(application))
             binderConsoleListener.logPublish
                 .observeOn(AndroidSchedulers.mainThread()).subscribe(::onPrintln)
         }

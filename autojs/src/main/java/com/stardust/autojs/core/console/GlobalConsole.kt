@@ -13,11 +13,27 @@ import java.util.Locale
  */
 open class GlobalConsole(uiHandler: UiHandler) : ConsoleImpl(uiHandler) {
 
+    /** 日志同时写入磁盘，这样应用或脚本进程被杀死后仍能找回日志。 */
+    private val logStore: ConsoleLogStore by lazy { ConsoleLogStore.forContext(uiHandler.context) }
+
     override fun println(level: Int, charSequence: CharSequence?): String? {
         val log = "${DATE_FORMAT.format(Date())}/${getLevelChar(level)}: $charSequence"
         Log.d(TAG, log)
         super.println(level, log)
+        logStore.append(level, log)
         return log
+    }
+
+    override fun clear() {
+        super.clear()
+        logStore.clear()
+    }
+
+    /**
+     * 把磁盘上保存的上一次运行的日志恢复到控制台。
+     */
+    fun restorePersistedHistory() {
+        restoreHistory(logStore)
     }
 
     fun createObservable(): Observable<String> {
