@@ -34,4 +34,21 @@
     <string name="text_root_permission_incomplete">root权限不完整！需要到Magisk中为本软件的「:script」授权</string>
     <string name="text_stop_all_script">停止所有脚本</string>
 
+    <string name="text_log_history_divider">——— 以上为历史日志 ———</string>
+    <string name="text_log_empty">暂无日志</string>
+    <string name="text_log_more_actions">更多操作</string>
+    <string name="text_log_copy_all">复制全部日志</string>
+    <string name="text_log_multi_select">多选</string>
+    <string name="text_log_save_to_file">保存为文件</string>
+    <string name="text_log_share">分享日志</string>
+    <string name="text_log_select_all">全选</string>
+    <string name="text_log_copy_selected">复制</string>
+    <string name="text_log_exit_selection">退出多选</string>
+    <string name="text_log_selected_count">已选择 %d 行</string>
+    <string name="text_log_copied_lines">已复制 %d 行日志</string>
+    <string name="text_log_copied_partial">日志过长，仅复制了最新的 %1$d / %2$d 行</string>
+    <string name="text_log_copy_failed">复制失败</string>
+    <string name="text_log_saved">日志已保存</string>
+    <string name="text_log_save_failed">保存失败：%s</string>
+    <string name="text_log_share_failed">分享失败：%s</string>
 </resources>
