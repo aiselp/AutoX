@@ -36,6 +36,8 @@ data class Versions(
     val jdk: String = "17",
     @SerializedName("mini")
     val mini: Int = 26,
+    @SerializedName("ndk")
+    val ndk: String = "29.0.14206865",
     @SerializedName("target")
     val target: Int = 34,
 ){

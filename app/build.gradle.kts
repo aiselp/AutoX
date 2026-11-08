@@ -22,6 +22,7 @@ android {
         targetSdk = versions.target
         versionCode = versions.appVersionCode
         versionName = versions.appVersionName
+        ndkVersion = versions.ndk
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 //        multiDexEnabled = true
         buildConfigField("boolean", "isMarket", "false")

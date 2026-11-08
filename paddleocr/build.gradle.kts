@@ -16,7 +16,7 @@ android {
         minSdk = versions.mini
         testInstrumentationRunner = "android.support.test.runner.AndroidJUnitRunner"
 
-        ndkVersion = "29.0.14206865"
+        ndkVersion = versions.ndk
 
         externalNativeBuild {
             cmake {
