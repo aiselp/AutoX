@@ -194,11 +194,13 @@ class CustomToastView(
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             wm.addView(view, layoutParams)
             toastViews.add(view)
+            // 计时从真正 addView 之后开始。原先在 showFull 中直接 postDelayed，
+            // 会把主线程排队与加窗口的时间算进 duration，短时长（如 500ms）
+            // 会被削掉几百毫秒。放在这里仍可被 dismissAll() 正常取消。
+            toastHandler.postDelayed({
+                dismissView(view)
+            }, duration)
         }
-        toastViews.add(view)
-        toastHandler.postDelayed({
-            dismissView(view)
-        }, duration)
     }
 
     private fun dismissView(view: View) {
