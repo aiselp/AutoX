@@ -7,6 +7,7 @@
   "target": 34,
   "mini": 27,
   "buildTool": "34.0.0",
+  "ndk": "29.0.14206865",
   "IDE": "Android Studio Bumblebee | 2021.1.1",
   "JDK": "17"
 }
