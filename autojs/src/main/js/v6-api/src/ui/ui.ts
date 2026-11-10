@@ -67,16 +67,10 @@ export const run = function <T>(action: () => T) {
     }
     var err = null;
     var result;
-    var startTime = Date.now();
     var disposable = threads.disposable();
     runtime.getUiHandler().post(function () {
         try {
             result = action();
-            var elapsed = Date.now() - startTime;
-            if (elapsed > 3000) {
-                console.error("ui.run 执行耗时: " + elapsed + "ms");
-                console.error("action 代码: " + action.toString());
-            }
             disposable.setAndNotify(null);
         } catch (e) {
             err = e;

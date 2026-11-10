@@ -2,13 +2,13 @@ package com.stardust.autojs.engine
 
 import android.util.Log
 import android.view.View
+import com.stardust.autojs.core.ui.ViewExtras
 import com.stardust.autojs.engine.module.AssetAndUrlModuleSourceProvider
 import com.stardust.autojs.engine.module.ScopeRequire
 import com.stardust.autojs.execution.ExecutionConfig
 import com.stardust.autojs.project.ScriptConfig
 import com.stardust.autojs.rhino.AndroidContextFactory
 import com.stardust.autojs.rhino.AutoJsContext
-import com.stardust.autojs.rhino.InjectedNativeJavaObject
 import com.stardust.autojs.rhino.RhinoAndroidHelper
 import com.stardust.autojs.rhino.TopLevelScope
 import com.stardust.autojs.runtime.ScriptRuntime
@@ -155,38 +155,21 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
     }
 
     private inner class WrapFactory : AndroidContextFactory.WrapFactory() {
-        override fun wrap(
-            cx: Context?,
-            scope: Scriptable?,
-            obj: Any?,
-            staticType: TypeInfo?
-        ): Any? {
-            val objName = obj?.javaClass?.name
-            if (objName != null) {
-                Log.d("WrapFactory", "wrap: obj=$objName")
-            }
-            if (obj is View) {
-                Log.d("WrapFactory", "View in wrap!")
-                val runtime = this@RhinoJavaScriptEngine.runtime
-                return InjectedNativeJavaObject(scope, obj, staticType, runtime)
-            }
-            return super.wrap(cx, scope, obj, staticType)
-        }
-
+        /**
+         * Rhino 1.9.2 的 wrap(..., TypeInfo) 最终会调用本方法，因此只在这里把 View
+         * 交给 NativeView（NativeJavaObjectWithPrototype 的 prototype 链）即可：
+         * UI 属性方法由 Rhino 自己按 Java 成员 + prototype 分派，无需手写反射。
+         * wrap(..., TypeInfo) 保持在父类中重写，避免绕过 UiObject 的特殊包装。
+         */
         override fun wrapAsJavaObject(
             cx: Context?,
             scope: Scriptable?,
             obj: Any?,
             staticType: TypeInfo?
         ): Scriptable? {
-            val objName = obj?.javaClass?.name
-            if (objName != null) {
-                Log.d("WrapFactory", "wrapAsJavaObject: obj=$objName")
-            }
-            if (obj is View) {
-                Log.d("WrapFactory", "View in wrapAsJavaObject!")
-                val runtime = this@RhinoJavaScriptEngine.runtime
-                return InjectedNativeJavaObject(scope, obj, staticType, runtime)
+            if (obj is View && scope != null) {
+                val staticClass = staticType?.asClass() ?: obj.javaClass
+                return ViewExtras.getNativeView(scope, obj, staticClass, runtime)
             }
             return super.wrapAsJavaObject(cx, scope, obj, staticType)
         }
