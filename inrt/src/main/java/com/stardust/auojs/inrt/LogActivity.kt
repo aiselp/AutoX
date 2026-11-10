@@ -3,6 +3,7 @@ package com.stardust.auojs.inrt
 import android.content.Intent
 import android.os.Bundle
 import android.view.View
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,9 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.aiselp.autox.ui.log.ConsoleLogActions
+import com.aiselp.autox.ui.log.ConsoleLogController
+import com.aiselp.autox.ui.log.ConsoleSelectionTopBar
 import com.aiselp.autox.ui.material3.theme.AppTheme
 import com.stardust.app.GlobalAppContext
 import com.stardust.auojs.inrt.autojs.AutoJs
@@ -35,6 +39,7 @@ import org.autojs.autoxjs.inrt.R
 
 class LogActivity : AppCompatActivity() {
     private lateinit var consoleView: ConsoleView
+    private lateinit var logController: ConsoleLogController
     private val consoleImpl by lazy { AutoJs.instance.globalConsole }
 
     @OptIn(ExperimentalMaterial3Api::class)
@@ -43,23 +48,33 @@ class LogActivity : AppCompatActivity() {
         consoleView = ConsoleView(this)
         consoleView.setConsole(consoleImpl)
         consoleView.findViewById<View>(R.id.input_container).visibility = View.GONE
+        logController = ConsoleLogController(this, consoleImpl, consoleView)
         setContent {
             AppTheme {
+                BackHandler(enabled = logController.selectionMode) {
+                    logController.exitSelectionMode()
+                }
                 Scaffold(
                     topBar = {
-                        TopAppBar(
-                            title = { Text(text = GlobalAppContext.appName) },
-                            actions = { OptionsMenu() })
+                        if (logController.selectionMode) {
+                            ConsoleSelectionTopBar(logController)
+                        } else {
+                            TopAppBar(
+                                title = { Text(text = GlobalAppContext.appName) },
+                                actions = { OptionsMenu() })
+                        }
                     },
                     floatingActionButton = {
-                        FloatingActionButton(
-                            onClick = { consoleImpl.clear() },
-                            modifier = Modifier.padding(16.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Clear,
-                                contentDescription = "Clear"
-                            )
+                        if (!logController.selectionMode) {
+                            FloatingActionButton(
+                                onClick = { consoleImpl.clear() },
+                                modifier = Modifier.padding(16.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear"
+                                )
+                            }
                         }
                     }
                 ) { paddingValues ->
@@ -113,6 +128,8 @@ class LogActivity : AppCompatActivity() {
                     contentDescription = stringResource(R.string.text_settings)
                 )
             }
+            // 顶栏上图标已经不少，复制全部放进更多菜单里
+            ConsoleLogActions(logController, showCopyAllButton = false)
         }
     }
 

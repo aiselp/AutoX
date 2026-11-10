@@ -2,6 +2,10 @@
 autoxjs 整个项目的一些更新日志,双版本号为稳定版（内容以修复的bug为主），单版本号为激进版本、发布新内容。
 
 ## [Unreleased](https://github.com/kkevsekk1/AutoX/compare/7.0.5...HEAD) 未发布
+## [7.2.5] - 2026-11-8
+* 依赖瘦身并修复 CI 未 strip native 库 by vtrayy
+* 增强日志功能，支持持久化、多选复制、一键复制、保存与分享 by wenmin92
+
 ## [7.2.4] - 2026-10-3
 新增API & 7.2.3版本Bug修复 (#202)
 * 新增多图片模板匹配API: matchMultiTemplates

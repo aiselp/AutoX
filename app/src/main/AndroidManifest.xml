@@ -95,7 +95,6 @@
     <application
         android:name="org.autojs.autojs.App"
         android:allowBackup="true"
-        android:extractNativeLibs="true"
         android:hardwareAccelerated="true"
         android:icon="@mipmap/ic_launcher"
         android:label="${appName}"

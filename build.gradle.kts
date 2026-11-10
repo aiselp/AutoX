@@ -17,7 +17,7 @@ buildscript {
         mavenCentral { url = uri("https://maven.aliyun.com/repository/public") }
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.5.0")
+        classpath("com.android.tools.build:gradle:8.11.2")
         classpath(kotlin("gradle-plugin", version = kotlin_version))
     }
 }
