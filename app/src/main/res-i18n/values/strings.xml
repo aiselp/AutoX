@@ -555,11 +555,6 @@
     <string name="text_copy_successfully">复制成功</string>
     <string name="text_copy_link">复制链接</string>
     <string name="import_template_apk_desc">当前版本不包含模板apk资源，请前往下载（template.apk）并导入</string>
-    <string name="asset_download">资源下载</string>
-    <string name="asset_download_desc">当前版本不包含打包模板（template.apk），需要下载或导入后才能打包独立应用。</string>
-    <string name="go_download">前往下载</string>
-    <string name="exit">退出</string>
-    <string name="import_asset">导入资源</string>
     <string name="special_permissions_configuration">特殊权限配置</string>
     <string name="special_permissions_configuration_desc">勾选以下权限要求会让打包的app启动时向用户申请并取得权限后才能运行</string>
     <string name="text_is_not_executable">文件无法运行</string>

@@ -29,6 +29,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PlayArrow
@@ -199,6 +200,16 @@ private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
                 }
             }
         }
+    val editor = remember { mutableStateOf(Pref.getEditor()) }
+    Watch(editor) {
+        Pref.setEditor(editor.value)
+    }
+    SettingOptionSwitch(
+        icon = Icons.Default.Edit,
+        title = "启用新编辑器",
+        value = editor,
+        tint = Color(0xFF996231)
+    )
     SettingOptionSwitch(
         icon = {
             Icon(

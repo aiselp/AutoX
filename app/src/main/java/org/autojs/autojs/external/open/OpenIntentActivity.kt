@@ -52,6 +52,7 @@ class OpenIntentActivity : AppCompatActivity() {
         val importFileDialog = DialogController()
         val menus = mapOf(
             getString(R.string.text_edit_script) to ::editFile,
+            getString(R.string.text_edit_script) + "(新编辑器)" to ::editFile2,
             getString(R.string.text_import_script) to { importFileDialog.show() },
             getString(R.string.text_run_script) to ::runFile,
         )
@@ -91,6 +92,15 @@ class OpenIntentActivity : AppCompatActivity() {
         } else {
             EditActivity.editFile(this, file, false)
         }
+        finish()
+    }
+
+    private fun editFile2(file: Uri) {
+        val path = file.path!!
+        if (file.scheme == "file" && File(path).isFile()) {
+            com.aiselp.autojs.codeeditor.EditActivity.editFile(this, File(path))
+        } else
+            toast(context = this, R.string.edit_and_run_handle_intent_error)
         finish()
     }
 

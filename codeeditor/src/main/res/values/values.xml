@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="asset_download" tools:ignore="MissingTranslation">资源下载</string>
+    <string name="asset_download_desc" tools:ignore="MissingTranslation">当前版本不包含新编辑器资源，需要前往下载（dist.zip）并导入</string>
+    <string name="go_download" tools:ignore="MissingTranslation">前往下载</string>
+    <string name="exit" tools:ignore="MissingTranslation">退出</string>
+    <string name="import_asset" tools:ignore="MissingTranslation">导入资源</string>
+</resources>
