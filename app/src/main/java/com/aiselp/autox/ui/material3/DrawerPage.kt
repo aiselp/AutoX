@@ -200,16 +200,6 @@ private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
                 }
             }
         }
-    val editor = remember { mutableStateOf(Pref.getEditor()) }
-    Watch(editor) {
-        Pref.setEditor(editor.value)
-    }
-    SettingOptionSwitch(
-        icon = Icons.Default.Edit,
-        title = "启用新编辑器",
-        value = editor,
-        tint = Color(0xFF996231)
-    )
     SettingOptionSwitch(
         icon = {
             Icon(
@@ -249,7 +239,6 @@ private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
                 }
             }
         })
-
     dialog.BaseDialog(
         onDismissRequest = { scope.launch { dialog.dismiss() } },
         title = { DialogTitle(title = stringResource(R.string.text_need_to_enable_accessibility_service)) },
@@ -518,6 +507,17 @@ private fun ForegroundServiceSwitch() {
         title = stringResource(id = R.string.text_foreground_service),
         value = isOpenForegroundServices,
         tint = Color(0xFFA0DFCB)
+    )
+
+    val editor = remember { mutableStateOf(Pref.getEditor()) }
+    Watch(editor) {
+        Pref.setEditor(editor.value)
+    }
+    SettingOptionSwitch(
+        icon = Icons.Default.Edit,
+        title = "新编辑器",
+        value = editor,
+        tint = Color(0xFF996231)
     )
 }
 
