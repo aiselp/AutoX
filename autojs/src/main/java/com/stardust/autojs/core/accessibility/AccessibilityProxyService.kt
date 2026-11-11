@@ -1,13 +1,13 @@
 package com.stardust.autojs.core.accessibility
 
-import android.app.Service
 import android.content.Intent
 import android.os.IBinder
 import android.util.Log
+import com.stardust.app.service.AbstractAutoService
 import com.stardust.view.accessibility.AccessibilityService
 
 
-class AccessibilityProxyService : Service() {
+class AccessibilityProxyService : AbstractAutoService() {
 
     private val binder = object : IAccessibilityProxyService.Stub() {
         override fun isEnabled(): Boolean {

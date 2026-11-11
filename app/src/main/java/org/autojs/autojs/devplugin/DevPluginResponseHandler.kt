@@ -1,6 +1,5 @@
 package org.autojs.autojs.devplugin
 
-import android.annotation.SuppressLint
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.stardust.app.GlobalAppContext
@@ -14,9 +13,6 @@ import com.stardust.pio.PFiles
 import com.stardust.util.MD5
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.autojs.autojs.Pref
@@ -152,36 +148,41 @@ class DevPluginResponseHandler(private val cacheDir: File) : Handler {
         toast(R.string.text_script_save_successfully)
     }
 
-    @SuppressLint("CheckResult")
     private fun saveProject(name: String, dir: String) {
         val name1 = if (name.isEmpty()) "untitled" else PFiles.getNameWithoutExtension(name)
         val toDir = File(Pref.getScriptDirPath(), name1)
+
+        // 直接在 IO 线程中执行，不需要搞 flow 去跨线程切换
         CoroutineScope(Dispatchers.IO).launch {
-            flow<String> {
+            try {
                 copyDir(File(dir), toDir)
-                emit(toDir.path)
-            }
-                .flowOn(Dispatchers.Main)
-                .catch {
-                    toast(R.string.text_project_save_error, it.message)
-                }.collect {
-                    toast(R.string.text_project_save_success, it)
+                withContext(Dispatchers.Main) {
+                    toast(R.string.text_project_save_success, toDir.path)
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                withContext(Dispatchers.Main) {
+                    toast(R.string.text_project_save_error, e.message ?: "未知错误")
+                }
+            }
         }
     }
 
     private fun copyDir(fromDir: File, toDir: File) {
         toDir.mkdirs()
-        val files = fromDir.listFiles()
-        if (files == null || files.isEmpty()) {
-            return
-        }
+        val files = fromDir.listFiles() ?: return
+        if (files.isEmpty()) return
+
         for (file in files) {
             if (file.isDirectory) {
                 copyDir(file, File(toDir, file.name))
             } else {
-                val fos = FileOutputStream(File(toDir, file.name))
-                PFiles.write(FileInputStream(file), fos, true)
+                // 使用 use 自动关闭流，防止文件句柄泄漏导致卡顿
+                FileInputStream(file).use { fis ->
+                    FileOutputStream(File(toDir, file.name)).use { fos ->
+                        PFiles.write(fis, fos, true)
+                    }
+                }
             }
         }
     }

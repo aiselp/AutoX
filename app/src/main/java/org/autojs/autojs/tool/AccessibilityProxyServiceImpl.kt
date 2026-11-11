@@ -1,16 +1,16 @@
 package org.autojs.autojs.tool
 
-import android.app.Service
 import android.content.ComponentName
 import android.content.Intent
 import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.RemoteException
 import android.util.Log
+import com.stardust.app.service.AbstractAutoService
 import com.stardust.autojs.core.accessibility.AccessibilityProxyService
 import com.stardust.autojs.core.accessibility.IAccessibilityProxyService
 
-class AccessibilityProxyServiceImpl : Service() {
+class AccessibilityProxyServiceImpl : AbstractAutoService() {
 
     companion object {
         private const val TAG = "AccessibilityProxyService"

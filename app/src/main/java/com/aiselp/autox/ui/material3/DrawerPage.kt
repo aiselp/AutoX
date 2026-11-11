@@ -72,8 +72,6 @@ import com.aiselp.autox.ui.material3.components.SettingOptionSwitch
 import com.aiselp.autox.ui.material3.components.UpdateDialog
 import com.aiselp.autox.ui.material3.components.Watch
 import com.github.aiselp.autox.debug.MemoryInformation
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import com.stardust.app.GlobalAppContext
 import com.stardust.app.isOpPermissionGranted
 import com.stardust.app.permission.DrawOverlaysPermission.launchCanDrawOverlaysSettings
@@ -86,6 +84,8 @@ import com.stardust.autojs.servicecomponents.EngineController
 import com.stardust.autojs.servicecomponents.ScriptServiceConnection
 import com.stardust.toast
 import com.stardust.util.IntentUtil
+import com.journeyapps.barcodescanner.ScanContract
+import com.journeyapps.barcodescanner.ScanOptions
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
@@ -200,16 +200,6 @@ private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
                 }
             }
         }
-    val editor = remember { mutableStateOf(Pref.getEditor()) }
-    Watch(editor) {
-        Pref.setEditor(editor.value)
-    }
-    SettingOptionSwitch(
-        icon = Icons.Default.Edit,
-        title = "启用新编辑器",
-        value = editor,
-        tint = Color(0xFF996231)
-    )
     SettingOptionSwitch(
         icon = {
             Icon(
@@ -248,9 +238,7 @@ private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
                     isAccessibilityServiceEnabled.value = !disabled
                 }
             }
-        }
-    )
-
+        })
     dialog.BaseDialog(
         onDismissRequest = { scope.launch { dialog.dismiss() } },
         title = { DialogTitle(title = stringResource(R.string.text_need_to_enable_accessibility_service)) },
@@ -260,12 +248,10 @@ private fun AccessibilityServiceSwitch(drawerState: DrawerState) {
             accessibilitySettingsLauncher.launch(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         },
         negativeText = stringResource(id = R.string.text_cancel),
-        onNegativeClick = { scope.launch { dialog.dismiss() } }
-    ) {
+        onNegativeClick = { scope.launch { dialog.dismiss() } }) {
         Text(
             text = stringResource(
-                R.string.explain_accessibility_permission2,
-                GlobalAppContext.appName
+                R.string.explain_accessibility_permission2, GlobalAppContext.appName
             )
         )
     }
@@ -293,13 +279,11 @@ private fun StableModeSwitch() {
         checked = isStableMode,
         onCheckedChange = {
             if (it) scope.launch { dialog.show() }
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .edit {
-                    putBoolean(context.getString(R.string.key_stable_mode), it)
-                }
+            PreferenceManager.getDefaultSharedPreferences(context).edit {
+                putBoolean(context.getString(R.string.key_stable_mode), it)
+            }
             isStableMode = it
-        }
-    )
+        })
     dialog.AlertDialog(
         title = stringResource(id = R.string.text_stable_mode),
         content = stringResource(R.string.description_stable_mode),
@@ -314,34 +298,29 @@ fun ShizukuPermissionSwitch() {
 
     val enabled = ShizukuClient.instance.available && ShizukuClient.instance.userPermission
 
-    SettingOptionSwitch(
-        checked = enabled,
-        title = "Shizuku权限",
-        icon = {
-            Icon(
-                modifier = Modifier.size(24.dp),
-                painter = painterResource(R.drawable.ic_ac_unit_black_48dp),
-                contentDescription = null,
-                tint = Color(0xFF153B9B)
-            )
-        },
-        onCheckedChange = {
-            if (it) {
-                try {
-                    ShizukuClient.requestPermission()
-                } catch (e: Exception) {
-                    toast(context, "Shizuku未安装或未激活")
-                }
-            } else {
-                val intent =
-                    context.packageManager.getLaunchIntentForPackage(ShizukuClient.SHIZUKU_PACKAGE_NAME)
-                if (intent != null) {
-                    toast(context, "请在Shizuku中关闭权限")
-                    context.startActivity(intent)
-                }
+    SettingOptionSwitch(checked = enabled, title = "Shizuku权限", icon = {
+        Icon(
+            modifier = Modifier.size(24.dp),
+            painter = painterResource(R.drawable.ic_ac_unit_black_48dp),
+            contentDescription = null,
+            tint = Color(0xFF153B9B)
+        )
+    }, onCheckedChange = {
+        if (it) {
+            try {
+                ShizukuClient.requestPermission()
+            } catch (e: Exception) {
+                toast(context, "Shizuku未安装或未激活")
+            }
+        } else {
+            val intent =
+                context.packageManager.getLaunchIntentForPackage(ShizukuClient.SHIZUKU_PACKAGE_NAME)
+            if (intent != null) {
+                toast(context, "请在Shizuku中关闭权限")
+                context.startActivity(intent)
             }
         }
-    )
+    })
 }
 
 @Composable
@@ -360,8 +339,7 @@ private fun PermissionGroup(drawerState: DrawerState) {
                 .padding(vertical = 12.dp)
                 .padding(end = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
+            horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
                 text = stringResource(R.string.permission_management),
                 style = MaterialTheme.typography.titleMedium
@@ -408,13 +386,15 @@ fun MediaProjectionPermissionSwitch(drawerState: DrawerState) {
 
                 if (success) {
                     isGranted = enable
-                    toast(context, if (enable) R.string.media_projection_permission_enabled else R.string.media_projection_permission_disabled)
+                    toast(
+                        context,
+                        if (enable) R.string.media_projection_permission_enabled else R.string.media_projection_permission_disabled
+                    )
                 } else {
                     toast(context, R.string.media_projection_permission_need_shizuku)
                 }
             }
-        }
-    )
+        })
 }
 
 @Composable
@@ -426,14 +406,14 @@ fun OverlayPermissionSwitch(drawerState: DrawerState) {
     val overlaySettingsLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.StartActivityForResult()
     ) {
-        scope.launch {
-            isGranted = ShizukuClient.checkAppOpsPermission("SYSTEM_ALERT_WINDOW")
-        }
+        // 从系统设置返回后，直接使用原生的 Settings.canDrawOverlays 检查
+        isGranted = Settings.canDrawOverlays(context)
     }
 
     LaunchedEffect(drawerState.isOpen) {
         if (drawerState.isOpen) {
-            isGranted = ShizukuClient.checkAppOpsPermission("SYSTEM_ALERT_WINDOW")
+            // 侧边栏打开时，也使用原生 API 检查
+            isGranted = Settings.canDrawOverlays(context)
         }
     }
 
@@ -443,21 +423,34 @@ fun OverlayPermissionSwitch(drawerState: DrawerState) {
         checked = isGranted,
         tint = Color(0xFF4CAF50),
         onCheckedChange = { enable ->
-            scope.launch {
-                val success = ShizukuClient.setAppOpsPermission("SYSTEM_ALERT_WINDOW", enable)
-
-                if (success) {
-                    isGranted = enable
-                } else {
-                    toast(context, R.string.overlay_permission_need_shizuku)
-
-                    val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
-                    intent.data = Uri.parse("package:${context.packageName}")
-                    overlaySettingsLauncher.launch(intent)
+            if (enable) {
+                // 尝试通过 Shizuku 静默授权
+                scope.launch {
+                    val success = ShizukuClient.setAppOpsPermission("SYSTEM_ALERT_WINDOW", true)
+                    if (success) {
+                        isGranted = true
+                    } else {
+                        // 如果 Shizuku 失败，拉起系统设置页面
+                        toast(context, R.string.overlay_permission_need_shizuku)
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                        intent.data = Uri.parse("package:${context.packageName}")
+                        overlaySettingsLauncher.launch(intent)
+                    }
+                }
+            } else {
+                // 如果要关闭，通常需要去系统设置里关（或者你有 Shizuku 静默关闭）
+                scope.launch {
+                    val success = ShizukuClient.setAppOpsPermission("SYSTEM_ALERT_WINDOW", false)
+                    if (success) {
+                        isGranted = false
+                    } else {
+                        val intent = Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                        intent.data = Uri.parse("package:${context.packageName}")
+                        overlaySettingsLauncher.launch(intent)
+                    }
                 }
             }
-        }
-    )
+        })
 }
 
 @Composable
@@ -475,15 +468,14 @@ private fun NotificationUsageRightSwitch() {
     }
 
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-        onResult = {
+        contract = ActivityResultContracts.StartActivityForResult(), onResult = {
             scope.launch { isNotificationListenerEnable.value = notificationListenerEnable() }
-        }
-    )
+        })
     Watch(isNotificationListenerEnable) {
         scope.launch {
-            if (isNotificationListenerEnable.value != notificationListenerEnable())
-                launcher.launch(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
+            if (isNotificationListenerEnable.value != notificationListenerEnable()) launcher.launch(
+                Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+            )
         }
     }
 
@@ -516,6 +508,17 @@ private fun ForegroundServiceSwitch() {
         value = isOpenForegroundServices,
         tint = Color(0xFFA0DFCB)
     )
+
+    val editor = remember { mutableStateOf(Pref.getEditor()) }
+    Watch(editor) {
+        Pref.setEditor(editor.value)
+    }
+    SettingOptionSwitch(
+        icon = Icons.Default.Edit,
+        title = "新编辑器",
+        value = editor,
+        tint = Color(0xFF996231)
+    )
 }
 
 @Composable
@@ -528,11 +531,9 @@ private fun UsageStatsPermissionSwitch() {
     val dialog = remember { DialogController() }
 
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-        onResult = {
+        contract = ActivityResultContracts.StartActivityForResult(), onResult = {
             enabled = context.isOpPermissionGranted(AppOpsManager.OPSTR_GET_USAGE_STATS)
-        }
-    )
+        })
     SettingOptionSwitch(
         icon = Icons.Default.Settings,
         title = stringResource(id = R.string.text_usage_stats_permission),
@@ -560,13 +561,11 @@ private fun FloatingWindowSwitch() {
         mutableStateOf(Pref.isFloatingMenuShown())
     }
     val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult(),
-        onResult = {
+        contract = ActivityResultContracts.StartActivityForResult(), onResult = {
             if (FloatyWindowManger.showCircularMenu()) {
                 isFloatingWindowShowing = true
             } else isFloatingWindowShowing = false
-        }
-    )
+        })
     SettingOptionSwitch(
         icon = {
             Icon(painterResource(id = R.drawable.ic_overlay), null, tint = Color(0xFF025594))
@@ -584,8 +583,7 @@ private fun FloatingWindowSwitch() {
                     Pref.setFloatingMenuShown(true)
                 } else launcher.launchCanDrawOverlaysSettings(context.packageName)
             }
-        }
-    )
+        })
 }
 
 
@@ -604,13 +602,11 @@ private fun VolumeDownControlSwitch() {
         title = stringResource(id = R.string.text_volume_down_control),
         checked = enable,
         onCheckedChange = {
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .edit {
-                    putBoolean(context.getString(R.string.key_use_volume_control_record), it)
-                }
+            PreferenceManager.getDefaultSharedPreferences(context).edit {
+                putBoolean(context.getString(R.string.key_use_volume_control_record), it)
+            }
             enable = it
-        }
-    )
+        })
 }
 
 @Composable
@@ -624,21 +620,17 @@ private fun AutoBackupSwitch() {
     SettingOptionSwitch(
         icon = {
             Icon(
-                painterResource(id = R.drawable.ic_backup),
-                null,
-                tint = Color(0xFF496F14)
+                painterResource(id = R.drawable.ic_backup), null, tint = Color(0xFF496F14)
             )
         },
         title = stringResource(id = R.string.text_auto_backup),
         checked = enable,
         onCheckedChange = {
-            PreferenceManager.getDefaultSharedPreferences(context)
-                .edit {
-                    putBoolean(context.getString(R.string.key_auto_backup), it)
-                }
+            PreferenceManager.getDefaultSharedPreferences(context).edit {
+                putBoolean(context.getString(R.string.key_auto_backup), it)
+            }
             enable = it
-        }
-    )
+        })
 }
 
 @Composable
@@ -647,9 +639,9 @@ private fun ConnectComputerSwitch() {
     val scope = rememberCoroutineScope()
     var enable by remember { mutableStateOf(DevPlugin.isActive) }
 
-
     val scanCodeLauncher =
         rememberLauncherForActivityResult(contract = ScanContract()) { result ->
+            // ZXing 扫码成功返回 contents 字符串，取消则返回 null
             result.contents?.let { url ->
                 toast(context, url)
                 if (url.matches(Regex("^(ws://|wss://).+$"))) {
@@ -664,7 +656,9 @@ private fun ConnectComputerSwitch() {
                 }
             }
         }
+
     val dialog = object : DialogController() {}
+
     dialog.ConnectComputerDialog(
         onScanCode = {
             scanCodeLauncher.launch(
@@ -676,6 +670,7 @@ private fun ConnectComputerSwitch() {
             )
         }
     )
+
     LaunchedEffect(Unit) {
         DevPlugin.connectState.collect {
             withContext(Dispatchers.Main) {
@@ -686,6 +681,7 @@ private fun ConnectComputerSwitch() {
             }
         }
     }
+
     SettingOptionSwitch(
         icon = {
             Icon(painterResource(id = R.drawable.ic_debug), null, tint = Color(0xFF008A38))
@@ -699,11 +695,12 @@ private fun ConnectComputerSwitch() {
             scope.launch {
                 if (it) {
                     dialog.show()
-                } else DevPlugin.close()
+                } else {
+                    DevPlugin.close()
+                }
             }
         }
     )
-
 }
 
 @Composable
@@ -715,28 +712,19 @@ private fun DialogController.ConnectComputerDialog(
     var host by remember {
         mutableStateOf(Pref.getServerAddressOrDefault(WifiTool.getRouterIp(context)))
     }
-    BaseDialog(
-        onDismissRequest = { scope.launch { dismiss() } },
-        title = {
-            DialogTitle(title = stringResource(id = R.string.text_server_address))
-        },
-        positiveText = stringResource(id = R.string.ok),
-        onPositiveClick = {
-            scope.launch { dismiss() }
-            Pref.saveServerAddress(host)
-            connectServer(getUrl(host))
-        },
-        negativeText = stringResource(id = R.string.text_help),
-        onNegativeClick = {
-            scope.launch { dismiss() }
-            IntentUtil.browse(context, URL_DEV_PLUGIN)
-        },
-        neutralText = stringResource(id = R.string.text_scan_qr),
-        onNeutralClick = {
-            scope.launch { dismiss() }
-            onScanCode()
-        }
-    ) {
+    BaseDialog(onDismissRequest = { scope.launch { dismiss() } }, title = {
+        DialogTitle(title = stringResource(id = R.string.text_server_address))
+    }, positiveText = stringResource(id = R.string.ok), onPositiveClick = {
+        scope.launch { dismiss() }
+        Pref.saveServerAddress(host)
+        connectServer(getUrl(host))
+    }, negativeText = stringResource(id = R.string.text_help), onNegativeClick = {
+        scope.launch { dismiss() }
+        IntentUtil.browse(context, URL_DEV_PLUGIN)
+    }, neutralText = stringResource(id = R.string.text_scan_qr), onNeutralClick = {
+        scope.launch { dismiss() }
+        onScanCode()
+    }) {
         TextField(value = host, onValueChange = { host = it })
     }
 }
@@ -768,8 +756,7 @@ fun USBDebugSwitch() {
                         enable = false
                         e.printStackTrace()
                         context.getString(
-                            R.string.text_start_service_failed,
-                            e.localizedMessage
+                            R.string.text_start_service_failed, e.localizedMessage
                         ).toast(context)
                     }
                 } else {
@@ -777,12 +764,11 @@ fun USBDebugSwitch() {
                     enable = false
                 }
             }
-        }
-    )
+        })
 }
 
 @Composable
-fun MemoryUsage(){
+fun MemoryUsage() {
     val context = LocalContext.current
     TextButton(onClick = {
         val dialog = MemoryInformation.memoryInfoDialog(context)
@@ -884,8 +870,7 @@ private fun CheckForUpdate(model: DrawerViewModel = viewModel()) {
     var enabled by rememberSaveable { mutableStateOf(true) }
 
     TextButton(
-        enabled = enabled,
-        onClick = {
+        enabled = enabled, onClick = {
             enabled = false
             model.checkUpdate(
                 onUpdate = {
@@ -893,8 +878,7 @@ private fun CheckForUpdate(model: DrawerViewModel = viewModel()) {
                 },
                 onComplete = { enabled = true },
             )
-        }
-    ) {
+        }) {
         Text(text = stringResource(R.string.text_check_for_updates))
     }
 
@@ -921,8 +905,7 @@ private fun BottomButtons() {
             onClick = {
                 context.startActivity(
                     Intent(
-                        context,
-                        SettingsActivity::class.java
+                        context, SettingsActivity::class.java
                     )
                 )
             },

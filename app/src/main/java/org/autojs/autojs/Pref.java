@@ -29,7 +29,7 @@ public class Pref {
     private static final String KEY_EDITOR_NEW = "KEY_EDITOR_NEW";
 
     public static boolean getEditor() {
-        return def().getBoolean(KEY_EDITOR_NEW, true);
+        return def().getBoolean(KEY_EDITOR_NEW, false);
     }
 
     public static void setEditor(boolean shouldOpen) {

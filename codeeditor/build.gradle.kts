@@ -1,6 +1,7 @@
 plugins {
     id("com.android.library")
     id("kotlin-android")
+    id("kotlin-kapt")
     id("de.undercouch.download") version "5.6.0"
 }
 java {
