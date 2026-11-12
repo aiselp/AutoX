@@ -32,6 +32,7 @@ import com.stardust.autojs.runtime.api.UI;
 import com.stardust.autojs.runtime.exception.ScriptEnvironmentException;
 import com.stardust.autojs.runtime.exception.ScriptException;
 import com.stardust.autojs.runtime.exception.ScriptInterruptedException;
+import com.stardust.autojs.util.CustomToastView;
 import com.stardust.lang.ThreadCompat;
 import com.stardust.util.ScreenMetrics;
 import com.stardust.util.SdkVersionUtil;
@@ -67,6 +68,10 @@ public abstract class ScriptRuntime {
 
     @ScriptVariable
     public final Dialogs dialogs;
+
+    /** 队列化自定义 Toast，供 global.toastX 使用（暴露给脚本的入口）。 */
+    @ScriptVariable
+    public CustomToastView toastX;
 
     @ScriptVariable
     public Events events;
@@ -133,6 +138,7 @@ public abstract class ScriptRuntime {
         floaty = new Floaty(uiHandler, ui, this);
         files = new Files(this);
         media = new Media(context, this);
+        toastX = new CustomToastView(context, console);
     }
 
     public abstract void init();
