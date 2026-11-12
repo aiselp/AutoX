@@ -3,13 +3,10 @@ package com.stardust.autojs.core.image;
 import android.util.Log;
 import android.util.TimingLogger;
 
-import androidx.annotation.NonNull;
-
 import com.stardust.util.Nath;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
-
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
@@ -22,30 +19,30 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 
-
-/**
- * Created by Stardust on 2017/11/25.
- */
-
 public class TemplateMatching {
 
     public static class Match {
         public final Point point;
         public final double similarity;
         public Integer templateIndex = 0;
+        public int width;
+        public int height;
 
-        public Match(Point point, double similarity) {
+        public Match(Point point, double similarity, int width, int height) {
             this.point = point;
             this.similarity = similarity;
+            this.width = width;
+            this.height = height;
         }
 
-        @NonNull
         @Override
         public String toString() {
             return "Match{" +
                     "templateIndex=" + templateIndex +
                     ", point=" + point +
                     ", similarity=" + similarity +
+                    ", width=" + width +
+                    ", height=" + height +
                     '}';
         }
     }
@@ -55,29 +52,23 @@ public class TemplateMatching {
     public static final int MAX_LEVEL_AUTO = -1;
     public static final int MATCHING_METHOD_DEFAULT = Imgproc.TM_CCOEFF_NORMED;
 
-    public static Point fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel, Boolean transparentMask) {
-        List<Match> result = fastTemplateMatching(img, template, matchMethod, weakThreshold, strictThreshold, maxLevel, 1, transparentMask);
+    public static Point fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold,
+                                             float strictThreshold, int maxLevel, Boolean transparentMask,
+                                             boolean useGrayscale) {
+        List<Match> result = fastTemplateMatching(img, template, matchMethod, weakThreshold,
+                strictThreshold, maxLevel, 1, transparentMask, useGrayscale);
         if (result.isEmpty()) {
             return null;
         }
         return result.get(0).point;
     }
 
-    /**
-     * 采用图像金字塔算法快速找图
-     *
-     * @param img             图片
-     * @param template        模板图片
-     * @param matchMethod     匹配算法
-     * @param weakThreshold   弱阈值。该值用于在每一轮模板匹配中检验是否继续匹配。如果相似度小于该值，则不再继续匹配。
-     * @param strictThreshold 强阈值。该值用于检验最终匹配结果，以及在每一轮匹配中如果相似度大于该值则直接返回匹配结果。
-     * @param maxLevel        图像金字塔的层数
-     * @return
-     */
-    public static List<Match> fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold, float strictThreshold, int maxLevel, int limit, Boolean transparentMask) {
+    public static List<Match> fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold,
+                                                   float strictThreshold, int maxLevel, int limit,
+                                                   Boolean transparentMask, boolean useGrayscale) {
         List<Mat> templates = Collections.singletonList(template);
         return fastMultiTemplateMatching(img, templates, matchMethod, weakThreshold,
-                strictThreshold, maxLevel, limit, transparentMask);
+                strictThreshold, maxLevel, limit, transparentMask, useGrayscale);
     }
 
     /**
@@ -94,50 +85,60 @@ public class TemplateMatching {
      * @param transparentMask 是否启用透明蒙版
      * @return 按模板顺序返回匹配结果列表；若某模板无匹配，则对应列表为空
      */
-    public static List<Match> fastMultiTemplateMatching(Mat img,
-                                                        List<Mat> templates,
-                                                        int matchMethod,
-                                                        float weakThreshold,
-                                                        float strictThreshold,
-                                                        int maxLevel,
-                                                        int limit,
-                                                        Boolean transparentMask) {
+    public static List<Match> fastMultiTemplateMatching(Mat img, List<Mat> templates, int matchMethod,
+                                                        float weakThreshold, float strictThreshold,
+                                                        int maxLevel, int limit, Boolean transparentMask,
+                                                        boolean useGrayscale) {
+        // 灰度化会把 RGBA 转成单通道，alpha 不复存在，processingAlphaChannel()
+        // 之后只能拿到错误的蒙版。与其静默给出错误匹配结果，不如明确拒绝。
+        if (useGrayscale && Boolean.TRUE.equals(transparentMask)) {
+            throw new IllegalArgumentException(
+                    "useGrayscale and transparentMask cannot be used together: "
+                            + "grayscale conversion drops the alpha channel");
+        }
         TimingLogger logger = new TimingLogger(LOG_TAG, "fast_multi_tm");
         List<Mat> resourcesToRelease = new ArrayList<>();
+        List<Match> allResults = new ArrayList<>();
 
         try {
+            Mat workingImg = img;
+            List<Mat> workingTemplates = templates;
+
+            if (useGrayscale) {
+                workingImg = toGrayscaleIfNeeded(img, resourcesToRelease);
+                List<Mat> grayTemplates = new ArrayList<>();
+                for (Mat t : templates) {
+                    grayTemplates.add(toGrayscaleIfNeeded(t, resourcesToRelease));
+                }
+                workingTemplates = grayTemplates;
+            }
             // 确定全局最大金字塔层数（取所有模板允许层数的最大值）
             int globalMaxLevel;
             if (maxLevel == MAX_LEVEL_AUTO) {
                 globalMaxLevel = 0;
-                for (Mat template : templates) {
-                    int level = selectPyramidLevel(img, template);
-                    if (level > globalMaxLevel) globalMaxLevel = level;
+                for (Mat template : workingTemplates) {
+                    int level = selectPyramidLevel(workingImg, template);
+                    if (level > globalMaxLevel) {
+                        globalMaxLevel = level;
+                    }
                 }
             } else {
                 globalMaxLevel = maxLevel;
             }
 
-            // 构建主图金字塔（0 ~ globalMaxLevel）
             List<Mat> imgPyramid = new ArrayList<>();
             for (int level = 0; level <= globalMaxLevel; level++) {
-                Mat src = getPyramidDownAtLevel(img, level);
+                Mat src = getPyramidDownAtLevel(workingImg, level);
                 imgPyramid.add(src);
-                if (src != img) {
+                if (src != workingImg) {
                     resourcesToRelease.add(src);
                 }
             }
 
-            List<Match> allResults = new ArrayList<>();
-            for (int i = 0; i < templates.size(); i++) {
-                List<Match> result = matchTemplateWithPyramid(imgPyramid,
-                        templates.get(i),
-                        globalMaxLevel,
-                        matchMethod,
-                        weakThreshold,
-                        strictThreshold,
-                        limit,
-                        transparentMask,
+            for (int i = 0; i < workingTemplates.size(); i++) {
+                Mat template = workingTemplates.get(i);
+                List<Match> result = matchTemplateWithPyramid(imgPyramid, template, globalMaxLevel,
+                        matchMethod, weakThreshold, strictThreshold, limit, transparentMask,
                         resourcesToRelease);
                 for (Match r : result) {
                     r.templateIndex = i;
@@ -147,7 +148,6 @@ public class TemplateMatching {
 
             logger.addSplit("multi_templates: " + templates.size());
             logger.dumpToLog();
-            return allResults;
         } finally {
             for (Mat mat : resourcesToRelease) {
                 try {
@@ -157,6 +157,8 @@ public class TemplateMatching {
                 }
             }
         }
+
+        return allResults;
     }
 
     /**
@@ -173,20 +175,14 @@ public class TemplateMatching {
      * @param resourcesToRelease 资源回收列表
      * @return 匹配结果（坐标已映射回原图）
      */
-    private static List<Match> matchTemplateWithPyramid(List<Mat> imgPyramid,
-                                                        Mat template,
-                                                        int globalMaxLevel,
-                                                        int matchMethod,
-                                                        float weakThreshold,
-                                                        float strictThreshold,
-                                                        int limit,
-                                                        Boolean transparentMask,
+    private static List<Match> matchTemplateWithPyramid(List<Mat> imgPyramid, Mat template,
+                                                        int globalMaxLevel, int matchMethod,
+                                                        float weakThreshold, float strictThreshold,
+                                                        int limit, Boolean transparentMask,
                                                         List<Mat> resourcesToRelease) {
-        // 计算模板自身的最大可行层数
         int tMaxLevel = selectPyramidLevel(imgPyramid.get(0), template);
         tMaxLevel = Math.min(tMaxLevel, globalMaxLevel);
 
-        // 构建模板金字塔
         List<Mat> templatePyramid = new ArrayList<>();
         for (int level = 0; level <= tMaxLevel; level++) {
             Mat t = getPyramidDownAtLevel(template, level);
@@ -204,25 +200,25 @@ public class TemplateMatching {
             List<Match> currentMatchResult = new ArrayList<>();
             Mat src = imgPyramid.get(level);
             Mat currentTemplate = templatePyramid.get(level);
-            Mat currentMask = null;
 
+            Mat currentMask = null;
             if (transparentMask) {
                 currentMask = TemplateMatchingKt.INSTANCE.processingAlphaChannel(currentTemplate);
                 resourcesToRelease.add(currentMask);
             }
 
+            int actualWidth = currentTemplate.width() << level;
+            int actualHeight = currentTemplate.height() << level;
+
             if (previousMatchResult.isEmpty()) {
-                // 决定是否继续匹配（根据弱阈值跳过部分层）
                 if (!isFirstMatching && !shouldContinueMatching(level, tMaxLevel)) {
                     break;
                 }
-                // 全图匹配
                 Mat matchResult = matchTemplate(src, currentTemplate, matchMethod, currentMask);
                 resourcesToRelease.add(matchResult);
                 getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold,
-                        currentMatchResult, limit, null);
+                        currentMatchResult, limit, null, actualWidth, actualHeight);
             } else {
-                // 在上一层的匹配点附近进行局部匹配
                 for (Match match : previousMatchResult) {
                     Rect r = getROI(match.point, src, currentTemplate);
                     Mat m = new Mat(src, r);
@@ -230,23 +226,22 @@ public class TemplateMatching {
                     resourcesToRelease.add(m);
                     resourcesToRelease.add(matchResult);
                     getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold,
-                            currentMatchResult, limit, r);
+                            currentMatchResult, limit, r, actualWidth, actualHeight);
                 }
             }
 
-            // 强阈值处理：达到 strictThreshold 的结果直接加入最终列表，并停止该模板后续匹配
             if (!currentMatchResult.isEmpty()) {
                 Iterator<Match> iterator = currentMatchResult.iterator();
                 while (iterator.hasNext()) {
                     Match match = iterator.next();
                     if (match.similarity >= strictThreshold) {
-                        pyrUp(match.point, level);    // 坐标还原至原图尺寸
+                        pyrUp(match.point, level);
                         finalMatchResult.add(match);
                         iterator.remove();
                     }
                 }
                 if (currentMatchResult.isEmpty()) {
-                    break;  // 所有候选都满足强阈值，提前终止
+                    break;
                 }
             }
 
@@ -255,6 +250,16 @@ public class TemplateMatching {
         }
 
         return finalMatchResult;
+    }
+
+    private static Mat toGrayscaleIfNeeded(Mat image, List<Mat> resources) {
+        if (image.channels() == 1 && image.type() == CvType.CV_8UC1) {
+            return image;
+        }
+        Mat gray = new Mat();
+        Imgproc.cvtColor(image, gray, Imgproc.COLOR_RGBA2GRAY);
+        resources.add(gray);
+        return gray;
     }
 
     private static Mat getPyramidDownAtLevel(Mat m, int level) {
@@ -297,25 +302,22 @@ public class TemplateMatching {
         int w = (int) (currentTemplate.cols() * 1.5);
         int h = (int) (currentTemplate.rows() * 1.5);
         if (x + w >= src.cols()) {
-            w = src.cols() - x - 1;
+            w = src.cols() - x;
         }
         if (y + h >= src.rows()) {
-            h = src.rows() - y - 1;
+            h = src.rows() - y;
         }
         return new Rect(x, y, w, h);
     }
 
     private static int selectPyramidLevel(Mat img, Mat template) {
         int minDim = Nath.min(img.rows(), img.cols(), template.rows(), template.cols());
-        //这里选取16为图像缩小后的最小宽高，从而用log(2, minDim / 16)得到最多可以经过几次缩小。
         int maxLevel = (int) (Math.log(minDim / 16) / Math.log(2));
         if (maxLevel < 0) {
             return 0;
         }
-        //上限为6
         return Math.min(6, maxLevel);
     }
-
 
     private static Mat matchTemplate(Mat img, Mat temp, int match_method, Mat mask) {
         int result_cols = img.cols() - temp.cols() + 1;
@@ -329,22 +331,30 @@ public class TemplateMatching {
         return result;
     }
 
-    private static void getBestMatched(Mat tmResult, Mat template, int matchMethod, float weakThreshold, List<Match> outResult, int limit, Rect rect) {
+    private static void getBestMatched(Mat tmResult, Mat template, int matchMethod, float weakThreshold,
+                                       List<Match> outResult, int limit, Rect rect,
+                                       int actualWidth, int actualHeight) {
         for (int i = 0; i < limit; i++) {
-            Match bestMatched = getBestMatched(tmResult, matchMethod, weakThreshold, rect);
+            Match bestMatched = getBestMatched(tmResult, matchMethod, weakThreshold, rect,
+                    actualWidth, actualHeight);
             if (bestMatched == null) {
                 break;
             }
             outResult.add(bestMatched);
-            Point start = new Point(Math.max(0, bestMatched.point.x - template.width() + 1),
-                    Math.max(0, bestMatched.point.y - template.height() + 1));
-            Point end = new Point(Math.min(tmResult.width(), bestMatched.point.x + template.width()),
-                    Math.min(tmResult.height(), bestMatched.point.y + template.height()));
+            Point start = new Point(
+                    Math.max(0, bestMatched.point.x - template.width() + 1),
+                    Math.max(0, bestMatched.point.y - template.height() + 1)
+            );
+            Point end = new Point(
+                    Math.min(tmResult.width(), bestMatched.point.x + template.width()),
+                    Math.min(tmResult.height(), bestMatched.point.y + template.height())
+            );
             Imgproc.rectangle(tmResult, start, end, new Scalar(0, 255, 0), -1);
         }
     }
 
-    private static Match getBestMatched(Mat tmResult, int matchMethod, float weakThreshold, Rect rect) {
+    private static Match getBestMatched(Mat tmResult, int matchMethod, float weakThreshold,
+                                        Rect rect, int actualWidth, int actualHeight) {
         TimingLogger logger = new TimingLogger(LOG_TAG, "best_matched_point");
         Core.MinMaxLocResult mmr = Core.minMaxLoc(tmResult);
         logger.addSplit("minMaxLoc");
@@ -366,18 +376,20 @@ public class TemplateMatching {
         }
         logger.addSplit("value:" + value);
         if (!Double.isFinite(value)) {
-            return getBestMatched(replaceNoFinite(tmResult), matchMethod, weakThreshold, rect);
+            return getBestMatched(replaceNoFinite(tmResult), matchMethod, weakThreshold,
+                    rect, actualWidth, actualHeight);
         }
-        return new Match(pos, value);
+        return new Match(pos, value, actualWidth, actualHeight);
     }
 
-
     private static Mat replaceNoFinite(Mat mat) {
-        if (mat.empty()) return null;
+        if (mat.empty()) {
+            return mat;
+        }
         if (mat.type() == CvType.CV_32FC1) {
             Core.patchNaNs(mat, 0.0);
             Mat infMask = new Mat();
-            Core.compare(mat, new Scalar(255), infMask, Core.CMP_GT); // mat > threshold -> 255
+            Core.compare(mat, new Scalar(255), infMask, Core.CMP_GT);
             Mat zeros = Mat.zeros(mat.size(), mat.type());
             zeros.copyTo(mat, infMask);
             infMask.release();
@@ -385,5 +397,4 @@ public class TemplateMatching {
         }
         return mat;
     }
-
 }

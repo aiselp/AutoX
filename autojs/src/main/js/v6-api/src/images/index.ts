@@ -16,6 +16,8 @@ interface FindImageOptions {
     level?: number
     weakThreshold?: number
     transparentMask?: boolean
+    useGrayscale?: boolean
+    matchMethod?: number
 }
 
 function images() {
@@ -56,7 +58,12 @@ images.requestScreenCapture = function (landscape: boolean) {
     return javaImages.requestScreenCapture(orientation);
 }
 
-images.requestScreenCaptureLegacy = function (landscape: boolean) {
+images.requestScreenCaptureLegacy = function (landscape?: boolean | number, timeout?: number) {
+    // 只给一个数字时视为超时（landscape 是 boolean，传数字只能是 timeout）。
+    if (typeof landscape === 'number' && timeout === undefined) {
+        timeout = landscape;
+        landscape = undefined;
+    }
     const ScreenCapturer = com.stardust.autojs.core.image.capture.ScreenCapturer;
     var orientation = ScreenCapturer.ORIENTATION_AUTO;
     if (landscape === true) {
@@ -65,7 +72,15 @@ images.requestScreenCaptureLegacy = function (landscape: boolean) {
     if (landscape === false) {
         orientation = ScreenCapturer.ORIENTATION_PORTRAIT;
     }
-    return javaImages.requestScreenCaptureLegacy(orientation);
+    // 按实参个数分发到 Java 的 0 / 1 / 2 参重载，不把 undefined 交给
+    // Rhino 做 Java 方法匹配（基本类型无法匹配 Undefined）。
+    if (landscape === undefined && timeout === undefined) {
+        return javaImages.requestScreenCaptureLegacy();
+    }
+    if (timeout === undefined) {
+        return javaImages.requestScreenCaptureLegacy(orientation);
+    }
+    return javaImages.requestScreenCaptureLegacy(orientation, timeout);
 };
 
 images.save = function (img: Image, path: string, format?: ImageFormat, quality?: number) {
@@ -327,11 +342,14 @@ images.findImage = function (img: Image, template: Image, options?: FindImageOpt
         maxLevel = options.level;
     }
     var weakThreshold = options.weakThreshold || 0.6;
-    const transparentMask = !!options.transparentMask
+    const transparentMask = !!options.transparentMask;
+    const useGrayscale = !!options.useGrayscale;
+    // 0 是合法的 TM_SQDIFF，不能用 || 回退默认值。
+    const matchMethod = options.matchMethod != null ? options.matchMethod : 5;
     if (options.region) {
-        return javaImages.findImage(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, transparentMask);
+        return javaImages.findImage(img, template, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, transparentMask, useGrayscale, matchMethod);
     } else {
-        return javaImages.findImage(img, template, weakThreshold, threshold, null, maxLevel, transparentMask);
+        return javaImages.findImage(img, template, weakThreshold, threshold, null, maxLevel, transparentMask, useGrayscale, matchMethod);
     }
 }
 
@@ -352,11 +370,13 @@ images.matchMultiTemplates = function (img: Image, templates: Image[],
     var max = options.max || 5;
     var weakThreshold = options.weakThreshold || 0.6;
     var result;
-    const transparentMask = !!options.transparentMask
+    const transparentMask = !!options.transparentMask;
+    const useGrayscale = !!options.useGrayscale;
+    const matchMethod = options.matchMethod != null ? options.matchMethod : 5;
     if (options.region) {
-        result = javaImages.matchMultiTemplates(img, templates, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, max, transparentMask);
+        result = javaImages.matchMultiTemplates(img, templates, weakThreshold, threshold, buildRegion(options.region, img), maxLevel, max, transparentMask, useGrayscale, matchMethod);
     } else {
-        result = javaImages.matchMultiTemplates(img, templates, weakThreshold, threshold, null, maxLevel, max, transparentMask);
+        result = javaImages.matchMultiTemplates(img, templates, weakThreshold, threshold, null, maxLevel, max, transparentMask, useGrayscale, matchMethod);
     }
     return new MatchingResult(result);
 }
@@ -409,6 +429,37 @@ images.matToImage = function (img: Image) {
     return ImageWrapper.ofMat(img);
 }
 
+images.getBrightness = function (img: Image, sampleCount?: number, region?: [number, number, number?, number?]) {
+    initIfNeeded();
+    sampleCount = sampleCount || 50;
+
+    var rect = null;
+    if (region && region.length >= 2) {
+        var x = region[0] || 0;
+        var y = region[1] || 0;
+        var w = region[2] !== undefined ? region[2] : img.width - x;
+        var h = region[3] !== undefined ? region[3] : img.height - y;
+        rect = new org.opencv.core.Rect(x, y, w, h);
+    }
+
+    return javaImages.getBrightness(img, sampleCount, rect);
+};
+
+images.enableImageTracking = function () {
+    return javaImages.enableImageTracking();
+};
+
+images.disableImageTracking = function () {
+    return javaImages.disableImageTracking();
+};
+
+images.recycleAllImages = function () {
+    return javaImages.recycleAllImages();
+};
+
+images.getAliveImageCount = function () {
+    return javaImages.getAliveImageCount();
+};
 
 function toPointArray(points: unknown[]) {
     var arr = [];
@@ -464,4 +515,3 @@ declare global {
 }
 
 export default images;
-
