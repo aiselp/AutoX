@@ -17,10 +17,18 @@ public class ViewExtras {
     private static final String LOG_TAG = "ViewExtras";
     private NativeView mNativeView;
     private ViewAttributes mViewAttributes;
-    private static ResourceParser sResourceParser;
+    /** 创建该 view 的 ViewAttributes 时所用的解析器，按 view 固定下来。 */
+    private ResourceParser mResourceParser;
+    // 只保留弱引用：脚本退出后不应再由 ViewExtras 静态持有 ScriptRuntime 的资源。
+    private static volatile java.lang.ref.WeakReference<ResourceParser> sResourceParser;
 
     public static void setResourceParser(ResourceParser parser) {
-        sResourceParser = parser;
+        sResourceParser = new java.lang.ref.WeakReference<>(parser);
+    }
+
+    private static ResourceParser globalParser() {
+        java.lang.ref.WeakReference<ResourceParser> ref = sResourceParser;
+        return ref == null ? null : ref.get();
     }
 
     public static ViewExtras get(View view) {
@@ -37,7 +45,11 @@ public class ViewExtras {
     }
 
     public static ViewAttributes getViewAttributes(View view) {
-        return getViewAttributes(view, sResourceParser);
+        ViewExtras extras = get(view);
+        // 后启动的脚本会覆盖静态 parser；优先用本 view 创建时绑定的那个，
+        // 否则旧脚本控件的属性解析会落到另一个脚本的运行时上。
+        ResourceParser parser = extras.mResourceParser;
+        return getViewAttributes(view, parser != null ? parser : globalParser());
     }
 
     public static ViewAttributes getViewAttributes(View view, ResourceParser parser) {
@@ -46,6 +58,7 @@ public class ViewExtras {
         if (attributes == null) {
             attributes = ViewAttributesFactory.create(parser, view);
             extras.setViewAttributes(attributes);
+            extras.mResourceParser = parser;
         }
         return attributes;
     }
@@ -66,12 +79,7 @@ public class ViewExtras {
     }
 
     public static void setAttr(View view, String name, Object value) {
-        ViewExtras extras = get(view);
-        ViewAttributes attrs = extras.getViewAttributes();
-        if (attrs == null) {
-            attrs = ViewAttributesFactory.create(sResourceParser, view);
-            extras.setViewAttributes(attrs);
-        }
+        ViewAttributes attrs = getViewAttributes(view);
         attrs.setAttr(name, String.valueOf(value));
     }
 

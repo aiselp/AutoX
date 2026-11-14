@@ -20,7 +20,8 @@ public class ProxyObject extends ScriptableObject {
 
     @Override
     public void put(String name, Scriptable start, Object value) {
-        Log.d("ProxyObject", "put(" + name + ", " + value + ")");
+        // 只记属性名：value 可能是插件配置里的 token 等敏感值。
+        Log.d("ProxyObject", "put(" + name + ")");
         if (!name.equals("__proxy__") || !(value instanceof Scriptable)) {
             if (mSetter != null) {
                 mSetter.call(Context.getCurrentContext(), start, start, new Object[]{name, value});
