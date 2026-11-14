@@ -34,7 +34,6 @@ import com.stardust.autojs.runtime.exception.ScriptEnvironmentException;
 import com.stardust.autojs.runtime.exception.ScriptException;
 import com.stardust.autojs.runtime.exception.ScriptInterruptedException;
 import com.stardust.lang.ThreadCompat;
-import com.stardust.autojs.util.CustomToastView;
 import com.stardust.util.ScreenMetrics;
 import com.stardust.util.SdkVersionUtil;
 import com.stardust.util.UiHandler;
@@ -67,9 +66,6 @@ public abstract class ScriptRuntime {
 
     @ScriptVariable
     public final Dialogs dialogs;
-
-    @ScriptVariable
-    public CustomToastView toastX;
 
     @ScriptVariable
     public Events events;
@@ -137,7 +133,6 @@ public abstract class ScriptRuntime {
         floaty = new Floaty(uiHandler, ui, this);
         files = new Files(this);
         media = new Media(context, this);
-        toastX = new CustomToastView(context, console);
     }
 
     public abstract void init();
