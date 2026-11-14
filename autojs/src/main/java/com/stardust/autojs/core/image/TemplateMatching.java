@@ -7,6 +7,7 @@ import com.stardust.util.Nath;
 
 import org.opencv.core.Core;
 import org.opencv.core.CvType;
+
 import org.opencv.core.Mat;
 import org.opencv.core.Point;
 import org.opencv.core.Rect;
@@ -18,6 +19,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+
+
+/**
+ * Created by Stardust on 2017/11/25.
+ */
 
 public class TemplateMatching {
 
@@ -63,6 +69,20 @@ public class TemplateMatching {
         return result.get(0).point;
     }
 
+    /**
+     * 采用图像金字塔算法快速找图
+     *
+     * @param img             图片
+     * @param template        模板图片
+     * @param matchMethod     匹配算法
+     * @param weakThreshold   弱阈值。该值用于在每一轮模板匹配中检验是否继续匹配。如果相似度小于该值，则不再继续匹配。
+     * @param strictThreshold 强阈值。该值用于检验最终匹配结果，以及在每一轮匹配中如果相似度大于该值则直接返回匹配结果。
+     * @param maxLevel        图像金字塔的层数
+     * @param limit           每层最多返回的候选点数量（控制计算量）
+     * @param transparentMask 是否启用透明蒙版
+     * @param useGrayscale    是否先转为灰度图再匹配
+     * @return
+     */
     public static List<Match> fastTemplateMatching(Mat img, Mat template, int matchMethod, float weakThreshold,
                                                    float strictThreshold, int maxLevel, int limit,
                                                    Boolean transparentMask, boolean useGrayscale) {
@@ -83,6 +103,7 @@ public class TemplateMatching {
      * @param maxLevel        金字塔层数（设为 MAX_LEVEL_AUTO 自动计算）
      * @param limit           每层最多返回的候选点数量（控制计算量）
      * @param transparentMask 是否启用透明蒙版
+     * @param useGrayscale    是否先转为灰度图再匹配
      * @return 按模板顺序返回匹配结果列表；若某模板无匹配，则对应列表为空
      */
     public static List<Match> fastMultiTemplateMatching(Mat img, List<Mat> templates, int matchMethod,
@@ -126,6 +147,7 @@ public class TemplateMatching {
                 globalMaxLevel = maxLevel;
             }
 
+            // 构建主图金字塔（0 ~ globalMaxLevel）
             List<Mat> imgPyramid = new ArrayList<>();
             for (int level = 0; level <= globalMaxLevel; level++) {
                 Mat src = getPyramidDownAtLevel(workingImg, level);
@@ -180,9 +202,11 @@ public class TemplateMatching {
                                                         float weakThreshold, float strictThreshold,
                                                         int limit, Boolean transparentMask,
                                                         List<Mat> resourcesToRelease) {
+        // 计算模板自身的最大可行层数
         int tMaxLevel = selectPyramidLevel(imgPyramid.get(0), template);
         tMaxLevel = Math.min(tMaxLevel, globalMaxLevel);
 
+        // 构建模板金字塔
         List<Mat> templatePyramid = new ArrayList<>();
         for (int level = 0; level <= tMaxLevel; level++) {
             Mat t = getPyramidDownAtLevel(template, level);
@@ -211,14 +235,17 @@ public class TemplateMatching {
             int actualHeight = currentTemplate.height() << level;
 
             if (previousMatchResult.isEmpty()) {
+                // 决定是否继续匹配（根据弱阈值跳过部分层）
                 if (!isFirstMatching && !shouldContinueMatching(level, tMaxLevel)) {
                     break;
                 }
+                // 全图匹配
                 Mat matchResult = matchTemplate(src, currentTemplate, matchMethod, currentMask);
                 resourcesToRelease.add(matchResult);
                 getBestMatched(matchResult, currentTemplate, matchMethod, weakThreshold,
                         currentMatchResult, limit, null, actualWidth, actualHeight);
             } else {
+                // 在上一层的匹配点附近进行局部匹配
                 for (Match match : previousMatchResult) {
                     Rect r = getROI(match.point, src, currentTemplate);
                     Mat m = new Mat(src, r);
@@ -230,18 +257,19 @@ public class TemplateMatching {
                 }
             }
 
+            // 强阈值处理：达到 strictThreshold 的结果直接加入最终列表，并停止该模板后续匹配
             if (!currentMatchResult.isEmpty()) {
                 Iterator<Match> iterator = currentMatchResult.iterator();
                 while (iterator.hasNext()) {
                     Match match = iterator.next();
                     if (match.similarity >= strictThreshold) {
-                        pyrUp(match.point, level);
+                        pyrUp(match.point, level);    // 坐标还原至原图尺寸
                         finalMatchResult.add(match);
                         iterator.remove();
                     }
                 }
                 if (currentMatchResult.isEmpty()) {
-                    break;
+                    break;  // 所有候选都满足强阈值，提前终止
                 }
             }
 
@@ -312,10 +340,12 @@ public class TemplateMatching {
 
     private static int selectPyramidLevel(Mat img, Mat template) {
         int minDim = Nath.min(img.rows(), img.cols(), template.rows(), template.cols());
+        //这里选取16为图像缩小后的最小宽高，从而用log(2, minDim / 16)得到最多可以经过几次缩小。
         int maxLevel = (int) (Math.log(minDim / 16) / Math.log(2));
         if (maxLevel < 0) {
             return 0;
         }
+        //上限为6
         return Math.min(6, maxLevel);
     }
 
@@ -389,7 +419,7 @@ public class TemplateMatching {
         if (mat.type() == CvType.CV_32FC1) {
             Core.patchNaNs(mat, 0.0);
             Mat infMask = new Mat();
-            Core.compare(mat, new Scalar(255), infMask, Core.CMP_GT);
+            Core.compare(mat, new Scalar(255), infMask, Core.CMP_GT); // mat > threshold -> 255
             Mat zeros = Mat.zeros(mat.size(), mat.type());
             zeros.copyTo(mat, infMask);
             infMask.release();
@@ -397,4 +427,5 @@ public class TemplateMatching {
         }
         return mat;
     }
+
 }
