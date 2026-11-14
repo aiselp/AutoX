@@ -14,7 +14,7 @@ import com.stardust.autojs.core.ui.JsViewHelper;
  * Created by Stardust on 2017/5/14.
  */
 
-public class JsLinearLayout extends LinearLayout {
+public class JsLinearLayout extends LinearLayout implements AttrSupport {
 
 
     public JsLinearLayout(Context context) {

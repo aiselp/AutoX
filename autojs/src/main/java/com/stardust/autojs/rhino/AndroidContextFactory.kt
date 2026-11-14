@@ -10,6 +10,7 @@ import com.stardust.automator.UiObjectCollection
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.Scriptable
+import org.mozilla.javascript.lc.type.TypeInfo
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
@@ -92,7 +93,12 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
             isJavaPrimitiveWrap = false
         }
 
-        override fun wrap(cx: Context, scope: Scriptable, obj: Any?, staticType: Class<*>?): Any? {
+        /**
+         * Rhino 1.9.2 内部统一走 wrap(..., TypeInfo)，旧的 wrap(..., Class) 重载只做
+         * 一次 TypeInfo 转换后回调本方法。若仍重写旧签名，UiObject / UiObjectCollection
+         * 的特殊包装会完全失效，因此迁移到 TypeInfo 签名。
+         */
+        override fun wrap(cx: Context?, scope: Scriptable?, obj: Any?, staticType: TypeInfo?): Any? {
             return when (obj) {
                 is UiObject -> if (Build.VERSION.SDK_INT >= 30) {
                     super.wrap(cx, scope, obj, staticType)

@@ -21,7 +21,7 @@ import androidx.recyclerview.widget.RecyclerView;
  * Created by Stardust on 2018/3/28.
  */
 
-public class JsListView extends RecyclerView {
+public class JsListView extends RecyclerView implements AttrSupport {
 
     public interface DataSourceAdapter {
 

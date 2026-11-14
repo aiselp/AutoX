@@ -1,43 +1,49 @@
 package com.stardust.autojs.rhino;
 
+import android.util.Log;
+
 import org.mozilla.javascript.Context;
-import org.mozilla.javascript.NativeFunction;
+import org.mozilla.javascript.Function;
 import org.mozilla.javascript.NativeJavaObject;
 import org.mozilla.javascript.NativeObject;
 import org.mozilla.javascript.Scriptable;
 import org.mozilla.javascript.UniqueTag;
-
-/**
- * Created by Stardust on 2017/12/6.
- */
+import org.mozilla.javascript.lc.type.TypeInfo;
 
 public class ProxyJavaObject extends NativeJavaObject {
-
-    private NativeFunction mGetter;
-    private NativeFunction mSetter;
+    private static final String TAG = "ProxyJavaObject";
+    private Function mGetter;
+    private Function mSetter;
 
     public ProxyJavaObject() {
+        super();
+    }
+
+    public ProxyJavaObject(Scriptable scope, Object javaObject) {
+        super(scope, javaObject, new SimpleTypeInfo(javaObject != null ? javaObject.getClass() : Object.class));
     }
 
     public ProxyJavaObject(Scriptable scope, Object javaObject, Class<?> staticType) {
-        super(scope, javaObject, staticType);
+        super(scope, javaObject, new SimpleTypeInfo(staticType != null ? staticType : Object.class));
     }
 
-    public ProxyJavaObject(Scriptable scope, Object javaObject, Class<?> staticType, boolean isAdapter) {
-        super(scope, javaObject, staticType, isAdapter);
+    public ProxyJavaObject(Scriptable scope, Object javaObject, TypeInfo staticType) {
+        super(scope, javaObject, staticType);
     }
 
     @Override
     public void put(String name, Scriptable start, Object value) {
-        if (name.equals("__proxy__")) {
+        if (name.equals("__proxy__") && value instanceof NativeObject) {
             NativeObject proxy = (NativeObject) value;
             Object getter = proxy.get("get", start);
-            if (getter instanceof NativeFunction) {
-                mGetter = (NativeFunction) getter;
+            if (getter instanceof Function) {
+                mGetter = (Function) getter;
+                Log.d(TAG, "__proxy__ getter set");
             }
             Object setter = proxy.get("set", start);
-            if (setter instanceof NativeFunction) {
-                mSetter = (NativeFunction) setter;
+            if (setter instanceof Function) {
+                mSetter = (Function) setter;
+                Log.d(TAG, "__proxy__ setter set");
             }
         } else if (mSetter != null) {
             mSetter.call(Context.getCurrentContext(), start, start, new Object[]{name, value});
@@ -57,7 +63,7 @@ public class ProxyJavaObject extends NativeJavaObject {
             return value;
         }
         if (mGetter != null) {
-            value = mGetter.call(Context.getCurrentContext(), start, start, new Object[]{name});
+            return mGetter.call(Context.getCurrentContext(), start, start, new Object[]{name});
         }
         return value;
     }
@@ -67,4 +73,3 @@ public class ProxyJavaObject extends NativeJavaObject {
         return toString();
     }
 }
-

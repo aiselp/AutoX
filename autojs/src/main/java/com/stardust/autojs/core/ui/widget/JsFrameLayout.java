@@ -17,7 +17,7 @@ import com.stardust.autojs.core.ui.JsViewHelper;
  * Created by Stardust on 2017/5/14.
  */
 
-public class JsFrameLayout extends FrameLayout {
+public class JsFrameLayout extends FrameLayout implements AttrSupport {
     public JsFrameLayout(@NonNull Context context) {
         super(context);
     }

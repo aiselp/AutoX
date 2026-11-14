@@ -12,7 +12,7 @@ import android.widget.EditText;
  */
 
 @SuppressLint("AppCompatCustomView")
-public class JsEditText extends EditText {
+public class JsEditText extends EditText implements AttrSupport {
     public JsEditText(Context context) {
         super(context);
     }

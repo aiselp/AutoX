@@ -12,7 +12,7 @@ import android.widget.TextView;
  */
 
 @SuppressLint("AppCompatCustomView")
-public class JsTextView extends TextView {
+public class JsTextView extends TextView implements AttrSupport {
 
     public JsTextView(Context context) {
         super(context);

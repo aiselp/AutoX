@@ -5,8 +5,11 @@ import android.content.Context
 import android.util.AttributeSet
 import android.webkit.WebView
 import androidx.webkit.WebViewAssetLoader
+import com.stardust.autojs.core.ui.ViewExtras
 import com.stardust.autojs.core.web.JsBridge
+import org.mozilla.javascript.ScriptRuntime
 import java.io.File
+
 
 @SuppressLint("SetJavaScriptEnabled")
 open class JsWebView : WebView {
@@ -55,4 +58,20 @@ open class JsWebView : WebView {
     fun injectionJsBridge() {
         JsBridge.injectionJsBridge(this)
     }
+
+    fun attr(name: String?, value: Any?) {
+        val attrs = ViewExtras.getViewAttributes(this)
+        if (attrs != null) {
+            attrs.setAttr(name, ScriptRuntime.toString(value))
+        }
+    }
+
+    fun attr(name: String?): Any? {
+        val attrs = ViewExtras.getViewAttributes(this)
+        if (attrs != null) {
+            return attrs.getAttrValue(name)
+        }
+        return null
+    }
+
 }
