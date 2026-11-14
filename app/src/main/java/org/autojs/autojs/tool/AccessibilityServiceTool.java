@@ -12,6 +12,7 @@ import org.autojs.autoxjs.R;
 import com.stardust.autojs.core.accessibility.AccessibilityService;
 import com.stardust.autojs.core.util.ProcessShell;
 import com.stardust.view.accessibility.AccessibilityServiceUtils;
+import org.autojs.autojs.tool.RootTool;
 
 import java.util.Locale;
 import java.util.concurrent.CompletableFuture;
@@ -67,8 +68,12 @@ public class AccessibilityServiceTool {
             String msg = e.getMessage();
             if (msg != null && (msg.contains("error=13") || msg.contains("Permission denied"))) {
                 Log.e("AccessibilityService", "su命令无权限 (error=13)");
-                Context context = GlobalAppContext.get();
-                GlobalAppContext.toast(context.getString(R.string.text_root_permission_incomplete) + context.getString(R.string.app_name));
+                // 仅当应用已获得 root、但当前进程（:script）未授权时才提示“root 不完整”；
+                // 完全没有 root 权限时不作任何提示。
+                if (RootTool.isRootGranted()) {
+                    Context context = GlobalAppContext.get();
+                    GlobalAppContext.toast(context.getString(R.string.text_root_permission_incomplete) + context.getString(R.string.app_name));
+                }
                 return false;
             }
             return false;
