@@ -16,20 +16,24 @@ import org.opencv.imgcodecs.Imgcodecs;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
 import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.function.Predicate;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Created by Stardust on 2017/11/25.
  */
 public class ImageWrapper {
 
-    private static final List<WeakReference<ImageWrapper>> sAllImages = new ArrayList<>();
+    private static final String TAG = "ImageWrapper";
+    private static final int MAX_TRACKED_IMAGES = 10000;
+    private static final Set<WeakReference<ImageWrapper>> sAllImages = new HashSet<>();
+    private static final ReferenceQueue<ImageWrapper> sStaleImages = new ReferenceQueue<>();
     private static final Object sLock = new Object();
-    private static boolean sTrackingEnabled = false;
+    private static volatile boolean sTrackingEnabled = false;
 
     private Mat mMat;
     private int mWidth;
@@ -38,15 +42,11 @@ public class ImageWrapper {
     private boolean mRecycled;
 
     public static void enableTracking() {
-        Log.d("ImageWrapper", "enableTracking called, sAllImages size before clear: " + sAllImages.size());
         synchronized (sLock) {
             sTrackingEnabled = true;
-            Log.d("ImageWrapper", "sTrackingEnabled set to true");
-            int size = sAllImages.size();
+            drainStaleImages();
             sAllImages.clear();
-            Log.d("ImageWrapper", "sAllImages cleared, size before: " + size);
         }
-        Log.d("ImageWrapper", "enableTracking done");
     }
 
     public static void disableTracking() {
@@ -55,20 +55,20 @@ public class ImageWrapper {
         }
     }
 
+    /**
+     * 回收所有被追踪且仍存活的图像。仅由脚本显式调用（images.recycleAllImages()）；
+     * 追踪数量达到上限时不会自动调用，避免回收脚本仍在使用的图像。
+     */
     public static void recycleAllTrackedImages() {
         synchronized (sLock) {
-            sAllImages.removeIf(new Predicate() { // from class: com.stardust.autojs.core.image.ImageWrapper$$ExternalSyntheticLambda0
-                @Override // java.util.function.Predicate
-                public final boolean test(Object obj) {
-                    return ImageWrapper.lambda$recycleAllTrackedImages$0((WeakReference) obj);
-                }
-            });
+            drainStaleImages();
             for (WeakReference<ImageWrapper> ref : sAllImages) {
                 ImageWrapper img = ref.get();
                 if (img != null && img.isAlive()) {
                     try {
                         img.recycle();
                     } catch (Exception e) {
+                        Log.w(TAG, "Failed to recycle image", e);
                     }
                 }
             }
@@ -76,26 +76,22 @@ public class ImageWrapper {
         }
     }
 
-    static /* synthetic */ boolean lambda$recycleAllTrackedImages$0(WeakReference ref) {
-        return ref.get() == null;
-    }
-
     public static int getTrackedImageCount() {
-        int size;
         synchronized (sLock) {
-            sAllImages.removeIf(new Predicate() { // from class: com.stardust.autojs.core.image.ImageWrapper$$ExternalSyntheticLambda1
-                @Override // java.util.function.Predicate
-                public final boolean test(Object obj) {
-                    return ImageWrapper.lambda$getTrackedImageCount$1((WeakReference) obj);
-                }
-            });
-            size = sAllImages.size();
+            drainStaleImages();
+            return sAllImages.size();
         }
-        return size;
     }
 
-    static /* synthetic */ boolean lambda$getTrackedImageCount$1(WeakReference ref) {
-        return ref.get() == null;
+    /**
+     * 借助 ReferenceQueue 移除已被 GC 的弱引用，均摊 O(1)，
+     * 不再需要每次创建图像时遍历整个集合做 removeIf。
+     */
+    private static void drainStaleImages() {
+        Reference<? extends ImageWrapper> ref;
+        while ((ref = sStaleImages.poll()) != null) {
+            sAllImages.remove(ref);
+        }
     }
 
     protected ImageWrapper(Mat mat) {
@@ -125,26 +121,23 @@ public class ImageWrapper {
     }
 
     private void trackThis() {
-        synchronized (sLock) {
-            if (sTrackingEnabled) {
-                sAllImages.removeIf(new Predicate() { // from class: com.stardust.autojs.core.image.ImageWrapper$$ExternalSyntheticLambda2
-                    @Override // java.util.function.Predicate
-                    public final boolean test(Object obj) {
-                        return ImageWrapper.lambda$trackThis$2((WeakReference) obj);
-                    }
-                });
-                // 先回收再登记：原先先 add 再判阈值，触发全量回收时会把
-                // 刚创建、即将返回给脚本的这张图也回收掉。
-                if (sAllImages.size() >= 10000) {
-                    recycleAllTrackedImages();
-                }
-                sAllImages.add(new WeakReference<>(this));
-            }
+        // 追踪默认关闭；锁外快速返回，避免每张图像都进入全局锁。
+        if (!sTrackingEnabled) {
+            return;
         }
-    }
-
-    static /* synthetic */ boolean lambda$trackThis$2(WeakReference ref) {
-        return ref.get() == null;
+        synchronized (sLock) {
+            // 双重检查：等待锁期间可能已被 disableTracking()。
+            if (!sTrackingEnabled) {
+                return;
+            }
+            drainStaleImages();
+            if (sAllImages.size() == MAX_TRACKED_IMAGES) {
+                Log.w(TAG, "tracked images reached " + MAX_TRACKED_IMAGES
+                        + "; images may not be released, call images.recycleAllImages()");
+            }
+            // 达到上限只告警、继续登记，绝不在内部回收脚本仍在使用的图像。
+            sAllImages.add(new WeakReference<>(this, sStaleImages));
+        }
     }
 
     public boolean isAlive() {
