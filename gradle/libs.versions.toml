@@ -1,5 +1,6 @@
 [versions]
 activity = "1.9.1"
+camera = "1.5.3"
 coil-compose-version = "2.0.0-rc03"
 core-ktx = "1.13.0"
 google-gson = "2.9.1"
@@ -16,6 +17,8 @@ savedstate = "1.2.1"
 mlkit-text = "16.0.1"
 junit-ktx = "1.2.1"
 mlkit-common-version = "18.11.0"
+mlkit-barcode-scanning = "17.3.0"
+tesseract4android = "4.8.0"
 
 [libraries]
 # androidx
@@ -86,11 +89,14 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor-version" }
 # mlkit
 mlkit-common = { group = "com.google.mlkit", name = "common", version.ref = "mlkit-common-version" }
+mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkit-barcode-scanning" }
 mlkit-text-recognition = { module = "com.google.mlkit:text-recognition", version.ref = "mlkit-text" }
 mlkit-text-recognition-chinese = { module = "com.google.mlkit:text-recognition-chinese", version.ref = "mlkit-text" }
 mlkit-text-recognition-devanagari = { module = "com.google.mlkit:text-recognition-devanagari", version.ref = "mlkit-text" }
 mlkit-text-recognition-japanese = { module = "com.google.mlkit:text-recognition-japanese", version.ref = "mlkit-text" }
 mlkit-text-recognition-korean = { module = "com.google.mlkit:text-recognition-korean", version.ref = "mlkit-text" }
+camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camera" }
+tesseract4android-core = { module = "cz.adaptech.tesseract4android:tesseract4android", version.ref = "tesseract4android" }
 #rxjava
 rxjava3 = "io.reactivex.rxjava3:rxjava:3.1.11"
 rxjava3-rxandroid = "io.reactivex.rxjava3:rxandroid:3.0.2"
@@ -137,6 +143,7 @@ mlkit = [
     "mlkit-text-recognition-chinese",
     "mlkit-text-recognition-devanagari",
     "mlkit-text-recognition-japanese",
-    "mlkit-text-recognition-korean"
+    "mlkit-text-recognition-korean",
+    "mlkit-barcode-scanning"
 ]
 shizuku = ["shizuku-api", "shizuku-provider"]

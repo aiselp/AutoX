@@ -83,47 +83,70 @@ dependencies {
     implementation(libs.opencv)
     // libs
     implementation(libs.dalvik.dx)
-    implementation("cz.adaptech:tesseract4android:4.1.1")
+    implementation(libs.tesseract4android.core)
+    implementation(libs.camera.core)
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
 }
-tasks.register<Exec>("buildV7Api") {
+tasks.register("buildV7Api") {
     group = "build"
     val v7ApiDir = File(projectDir, "src/main/js/v7-api")
     val v7ModuleDir = File(projectDir, "src/main/assets/v7modules")
-    workingDir = v7ApiDir
-    execCommand("node build.mjs")
+
+    // 只跟踪源码与构建配置。dist 是本任务自己生成的产物、node_modules 由 npm install
+    // 维护，两者若纳入 inputs 会造成「执行改输入」的自反馈，任务永远无法 UP-TO-DATE。
+    inputs.files(fileTree(v7ApiDir).matching {
+        include("**/*")
+        exclude("node_modules/**", "dist/**")
+    })
+    outputs.dir(v7ModuleDir)
+
     doLast {
-        copy {
-            delete(v7ModuleDir)
-            from(File(v7ApiDir, "dist"))
+        exec {
+            workingDir = v7ApiDir
+            commandLine("node", "build.mjs")
+        }
+        sync {
+            from(File(v7ApiDir, "dist")) {
+                include("**/*.js")
+            }
             into(v7ModuleDir)
         }
-        delete(fileTree(v7ModuleDir) {
-            include("**/*.ts")
-        })
     }
 }
 
-tasks.register<Exec>("buildV6Api") {
+tasks.register("buildV6Api") {
     group = "build"
     val v6ApiDir = File(projectDir, "src/main/js/v6-api")
     val v6ModuleDir = File(projectDir, "src/main/assets/v6modules")
-    workingDir = v6ApiDir
-    execCommand("node build.mjs")
+
+    // 同 buildV7Api：排除 dist 产物与 node_modules，避免输入包含任务自身产物。
+    inputs.files(fileTree(v6ApiDir).matching {
+        include("**/*")
+        exclude("node_modules/**", "dist/**")
+    })
+    outputs.dir(v6ModuleDir)
+
     doLast {
-        copy {
-            delete(v6ModuleDir)
-            from(File(v6ApiDir, "dist"))
+        exec {
+            workingDir = v6ApiDir
+            commandLine("node", "build.mjs")
+        }
+        sync {
+            from(File(v6ApiDir, "dist")) {
+                include("**/*.js")
+            }
             into(v6ModuleDir)
         }
-        delete(fileTree(v6ModuleDir) {
-            include("**/*.ts")
-        })
     }
 }
 
 tasks.register("buildJsModule") {
     group = "build"
     dependsOn("buildV6Api", "buildV7Api")
+}
+
+// 让编译时自动触发
+tasks.named("preBuild") {
+    dependsOn("buildJsModule")
 }
