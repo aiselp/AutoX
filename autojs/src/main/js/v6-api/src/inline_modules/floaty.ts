@@ -14,7 +14,7 @@ function window(xml: XML | string) {
     return window;
 }
 
-function rawWindow(xml: XML | string) {
+function rawWindow(xml: XML | string, x?: number, y?: number) {
     if (typeof (xml) !== 'string') {
         xml = xml.toXMLString();
     }
@@ -23,7 +23,7 @@ function rawWindow(xml: XML | string) {
         window = wrap(runtime.floaty.rawWindow(function (context: android.Context, parent: unknown) {
             runtime.ui.layoutInflater.setContext(context);
             return runtime.ui.layoutInflater.inflate(xml.toString(), parent, true);
-        }));
+        }, x || 0, y || 0));
     })
     return window;
 }

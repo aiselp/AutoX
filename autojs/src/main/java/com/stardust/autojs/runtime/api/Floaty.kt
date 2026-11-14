@@ -51,15 +51,25 @@ class Floaty(private val mUiHandler: UiHandler, ui: UI, private val mRuntime: Sc
 
     fun rawWindow(floaty: RawFloaty): JsRawWindow {
         checkFloatingPermission()
+        return rawWindow(floaty, 0, 0)
+    }
 
-        val window = JsRawWindow(floaty)
+    fun rawWindow(floaty: RawFloaty, x: Int, y: Int): JsRawWindow {
+        checkFloatingPermission()
+        val window = JsRawWindow(floaty, x, y)
         addWindow(window)
         return window
     }
 
     fun rawWindow(view: View): JsRawWindow {
         checkFloatingPermission()
-        val window = JsRawWindow { _: Context?, _: ViewGroup? -> view }
+        return rawWindow(view, 0, 0)
+    }
+
+    fun rawWindow(view: View, x: Int, y: Int): JsRawWindow {
+        checkFloatingPermission()
+        val floaty = RawFloaty { _, _ -> view }
+        val window = JsRawWindow(floaty, x, y)
         addWindow(window)
         return window
     }
@@ -96,8 +106,8 @@ class Floaty(private val mUiHandler: UiHandler, ui: UI, private val mRuntime: Sc
         fun close(removeFromWindows: Boolean)
     }
 
-    inner class JsRawWindow(floaty: RawFloaty) : JsWindow {
-        private var mWindow: RawWindow = RawWindow(floaty, mUiHandler.context)
+    inner class JsRawWindow(floaty: RawFloaty, x: Int, y: Int) : JsWindow {
+        private var mWindow: RawWindow = RawWindow(floaty, mUiHandler.context, x, y)
         private var mExitOnClose = false
 
         init {
