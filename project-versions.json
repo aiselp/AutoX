@@ -3,10 +3,10 @@
   "appVersionName": "7.2.5",
   "devVersionCode": 725,
   "devVersionName": "7.2.5",
-  "compile": 34,
-  "target": 34,
+  "compile": 35,
+  "target": 35,
   "mini": 27,
-  "buildTool": "34.0.0",
+  "buildTool": "35.0.0",
   "ndk": "29.0.14206865",
   "IDE": "Android Studio Bumblebee | 2021.1.1",
   "JDK": "17"
