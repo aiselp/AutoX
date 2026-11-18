@@ -8,6 +8,8 @@ import android.os.Environment;
 import androidx.preference.PreferenceManager;
 import com.stardust.app.GlobalAppContext;
 import com.stardust.autojs.runtime.accessibility.AccessibilityConfig;
+import com.stardust.autojs.servicecomponents.EngineController;
+import com.stardust.autojs.util.ProcessUtils;
 
 import org.autojs.autojs.autojs.key.GlobalKeyObserver;
 import org.autojs.autoxjs.R;
@@ -41,9 +43,17 @@ public class Pref {
         public void onSharedPreferenceChanged(SharedPreferences p, String key) {
             if (key.equals(getString(R.string.key_guard_mode))) {
                 AccessibilityConfig.setIsUnintendedGuardEnabled(p.getBoolean(getString(R.string.key_guard_mode), false));
-            } else if ((key.equals(getString(R.string.key_use_volume_control_record)) || key.equals(getString(R.string.key_use_volume_control_running)))
-                    && p.getBoolean(key, false)) {
-                GlobalKeyObserver.init();
+            } else if (key.equals(getString(R.string.key_use_volume_control_record))
+                    || key.equals(getString(R.string.key_use_volume_control_running))) {
+                boolean runningEnabled = p.getBoolean(getString(R.string.key_use_volume_control_running), false);
+                boolean recordEnabled = p.getBoolean(getString(R.string.key_use_volume_control_record), false);
+                if (ProcessUtils.isScriptProcess(GlobalAppContext.get())) {
+                    GlobalKeyObserver.setVolumeControlEnabled(runningEnabled, recordEnabled);
+                } else {
+                    // 开关是在主进程设置页改的；SharedPreferences 缓存不跨进程同步，
+                    // 只能通过已有的 ScriptBinder 通道把值送到 :script 进程。
+                    EngineController.notifyVolumeControlChanged(runningEnabled, recordEnabled);
+                }
             }
         }
     };
@@ -78,6 +88,10 @@ public class Pref {
 
     public static boolean isRunningVolumeControlEnabled() {
         return def().getBoolean(getString(R.string.key_use_volume_control_running), false);
+    }
+
+    public static boolean isRecordVolumeControlEnabled() {
+        return def().getBoolean(getString(R.string.key_use_volume_control_record), false);
     }
 
     public static boolean shouldEnableAccessibilityServiceByRoot() {

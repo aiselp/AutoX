@@ -20,6 +20,7 @@ object ProcessUtils {
         }
     }
 
+    @JvmStatic
     fun isScriptProcess(context: Context): Boolean {
         val pid = android.os.Process.myPid()
         val processName = context.packageName + context.getString(R.string.text_script_process_name)

@@ -77,9 +77,13 @@ class App : Application(), Configuration.Provider, ImageLoaderFactory {
         )
         if (ProcessUtils.isScriptProcess(this)) {
             AutoJs.initInstance(this)
-            if (Pref.isRunningVolumeControlEnabled()) {
-                GlobalKeyObserver.init()
+            EngineController.setVolumeControlListener { runningEnabled, recordEnabled ->
+                GlobalKeyObserver.setVolumeControlEnabled(runningEnabled, recordEnabled)
             }
+            GlobalKeyObserver.init(
+                Pref.isRunningVolumeControlEnabled(),
+                Pref.isRecordVolumeControlEnabled()
+            )
             TimedTaskScheduler.init(this)
             initDynamicBroadcastReceivers()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {

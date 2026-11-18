@@ -7,7 +7,6 @@ import com.stardust.app.GlobalAppContext;
 import com.stardust.autojs.core.inputevent.InputEventObserver;
 import com.stardust.autojs.core.inputevent.ShellKeyObserver;
 import com.stardust.event.EventDispatcher;
-import org.autojs.autojs.Pref;
 import org.autojs.autojs.autojs.AutoJs;
 import com.stardust.view.accessibility.AccessibilityService;
 import com.stardust.view.accessibility.OnKeyListener;
@@ -27,6 +26,8 @@ public class GlobalKeyObserver implements OnKeyListener, ShellKeyObserver.KeyLis
     private static final String LOG_TAG = "GlobalKeyObserver";
     private static final long EVENT_TIMEOUT = 200;
     private static GlobalKeyObserver sSingleton;
+    private static volatile boolean sRunningVolumeControlEnabled;
+    private static volatile boolean sVolumeRecordControlEnabled;
     private EventDispatcher<OnVolumeDownListener> mVolumeDownEventDispatcher = new EventDispatcher<>();
     private boolean mVolumeDownFromShell, mVolumeDownFromAccessibility;
     private boolean mVolumeUpFromShell, mVolumeUpFromAccessibility;
@@ -50,15 +51,38 @@ public class GlobalKeyObserver implements OnKeyListener, ShellKeyObserver.KeyLis
         getSingleton();
     }
 
+    /**
+     * 只在 :script 进程调用。 SharedPreferences 在进程间不共享内存缓存，
+     * 因此两个开关键以主进程通过 Binder 下发的值为准，而不是在这里重新读偏好。
+     */
+    public static void init(boolean runningVolumeControlEnabled, boolean volumeRecordControlEnabled) {
+        sRunningVolumeControlEnabled = runningVolumeControlEnabled;
+        sVolumeRecordControlEnabled = volumeRecordControlEnabled;
+        if (runningVolumeControlEnabled || volumeRecordControlEnabled) {
+            getSingleton();
+        }
+    }
+
+    public static void setVolumeControlEnabled(boolean runningEnabled, boolean recordEnabled) {
+        sRunningVolumeControlEnabled = runningEnabled;
+        sVolumeRecordControlEnabled = recordEnabled;
+        if (runningEnabled || recordEnabled) {
+            getSingleton();
+        }
+    }
+
     public void onVolumeUp() {
         Log.d(LOG_TAG, "onVolumeUp at " + System.currentTimeMillis());
-        if (Pref.isRunningVolumeControlEnabled()) {
+        if (sRunningVolumeControlEnabled) {
             Log.d(LOG_TAG, "stop all scripts when volume up");
             AutoJs.getInstance().getScriptEngineService().stopAllAndToast();
         }
     }
 
     public void onVolumeDown() {
+        if (!sVolumeRecordControlEnabled) {
+            return;
+        }
         Log.d(LOG_TAG, "onVolumeDown at " + System.currentTimeMillis());
         mVolumeDownEventDispatcher.dispatchEvent(VOLUME_DOWN_EVENT);
     }
@@ -80,7 +104,7 @@ public class GlobalKeyObserver implements OnKeyListener, ShellKeyObserver.KeyLis
                 mVolumeDownFromShell = false;
                 return;
             }
-            mVolumeUpFromAccessibility = true;
+            mVolumeDownFromAccessibility = true;
             onVolumeDown();
         } else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             if (mVolumeUpFromShell) {
