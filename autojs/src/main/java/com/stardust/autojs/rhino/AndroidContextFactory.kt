@@ -3,13 +3,18 @@ package com.stardust.autojs.rhino
 import android.os.Build
 import android.os.Looper
 import android.util.Log
+import android.view.View
+import com.stardust.autojs.core.ui.ViewExtras
 import com.stardust.autojs.runtime.ScriptBridges
+import com.stardust.autojs.runtime.ScriptRuntime
 import com.stardust.autojs.runtime.exception.ScriptInterruptedException
 import com.stardust.automator.UiObject
 import com.stardust.automator.UiObjectCollection
 import org.mozilla.javascript.Context
 import org.mozilla.javascript.ContextFactory
 import org.mozilla.javascript.Scriptable
+import org.mozilla.javascript.ScriptableObject
+import org.mozilla.javascript.UniqueTag
 import org.mozilla.javascript.lc.type.TypeInfo
 import java.io.File
 import java.util.Locale
@@ -105,7 +110,69 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
                 } else UiObjectProxy(obj)
 
                 is UiObjectCollection -> bridges.asArray(obj)
+
+                is View -> {
+                    // Rhino 1.9.2 移除了 VMBridge，InterfaceAdapter 在非脚本线程（如 UI 线程
+                    // 的 OnClickListener）里通过 cf.call() 新建 Context 时，只会拿到 factory 级
+                    // WrapFactory，拿不到 engine 级那个（那里才处理 View -> NativeView）。
+                    // 这里从 wrap 传入的 topScope 反查当前脚本的 runtime（实测 topScope 中
+                    // runtime 与 __engine__ 均存在），在 factory 级完成同样的包装，使新线程的
+                    // View 依然具备 attr()/click() 等 UI 属性方法。
+                    val runtime = runtimeFromScope(scope)
+                    if (scope != null && runtime != null) {
+                        val staticClass = staticType?.asClass() ?: obj.javaClass
+                        ViewExtras.getNativeView(scope, obj, staticClass, runtime)
+                    } else {
+                        super.wrap(cx, scope, obj, staticType)
+                    }
+                }
+
                 else -> super.wrap(cx, scope, obj, staticType)
+            }
+        }
+
+        /**
+         * 与 [wrap] 同理：Rhino 1.9.2 里 `new JavaClass(...)` 构造出的对象、以及
+         * InterfaceAdapter 传给 JS 的参数，可能直接走 wrapAsJavaObject 而不经过
+         * wrap(...)。非脚本线程的 Context 只持有本 factory 级 WrapFactory，因此
+         * 在这里也要补上 View -> NativeView，否则 UI 属性方法失效。
+         */
+        override fun wrapAsJavaObject(
+            cx: Context?,
+            scope: Scriptable?,
+            obj: Any?,
+            staticType: TypeInfo?
+        ): Scriptable? {
+            if (obj is View && scope != null) {
+                val runtime = runtimeFromScope(scope)
+                if (runtime != null) {
+                    val staticClass = staticType?.asClass() ?: obj.javaClass
+                    return ViewExtras.getNativeView(scope, obj, staticClass, runtime)
+                }
+            }
+            return super.wrapAsJavaObject(cx, scope, obj, staticType)
+        }
+
+        companion object {
+            /**
+             * 从 wrap 的 scope 中取当前脚本的 ScriptRuntime。
+             * scope 通常是脚本的 topScope，里面由 JavaScriptEngine 放入 "runtime"；
+             * 新线程通过 InterfaceAdapter 回调时传入的也是同一个 topScope。
+             */
+            @JvmStatic
+            fun runtimeFromScope(scope: Scriptable?): ScriptRuntime? {
+                if (scope == null) return null
+                return try {
+                    val value = ScriptableObject.getProperty(scope, "runtime")
+                    if (value === UniqueTag.NOT_FOUND || value == null) {
+                        null
+                    } else {
+                        (value as? ScriptRuntime)
+                            ?: (value as? org.mozilla.javascript.NativeJavaObject)?.unwrap() as? ScriptRuntime
+                    }
+                } catch (e: Throwable) {
+                    null
+                }
             }
         }
     }
