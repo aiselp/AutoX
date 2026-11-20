@@ -3,6 +3,7 @@
 plugins {
     id("com.android.library")
     id("kotlin-android")
+    id("org.jetbrains.kotlin.plugin.serialization") version "2.4.21"
 }
 java {
     toolchain {
@@ -54,6 +55,7 @@ dependencies {
     api(libs.androidx.webkit)
     api(libs.commons.exec)
     api(libs.androidx.datastore)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     api("com.github.hyb1996:settingscompat:1.1.5")
     implementation(libs.androidx.activity.ktx)
     implementation(libs.appcompat)
