@@ -64,9 +64,9 @@ compose-animation = { module = "androidx.compose.animation:animation" }
 
 ##########################
 # rhino
-mozilla-rhino = "org.mozilla:rhino:1.8.1"
-mozilla-rhino-xml = "org.mozilla:rhino-xml:1.8.1"
-mozilla-rhino-tools = "org.mozilla:rhino-tools:1.8.1"
+mozilla-rhino = "org.mozilla:rhino:1.9.2"
+mozilla-rhino-xml = "org.mozilla:rhino-xml:1.9.2"
+mozilla-rhino-tools = "org.mozilla:rhino-tools:1.9.2"
 # opencv
 opencv = "org.opencv:opencv:4.12.0"
 # commons

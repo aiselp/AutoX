@@ -14,6 +14,7 @@ import com.stardust.autojs.core.activity.ActivityInfoProvider;
 import com.stardust.autojs.core.image.Colors;
 import com.stardust.autojs.core.looper.Loopers;
 import com.stardust.autojs.core.permission.Permissions;
+import com.stardust.autojs.core.ui.ViewExtras;
 import com.stardust.autojs.rhino.TopLevelScope;
 import com.stardust.autojs.runtime.api.AppUtils;
 import com.stardust.autojs.runtime.api.Console;
@@ -36,8 +37,6 @@ import com.stardust.lang.ThreadCompat;
 import com.stardust.util.ScreenMetrics;
 import com.stardust.util.SdkVersionUtil;
 import com.stardust.util.UiHandler;
-
-import org.mozilla.javascript.Scriptable;
 
 import java.lang.ref.WeakReference;
 import java.util.Map;
@@ -125,6 +124,7 @@ public abstract class ScriptRuntime {
         console = builder.getConsole();
         accessibilityBridge = builder.getAccessibilityBridge();
         ui = new UI(context, this);
+        ViewExtras.setResourceParser(ui.getResourceParser());
         this.info = accessibilityBridge.getInfoProvider();
         images = new Images(context, this, builder.getScreenCaptureRequester());
         engines = new Engines(builder.getEngineService(), this);

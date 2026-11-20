@@ -7,69 +7,61 @@ package com.stardust.concurrent;
 public class VolatileDispose<T> {
 
     private volatile T mValue;
+    /** 与 mValue 分开记录「是否已 set」，使 setAndNotify(null) 也能正确唤醒等待方。 */
+    private volatile boolean mSet;
 
     public T blockedGet() {
         synchronized (this) {
-            if (mValue != null) {
-                return mValue;
+            while (!mSet) {
+                try {
+                    this.wait();
+                } catch (InterruptedException e) {
+                    throw new RuntimeException(e);
+                }
             }
-            try {
-                this.wait();
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
+            return mValue;
         }
-        return mValue;
     }
 
     public T blockedGetOrThrow(Class<? extends RuntimeException> exception) {
         synchronized (this) {
-            if (mValue != null) {
-                return mValue;
-            }
-            try {
-                this.wait();
-            } catch (InterruptedException e) {
+            while (!mSet) {
                 try {
-                    throw exception.newInstance();
-                } catch (InstantiationException e1) {
-                    throw new RuntimeException(e1);
-                } catch (IllegalAccessException e1) {
-                    throw new RuntimeException(e1);
+                    this.wait();
+                } catch (InterruptedException e) {
+                    try {
+                        throw exception.newInstance();
+                    } catch (InstantiationException | IllegalAccessException e1) {
+                        throw new RuntimeException(e1);
+                    }
                 }
             }
+            return mValue;
         }
-        return mValue;
     }
 
     public T blockedGetOrThrow(Class<? extends RuntimeException> exception, long timeout, T defaultValue) {
         synchronized (this) {
-            if (mValue != null) {
-                return mValue;
-            }
-            try {
-                this.wait(timeout);
-            } catch (InterruptedException e) {
+            if (!mSet) {
                 try {
-                    throw exception.newInstance();
-                } catch (InstantiationException e1) {
-                    throw new RuntimeException(e1);
-                } catch (IllegalAccessException e1) {
-                    throw new RuntimeException(e1);
+                    this.wait(timeout);
+                } catch (InterruptedException e) {
+                    try {
+                        throw exception.newInstance();
+                    } catch (InstantiationException | IllegalAccessException e1) {
+                        throw new RuntimeException(e1);
+                    }
                 }
             }
-            if (mValue == null) {
-                return defaultValue;
-            }
+            return mSet ? mValue : defaultValue;
         }
-        return mValue;
     }
 
     public void setAndNotify(T value) {
         synchronized (this) {
             mValue = value;
-            notify();
+            mSet = true;
+            notifyAll();
         }
     }
-
 }
