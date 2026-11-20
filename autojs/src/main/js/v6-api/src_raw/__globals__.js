@@ -4,7 +4,6 @@ module.exports = function (runtime, global) {
         runtime.toast(text);
     }
 
-    global.toastX = runtime.toastX;
 
     global.toastLog = function (text) {
         runtime.toast(text);
