@@ -12,7 +12,7 @@ import com.stardust.enhancedfloaty.FloatyWindow
 import com.stardust.enhancedfloaty.util.WindowTypeCompat
 
 
-class RawWindow(rawFloaty: RawFloaty, context: Context) : FloatyWindow() {
+class RawWindow(rawFloaty: RawFloaty, context: Context, x: Int = 0, y: Int = 0) : FloatyWindow() {
     fun interface RawFloaty {
         fun inflateWindowView(context: Context, parent: ViewGroup): View
     }
@@ -24,7 +24,7 @@ class RawWindow(rawFloaty: RawFloaty, context: Context) : FloatyWindow() {
         //使悬浮窗在初始化阶段创建好view和LayoutParams
         val windowView = View.inflate(context, R.layout.raw_window, null) as ViewGroup
         mContentView = mRawFloaty.inflateWindowView(context, windowView)
-        val mWindowLayoutParams = createWindowLayoutParams()
+        val mWindowLayoutParams = createWindowLayoutParams(x, y)
         super.setWindowView(windowView)
         super.setWindowManager(context.getSystemService(FloatyService.WINDOW_SERVICE) as WindowManager)
         super.setWindowLayoutParams(mWindowLayoutParams)
@@ -41,7 +41,7 @@ class RawWindow(rawFloaty: RawFloaty, context: Context) : FloatyWindow() {
         return mContentView
     }
 
-    private fun createWindowLayoutParams(): WindowManager.LayoutParams {
+    private fun createWindowLayoutParams(x: Int = 0, y: Int = 0): WindowManager.LayoutParams {
         var flags = (WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                 or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                 or WindowManager.LayoutParams.FLAG_FULLSCREEN
@@ -55,6 +55,8 @@ class RawWindow(rawFloaty: RawFloaty, context: Context) : FloatyWindow() {
             PixelFormat.TRANSLUCENT
         )
         layoutParams.gravity = Gravity.TOP or Gravity.START
+        layoutParams.x = x
+        layoutParams.y = y
         return layoutParams
     }
 
