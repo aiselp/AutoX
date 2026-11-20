@@ -15,6 +15,8 @@ import com.stardust.autojs.annotation.ScriptVariable
 import com.stardust.autojs.core.image.ColorFinder
 import com.stardust.autojs.core.image.ImageWrapper
 import com.stardust.autojs.core.image.TemplateMatching
+import com.stardust.autojs.core.image.TemplateMatching.MATCHING_METHOD_DEFAULT
+import com.stardust.autojs.core.image.capture.ScreenCapturer
 import com.stardust.autojs.core.image.capture.ScreenCaptureRequester
 import com.stardust.autojs.core.opencv.Mat
 import com.stardust.autojs.core.opencv.OpenCVHelper
@@ -36,6 +38,13 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.sqrt
+
+/** legacy 截图权限请求的默认超时：给系统授权与内部重试留足时间。 */
+private const val DEFAULT_CAPTURE_TIMEOUT_MS = 15_000L
 
 /**
  * Created by Stardust on 2017/5/20.
@@ -65,44 +74,8 @@ class Images(
         }
     }
 
-    fun requestScreenCaptureLegacy(orientation: Int): ScriptPromiseAdapter {
-        val outerPromise = ScriptPromiseAdapter()
-        val weakImages = java.lang.ref.WeakReference(this)
-
-        try {
-            val images = weakImages.get() ?: run {
-                outerPromise.resolve(false)
-                return outerPromise
-            }
-
-            val innerPromise = images.mScreenCaptureRequester.requestScreenCaptureLegacy(
-                images.mContext,
-                orientation
-            )
-
-            innerPromise.onResolve(object : ScriptPromiseAdapter.Callback {
-                override fun call(arg: Any?) {
-                    outerPromise.resolve(arg)
-                }
-            })
-
-            innerPromise.onReject(object : ScriptPromiseAdapter.Callback {
-                override fun call(arg: Any?) {
-                    val img = weakImages.get()
-                    img?.mScriptRuntime?.toast(arg as String?)
-                    Log.e(Images::class.java.name, "请求截图权限失败: $arg")
-                    outerPromise.resolve(false)
-                }
-            })
-        } catch (e: Exception) {
-            val images = weakImages.get()
-            images?.mScriptRuntime?.toast(e.message)
-            Log.e(Images::class.java.name, "请求截图权限失败", e)
-            outerPromise.resolve(false)
-        }
-
-        return outerPromise
-    }
+    // legacy 截图权限统一走文件末尾的同步版本（Boolean），不再提供
+    // 同名 1 参 Promise 重载，避免两种返回语义与 Rhino 重载歧义。
 
     fun stopScreenCapturer() {
         mScreenCaptureRequester.recycle()
@@ -241,6 +214,11 @@ class Images(
     fun releaseScreenCapturer() {
         disposables.forEach { it.dispose() }
         disposables.clear()
+        try {
+            mScreenCaptureRequester.recycle()
+        } catch (e: Exception) {
+            Log.e(Images::class.java.name, "Error recycling screen capture", e)
+        }
     }
 
     @JvmOverloads
@@ -261,7 +239,9 @@ class Images(
         threshold: Float,
         rect: Rect?,
         maxLevel: Int,
-        transparentMask: Boolean = false
+        transparentMask: Boolean = false,
+        useGrayscale: Boolean = false,
+        matchMethod: Int = MATCHING_METHOD_DEFAULT
     ): Point? {
         initOpenCvIfNeeded()
         if (image == null) throw NullPointerException("image = null")
@@ -271,8 +251,8 @@ class Images(
             src = Mat(src, rect)
         }
         val point = TemplateMatching.fastTemplateMatching(
-            src, template.mat, TemplateMatching.MATCHING_METHOD_DEFAULT,
-            weakThreshold, threshold, maxLevel, transparentMask
+            src, template.mat, matchMethod,
+            weakThreshold, threshold, maxLevel, transparentMask, useGrayscale
         )
         if (point != null) {
             if (rect != null) {
@@ -297,18 +277,21 @@ class Images(
         rect: Rect?,
         maxLevel: Int,
         limit: Int,
-        transparentMask: Boolean = false
+        transparentMask: Boolean = false,
+        useGrayscale: Boolean = false,
+        matchMethod: Int = MATCHING_METHOD_DEFAULT
     ): List<TemplateMatching.Match> {
-        val templates: List<ImageWrapper?> = listOf(template)
         return matchMultiTemplates(
             image,
-            templates,
+            listOf(template),
             weakThreshold,
             threshold,
             rect,
             maxLevel,
             limit,
-            transparentMask
+            transparentMask,
+            useGrayscale,
+            matchMethod
         )
     }
 
@@ -321,7 +304,9 @@ class Images(
         rect: Rect?,
         maxLevel: Int,
         limit: Int,
-        transparentMask: Boolean = false
+        transparentMask: Boolean = false,
+        useGrayscale: Boolean = false,
+        matchMethod: Int = MATCHING_METHOD_DEFAULT
     ): List<TemplateMatching.Match> {
         initOpenCvIfNeeded()
         if (image == null) throw NullPointerException("image = null")
@@ -332,8 +317,8 @@ class Images(
         }
 
         val result = TemplateMatching.fastMultiTemplateMatching(
-            src, templates.map { it?.mat }, Imgproc.TM_CCOEFF_NORMED,
-            weakThreshold, threshold, maxLevel, limit, transparentMask
+            src, templates.map { it?.mat }, matchMethod,
+            weakThreshold, threshold, maxLevel, limit, transparentMask, useGrayscale
         )
         for (match in result) {
             val point = match.point
@@ -341,8 +326,10 @@ class Images(
                 point.x += rect.x.toDouble()
                 point.y += rect.y.toDouble()
             }
+            match.width *= mScreenMetrics.scaleX(1)
+            match.height *= mScreenMetrics.scaleY(1)
             point.x = mScreenMetrics.scaleX(point.x.toInt()).toDouble()
-            point.y = mScreenMetrics.scaleX(point.y.toInt()).toDouble()
+            point.y = mScreenMetrics.scaleY(point.y.toInt()).toDouble()
         }
         if (src !== image.mat) {
             OpenCVHelper.release(src)
@@ -368,7 +355,6 @@ class Images(
         OpenCVHelper.initIfNeeded(context)
         mScriptRuntime.console.info("opencv initialized")
     }
-
 
     fun pixel(image: ImageWrapper?, x: Int, y: Int): Int {
         if (image == null) {
@@ -446,4 +432,173 @@ class Images(
         return Bitmap.createBitmap(origin, 0, 0, width, height, matrix, false)
     }
 
+    // ========== 新增方法 ==========
+
+    /**
+     * 获取图像的亮度值
+     * @param image 图像
+     * @param sampleCount 采样数量
+     * @param region 采样区域
+     * @return 亮度值
+     */
+    @JvmOverloads
+    fun getBrightness(image: ImageWrapper?, sampleCount: Int = 50, region: Rect? = null): Float {
+        if (image == null) {
+            throw NullPointerException("image = null")
+        }
+        val img = image.mat
+        val w = img.cols()
+        val h = img.rows()
+        var startX = 0
+        var startY = 0
+        var endX = w
+        var endY = h
+
+        if (region != null) {
+            startX = region.x.coerceAtLeast(0)
+            startY = region.y.coerceAtLeast(0)
+            endX = (region.x + region.width).coerceAtMost(w)
+            endY = (region.y + region.height).coerceAtMost(h)
+        }
+
+        val regionW = endX - startX
+        val regionH = endY - startY
+        if (regionW <= 0 || regionH <= 0) return 0f
+
+        // sampleCount 为 0/负数时原本会除零得到 Infinity，这里收敛到合法区间
+        val samples = sampleCount.coerceIn(1, regionW * regionH)
+        val step = maxOf(1, sqrt((regionW * regionH).toDouble() / samples).toInt())
+        var total = 0.0
+        var count = 0
+        val channels = img.channels()
+
+        // OpenCV Mat.get(row, col) = (y, x)
+        for (y in startY until endY step step) {
+            for (x in startX until endX step step) {
+                val pixel = img.get(y, x)
+                val brightness = when (channels) {
+                    1, 2 -> pixel[0]
+                    3, 4 -> (pixel[0] + pixel[1] + pixel[2]) / 3.0
+                    else -> pixel[0]
+                }
+                total += brightness
+                count++
+            }
+        }
+
+        return if (count > 0) (total / count).toFloat() else 0f
+    }
+
+    /**
+     * 请求截图权限（legacy 通道，不跳转应用），同步等待结果。
+     *
+     * 提供 0 / 1 / 2 参三个重载，统一返回 Boolean：
+     * - 无参：自动方向 + 默认超时
+     * - 1 参：Boolean 当作横屏开关，Number 当作方向常量，其它值回退自动方向
+     * - 2 参：(方向或横屏开关, 超时毫秒)
+     *
+     * 参数一律用 Any? 接收：JS 省略实参时 Rhino 传的是
+     * org.mozilla.javascript.Undefined，基本类型无法匹配会报「找不到方法」。
+     * 三个重载 arity 不同，Rhino 按实参个数选择，不会歧义；不要再引入返回
+     * ScriptPromiseAdapter 的同名重载，那会重演仅返回类型不同的歧义问题。
+     *
+     * 用 CountDownLatch 而不是 runBlocking：脚本 forceStop 会 interrupt 线程，
+     * latch.await 能响应中断；结果回调由 ScreenCaptureManager 在主线程触发，
+     * 不依赖脚本线程的事件循环，因此不会死锁。
+     */
+    fun requestScreenCaptureLegacy(): Boolean =
+        requestLegacyWithTimeout(ScreenCapturer.ORIENTATION_AUTO, DEFAULT_CAPTURE_TIMEOUT_MS)
+
+    fun requestScreenCaptureLegacy(arg: Any?): Boolean =
+        requestLegacyWithTimeout(normalizeOrientation(arg), DEFAULT_CAPTURE_TIMEOUT_MS)
+
+    fun requestScreenCaptureLegacy(orientation: Any?, timeout: Any?): Boolean =
+        requestLegacyWithTimeout(normalizeOrientation(orientation), normalizeTimeout(timeout))
+
+    private fun normalizeOrientation(value: Any?): Int = when (value) {
+        is Boolean -> if (value) ScreenCapturer.ORIENTATION_LANDSCAPE
+        else ScreenCapturer.ORIENTATION_PORTRAIT
+        is Number -> value.toInt()
+        else -> ScreenCapturer.ORIENTATION_AUTO
+    }
+
+    private fun normalizeTimeout(value: Any?): Long =
+        (value as? Number)?.toLong()?.takeIf { it > 0 } ?: DEFAULT_CAPTURE_TIMEOUT_MS
+
+    private fun requestLegacyWithTimeout(orientation: Int, timeoutMs: Long): Boolean {
+        val latch = CountDownLatch(1)
+        val result = AtomicBoolean(false)
+        val delivered = AtomicBoolean(false)
+
+        requestLegacyCapture(orientation) { ok ->
+            if (delivered.compareAndSet(false, true)) {
+                result.set(ok)
+                latch.countDown()
+            }
+        }
+
+        return try {
+            if (latch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
+                result.get()
+            } else {
+                Log.w(Images::class.java.name, "请求截图权限超时: ${timeoutMs}ms")
+                false
+            }
+        } catch (e: InterruptedException) {
+            Thread.currentThread().interrupt()
+            Log.w(Images::class.java.name, "请求截图权限等待被中断")
+            false
+        }
+    }
+
+    /** 内部实现：把 ScreenCaptureRequester 的 Promise 转成一次性回调。 */
+    private fun requestLegacyCapture(orientation: Int, callback: (Boolean) -> Unit) {
+        try {
+            val innerPromise = mScreenCaptureRequester.requestScreenCaptureLegacy(mContext, orientation)
+            innerPromise.onResolve(object : ScriptPromiseAdapter.Callback {
+                override fun call(arg: Any?) {
+                    callback((arg as? Boolean) ?: true)
+                }
+            })
+            innerPromise.onReject(object : ScriptPromiseAdapter.Callback {
+                override fun call(arg: Any?) {
+                    mScriptRuntime.toast(arg?.toString())
+                    Log.e(Images::class.java.name, "请求截图权限失败: $arg")
+                    callback(false)
+                }
+            })
+        } catch (e: Exception) {
+            mScriptRuntime.toast(e.message)
+            Log.e(Images::class.java.name, "请求截图权限失败", e)
+            callback(false)
+        }
+    }
+
+    /**
+     * 回收所有追踪的图像
+     */
+    fun recycleAllImages() {
+        ImageWrapper.recycleAllTrackedImages()
+    }
+
+    /**
+     * 获取存活图像数量
+     */
+    fun getAliveImageCount(): Int {
+        return ImageWrapper.getTrackedImageCount()
+    }
+
+    /**
+     * 启用图像追踪
+     */
+    fun enableImageTracking() {
+        ImageWrapper.enableTracking()
+    }
+
+    /**
+     * 禁用图像追踪
+     */
+    fun disableImageTracking() {
+        ImageWrapper.disableTracking()
+    }
 }

@@ -3,7 +3,9 @@ package com.stardust.autojs.core.image;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.Image;
-import android.os.Build;
+import android.util.Log;
+
+import androidx.annotation.NonNull;
 
 import com.stardust.autojs.core.opencv.Mat;
 import com.stardust.autojs.core.opencv.OpenCVHelper;
@@ -14,31 +16,96 @@ import org.opencv.imgcodecs.Imgcodecs;
 
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.lang.ref.Reference;
+import java.lang.ref.ReferenceQueue;
+import java.lang.ref.WeakReference;
 import java.nio.ByteBuffer;
-
-import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * Created by Stardust on 2017/11/25.
  */
 public class ImageWrapper {
 
+    private static final String TAG = "ImageWrapper";
+    private static final int MAX_TRACKED_IMAGES = 10000;
+    private static final Set<WeakReference<ImageWrapper>> sAllImages = new HashSet<>();
+    private static final ReferenceQueue<ImageWrapper> sStaleImages = new ReferenceQueue<>();
+    private static final Object sLock = new Object();
+    private static volatile boolean sTrackingEnabled = false;
+
     private Mat mMat;
     private int mWidth;
     private int mHeight;
     private Bitmap mBitmap;
+    private boolean mRecycled;
+
+    public static void enableTracking() {
+        synchronized (sLock) {
+            sTrackingEnabled = true;
+            drainStaleImages();
+            sAllImages.clear();
+        }
+    }
+
+    public static void disableTracking() {
+        synchronized (sLock) {
+            sTrackingEnabled = false;
+        }
+    }
+
+    /**
+     * 回收所有被追踪且仍存活的图像。仅由脚本显式调用（images.recycleAllImages()）；
+     * 追踪数量达到上限时不会自动调用，避免回收脚本仍在使用的图像。
+     */
+    public static void recycleAllTrackedImages() {
+        synchronized (sLock) {
+            drainStaleImages();
+            for (WeakReference<ImageWrapper> ref : sAllImages) {
+                ImageWrapper img = ref.get();
+                if (img != null && img.isAlive()) {
+                    try {
+                        img.recycle();
+                    } catch (Exception e) {
+                        Log.w(TAG, "Failed to recycle image", e);
+                    }
+                }
+            }
+            sAllImages.clear();
+        }
+    }
+
+    public static int getTrackedImageCount() {
+        synchronized (sLock) {
+            drainStaleImages();
+            return sAllImages.size();
+        }
+    }
+
+    /**
+     * 借助 ReferenceQueue 移除已被 GC 的弱引用，均摊 O(1)，
+     * 不再需要每次创建图像时遍历整个集合做 removeIf。
+     */
+    private static void drainStaleImages() {
+        Reference<? extends ImageWrapper> ref;
+        while ((ref = sStaleImages.poll()) != null) {
+            sAllImages.remove(ref);
+        }
+    }
 
     protected ImageWrapper(Mat mat) {
         mMat = mat;
         mWidth = mat.cols();
         mHeight = mat.rows();
+        trackThis();
     }
 
     protected ImageWrapper(Bitmap bitmap) {
         mBitmap = bitmap;
         mWidth = bitmap.getWidth();
         mHeight = bitmap.getHeight();
+        trackThis();
     }
 
     protected ImageWrapper(Bitmap bitmap, Mat mat) {
@@ -46,12 +113,36 @@ public class ImageWrapper {
         mMat = mat;
         mWidth = bitmap.getWidth();
         mHeight = bitmap.getHeight();
+        trackThis();
     }
 
     public ImageWrapper(int width, int height) {
         this(Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888));
     }
 
+    private void trackThis() {
+        // 追踪默认关闭；锁外快速返回，避免每张图像都进入全局锁。
+        if (!sTrackingEnabled) {
+            return;
+        }
+        synchronized (sLock) {
+            // 双重检查：等待锁期间可能已被 disableTracking()。
+            if (!sTrackingEnabled) {
+                return;
+            }
+            drainStaleImages();
+            if (sAllImages.size() == MAX_TRACKED_IMAGES) {
+                Log.w(TAG, "tracked images reached " + MAX_TRACKED_IMAGES
+                        + "; images may not be released, call images.recycleAllImages()");
+            }
+            // 达到上限只告警、继续登记，绝不在内部回收脚本仍在使用的图像。
+            sAllImages.add(new WeakReference<>(this, sStaleImages));
+        }
+    }
+
+    public boolean isAlive() {
+        return (mRecycled || (mBitmap == null && mMat == null)) ? false : true;
+    }
 
     public static ImageWrapper ofImage(Image image) {
         if (image == null) {
@@ -68,7 +159,6 @@ public class ImageWrapper {
         }
         return new ImageWrapper(mat);
     }
-
 
     public static ImageWrapper ofBitmap(Bitmap bitmap) {
         if (bitmap == null) {
@@ -142,17 +232,21 @@ public class ImageWrapper {
     }
 
     public void recycle() {
+        if (mRecycled) {
+            return;
+        }
+        mRecycled = true;
         mBitmap = null;
         if (mMat != null) {
             OpenCVHelper.release(mMat);
             mMat = null;
         }
-
     }
 
     public void ensureNotRecycled() {
-        if (mBitmap == null && mMat == null)
+        if (mRecycled || (mBitmap == null && mMat == null)) {
             throw new IllegalStateException("image has been recycled");
+        }
     }
 
     @Override
