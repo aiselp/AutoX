@@ -142,6 +142,13 @@ class ScriptServiceConnection : ServiceConnection {
         send()
     }
 
+    suspend fun setVolumeControlEnabled(runningEnabled: Boolean, recordEnabled: Boolean) = sendBinder {
+        action = ScriptBinder.Action.SET_VOLUME_CONTROL_ENABLED.id
+        data.writeInt(if (runningEnabled) 1 else 0)
+        data.writeInt(if (recordEnabled) 1 else 0)
+        send()
+    }
+
     suspend fun stopScript(id: Int) = sendBinder {
         action = ScriptBinder.Action.STOP_SCRIPT.id
         data.writeInt(id)

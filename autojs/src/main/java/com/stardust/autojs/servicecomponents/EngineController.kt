@@ -26,6 +26,28 @@ object EngineController {
     private val serviceConnection: ScriptServiceConnection
         get() = GlobalConnection
 
+    /**
+     * :script 进程注册的回调，用于接收主进程下发的音量键控制开关。
+     * SharedPreferences 的进程内缓存不会跨进程同步，开关值只能随 Binder 调用传递。
+     */
+    @Volatile
+    private var volumeControlListener: ((Boolean, Boolean) -> Unit)? = null
+
+    fun setVolumeControlListener(listener: ((Boolean, Boolean) -> Unit)?) {
+        volumeControlListener = listener
+    }
+
+    /** 由 ScriptBinder 在 :script 进程内调用。 */
+    fun onVolumeControlChanged(runningEnabled: Boolean, recordEnabled: Boolean) {
+        volumeControlListener?.invoke(runningEnabled, recordEnabled)
+    }
+
+    /** 由主进程调用，把最新开关值送到 :script 进程。 */
+    @JvmStatic
+    fun notifyVolumeControlChanged(runningEnabled: Boolean, recordEnabled: Boolean) = scope.launch {
+        serviceConnection.setVolumeControlEnabled(runningEnabled, recordEnabled)
+    }
+
     private val globalScriptListener: CopyOnWriteArraySet<BinderScriptListener> by lazy {
         val listeners = CopyOnWriteArraySet<BinderScriptListener>()
         scope.launch {

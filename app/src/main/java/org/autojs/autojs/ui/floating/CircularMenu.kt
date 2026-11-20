@@ -36,6 +36,7 @@ import com.aiselp.autox.ui.material3.components.DialogText
 import com.aiselp.autox.ui.material3.components.DialogTitle
 import com.makeramen.roundedimageview.RoundedImageView
 import com.stardust.app.DialogUtils
+import com.stardust.app.GlobalAppContext
 import com.stardust.autojs.core.record.Recorder
 import com.stardust.enhancedfloaty.FloatyService
 import com.stardust.enhancedfloaty.FloatyWindow
@@ -49,6 +50,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.launch
 import org.autojs.autojs.Pref
 import org.autojs.autojs.autojs.AutoJs
+import org.autojs.autojs.autojs.key.GlobalKeyObserver
 import org.autojs.autojs.autojs.record.GlobalActionRecorder
 import org.autojs.autojs.model.explorer.ExplorerDirPage
 import org.autojs.autojs.model.explorer.Explorers
@@ -67,7 +69,8 @@ import org.autojs.autoxjs.databinding.CircularActionMenuBinding
 /**
  * Created by Stardust on 2017/10/18.
  */
-class CircularMenu(context: Context?) : Recorder.OnStateChangedListener, CaptureAvailableListener {
+class CircularMenu(context: Context?) : Recorder.OnStateChangedListener, CaptureAvailableListener,
+    GlobalKeyObserver.OnVolumeDownListener {
     class StateChangeEvent(val currentState: Int, val previousState: Int)
 
     private var mWindow: CircularMenuWindow? = null
@@ -77,6 +80,7 @@ class CircularMenu(context: Context?) : Recorder.OnStateChangedListener, Capture
     private val mRecorder: GlobalActionRecorder
     private var mRunningPackage: String? = null
     private var mRunningActivity: String? = null
+    private var mLastVolumeDownEventTime = 0L
     private var captureDeferred: CompletableDeferred<NodeInfo>? = null
 
     init {
@@ -84,6 +88,7 @@ class CircularMenu(context: Context?) : Recorder.OnStateChangedListener, Capture
         setupListeners()
         mRecorder = GlobalActionRecorder.getSingleton(context)
         mRecorder.addOnStateChangedListener(this)
+        GlobalKeyObserver.getSingleton().addVolumeDownListener(this)
         AutoJs.getInstance().layoutInspector.addCaptureAvailableListener(this)
     }
 
@@ -389,7 +394,24 @@ class CircularMenu(context: Context?) : Recorder.OnStateChangedListener, Capture
             mState = STATE_CLOSED
         }
         mRecorder.removeOnStateChangedListener(this)
+        GlobalKeyObserver.getSingleton().removeVolumeDownListener(this)
         AutoJs.getInstance().layoutInspector.removeCaptureAvailableListener(this)
+    }
+
+    override fun onVolumeDown() {
+        val now = System.currentTimeMillis()
+        if (now - mLastVolumeDownEventTime < 300) {
+            return
+        }
+        mLastVolumeDownEventTime = now
+        // 按键回调来自无障碍 input filter / getevent 线程，UI 操作必须回主线程
+        GlobalAppContext.post {
+            if (mState == STATE_RECORDING) {
+                stopRecord()
+            } else {
+                startRecord()
+            }
+        }
     }
 
     override fun onStart() {

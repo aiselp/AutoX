@@ -32,6 +32,7 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
                 Action.RUN_SCRIPT.id -> runScript(data)
                 Action.STOP_SCRIPT.id -> stopScript(data)
                 Action.STOP_ALL_SCRIPT.id -> stopAllScript()
+                Action.SET_VOLUME_CONTROL_ENABLED.id -> setVolumeControlEnabled(data)
                 Action.APP_EXIT.id -> appExit()
                 Action.REGISTER_GLOBAL_SCRIPT_LISTENER.id -> registerGlobalScriptListener(data)
                 Action.REGISTER_GLOBAL_CONSOLE_LISTENER.id -> registerGlobalConsoleListener(data)
@@ -100,6 +101,12 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
 
     private fun stopAllScript() = AutoJs.instance.scriptEngineService.stopAllAndToast()
 
+    private fun setVolumeControlEnabled(data: Parcel) {
+        val runningEnabled = data.readInt() == 1
+        val recordEnabled = data.readInt() == 1
+        EngineController.onVolumeControlChanged(runningEnabled, recordEnabled)
+    }
+
     private fun registerGlobalScriptListener(data: Parcel) {
         val binder = data.readStrongBinder()
         val listener = BinderScriptListener.ServerInterface(binder)
@@ -144,6 +151,7 @@ class ScriptBinder(service: IndependentScriptService, val scope: CoroutineScope)
         NOTIFICATION_LISTENER_SERVICE_STATUS(9),
         BIND_SHIZUKU_SERVICE(10),
         GET_MEMORY_INFO(11),
+        SET_VOLUME_CONTROL_ENABLED(12),
         APP_EXIT(99);
     }
 
