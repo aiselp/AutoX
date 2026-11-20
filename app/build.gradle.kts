@@ -170,6 +170,7 @@ dependencies {
     implementation(libs.compose.ui)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.mlkit.common)
+    implementation(libs.mlkit.barcode.scanning)
     androidTestImplementation(libs.compose.ui.test.junit4)
     debugImplementation(libs.compose.ui.tooling)
     implementation(libs.activity.compose)
