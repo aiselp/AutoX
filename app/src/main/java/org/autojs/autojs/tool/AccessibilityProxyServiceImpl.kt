@@ -6,9 +6,12 @@ import android.content.ServiceConnection
 import android.os.IBinder
 import android.os.RemoteException
 import android.util.Log
+import com.stardust.app.GlobalAppContext
 import com.stardust.app.service.AbstractAutoService
 import com.stardust.autojs.core.accessibility.AccessibilityProxyService
 import com.stardust.autojs.core.accessibility.IAccessibilityProxyService
+import org.autojs.autojs.tool.RootTool
+import org.autojs.autoxjs.R
 
 class AccessibilityProxyServiceImpl : AbstractAutoService() {
 
@@ -60,14 +63,24 @@ class AccessibilityProxyServiceImpl : AbstractAutoService() {
         }
 
         override fun ensureEnabled(): Boolean {
-            return try {
-                val result = proxyService?.ensureEnabled() ?: false
-                Log.d(TAG, "enable: $result")
-                result
+            val result = try {
+                proxyService?.ensureEnabled() ?: false
             } catch (e: RemoteException) {
                 Log.e(TAG, "启用无障碍服务失败", e)
                 false
             }
+            Log.d(TAG, "enable: $result")
+            if (!result) {
+                // 仅当“应用已获得 root、但 :script 进程未授权”时才提示 root 不完整；
+                // 完全没有 root 权限时不作任何提示。
+                if (RootTool.isRootGranted()) {
+                    GlobalAppContext.toast(
+                        GlobalAppContext.getString(R.string.text_root_permission_incomplete)
+                                + GlobalAppContext.appName
+                    )
+                }
+            }
+            return result
         }
 
         override fun disable(): Boolean {
