@@ -77,6 +77,10 @@ class App : Application(), Configuration.Provider, ImageLoaderFactory {
         )
         if (ProcessUtils.isScriptProcess(this)) {
             AutoJs.initInstance(this)
+            // 包装 ErrorReportActivity 装的默认 handler：Rhino 1.9.x 下用户自建
+            // JavaAdapter 抛出的异常不再走 ScriptBridges 兜底，这里作为最后一道防线。
+            // 必须在 AutoJs.initInstance 之后，才能拿到 ScriptEngineService.instance。
+            ScriptCrashGuard.install()
             if (Pref.isRunningVolumeControlEnabled()) {
                 GlobalKeyObserver.init()
             }
