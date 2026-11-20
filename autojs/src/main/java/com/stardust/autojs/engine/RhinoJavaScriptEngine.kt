@@ -168,7 +168,7 @@ open class RhinoJavaScriptEngine(private val mAndroidContext: android.content.Co
             staticType: TypeInfo?
         ): Scriptable? {
             if (obj is View && scope != null) {
-                val staticClass = staticType?.asClass() ?: obj.javaClass
+                val staticClass = viewStaticClass(obj, staticType)
                 return ViewExtras.getNativeView(scope, obj, staticClass, runtime)
             }
             return super.wrapAsJavaObject(cx, scope, obj, staticType)

@@ -120,7 +120,7 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
                     // View 依然具备 attr()/click() 等 UI 属性方法。
                     val runtime = runtimeFromScope(scope)
                     if (scope != null && runtime != null) {
-                        val staticClass = staticType?.asClass() ?: obj.javaClass
+                        val staticClass = viewStaticClass(obj, staticType)
                         ViewExtras.getNativeView(scope, obj, staticClass, runtime)
                     } else {
                         super.wrap(cx, scope, obj, staticType)
@@ -146,7 +146,7 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
             if (obj is View && scope != null) {
                 val runtime = runtimeFromScope(scope)
                 if (runtime != null) {
-                    val staticClass = staticType?.asClass() ?: obj.javaClass
+                    val staticClass = viewStaticClass(obj, staticType)
                     return ViewExtras.getNativeView(scope, obj, staticClass, runtime)
                 }
             }
@@ -154,6 +154,20 @@ open class AndroidContextFactory(private val cacheDirectory: File) : ContextFact
         }
 
         companion object {
+            /**
+             * 取 View 包装用的 staticClass。
+             *
+             * TypeInfo.NONE.asClass() 返回 Object.class（非 null），直接用
+             * `staticType?.asClass() ?: obj.javaClass` 会让 fallback 永远不生效，
+             * staticClass 退化成 Object，可能让 NativeView 的 Java bean 属性分派落空。
+             * NONE（Object.class）时改用实际类。
+             */
+            @JvmStatic
+            fun viewStaticClass(obj: Any, staticType: TypeInfo?): Class<*> {
+                val cls = staticType?.asClass()
+                return if (cls == null || cls == Any::class.java) obj.javaClass else cls
+            }
+
             /**
              * 从 wrap 的 scope 中取当前脚本的 ScriptRuntime。
              * scope 通常是脚本的 topScope，里面由 JavaScriptEngine 放入 "runtime"；
