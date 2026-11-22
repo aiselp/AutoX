@@ -312,7 +312,7 @@ tasks.register("buildDocs") {
             """.trimIndent()
             )
             execCommand("node " + buildFile.path)
-        }
+        }.result.get()
         copy {
             from(File(jsApiDir, "docs"))
             delete(File(v2DocDir, "docs/nodejs/modules"))
@@ -328,7 +328,7 @@ tasks.register("buildDocs") {
             """.trimIndent()
             )
             execCommand("node " + buildFile.path)
-        }
+        }.result.get()
         copy {
             from(File(v2DocDir, "build"))
             into(File(projectDir, "src/main/assets/docs/v2"))

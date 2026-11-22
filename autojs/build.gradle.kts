@@ -87,7 +87,7 @@ dependencies {
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
 }
-tasks.register("buildV7Api") {
+tasks.register<Exec>("buildV7Api") {
     group = "build"
     val v7ApiDir = File(projectDir, "src/main/js/v7-api")
     val v7ModuleDir = File(projectDir, "src/main/assets/v7modules")
@@ -100,11 +100,9 @@ tasks.register("buildV7Api") {
     })
     outputs.dir(v7ModuleDir)
 
+    workingDir = v7ApiDir
+    commandLine("node", "build.mjs")
     doLast {
-        providers.exec {
-            workingDir = v7ApiDir
-            commandLine("node", "build.mjs")
-        }
         sync {
             from(File(v7ApiDir, "dist")) {
                 include("**/*.js")
@@ -114,7 +112,7 @@ tasks.register("buildV7Api") {
     }
 }
 
-tasks.register("buildV6Api") {
+tasks.register<Exec>("buildV6Api") {
     group = "build"
     val v6ApiDir = File(projectDir, "src/main/js/v6-api")
     val v6ModuleDir = File(projectDir, "src/main/assets/v6modules")
@@ -126,11 +124,9 @@ tasks.register("buildV6Api") {
     })
     outputs.dir(v6ModuleDir)
 
+    workingDir = v6ApiDir
+    commandLine("node", "build.mjs")
     doLast {
-        providers.exec {
-            workingDir = v6ApiDir
-            commandLine("node", "build.mjs")
-        }
         sync {
             from(File(v6ApiDir, "dist")) {
                 include("**/*.js")
