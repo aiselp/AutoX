@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.View
 import androidx.activity.addCallback
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.animation.core.LinearEasing
@@ -26,6 +27,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.PlayArrow
@@ -88,6 +90,7 @@ class EditActivity : AppCompatActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         val editorModel by viewModels<EditorModel>()
         editorAppManager = EditorAppManager(this, editorModel)
@@ -102,9 +105,10 @@ class EditActivity : AppCompatActivity() {
                 editorAppManager.loadDialog.Dialog()
                 editorAppManager.assetDownloadDialog.Dialog()
                 Box(modifier = Modifier.fillMaxSize()) {
-                    AndroidView(factory = {
-                        editorAppManager.webView
-                    })
+                    AndroidView(
+                        factory = { editorAppManager.webView },
+                        modifier = Modifier.fillMaxSize().systemBarsPadding()
+                    )
                     LogSheet()
                 }
             }

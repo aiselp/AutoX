@@ -21,6 +21,22 @@ public class RootTool {
         }
     }
 
+    /**
+     * 真正以 root 身份执行命令，判断「当前进程（主进程）是否已获得 root」。
+     * 用于区分两种失败：
+     *  1) 应用完全没有 root 权限（主进程也拿不到 root）；
+     *  2) 应用有 root，但 :script 进程未被授权（Magisk 按进程名拒绝）。
+     */
+    public static boolean isRootGranted() {
+        try {
+            com.stardust.autojs.core.util.ProcessShell.Result result =
+                    com.stardust.autojs.core.util.ProcessShell.execCommand("id", true);
+            return result.code == 0 && result.result != null && result.result.contains("uid=0");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     private static final String cmd = "enabled=$(settings get system pointer_location)\n" +
             "if [[ $enabled == 1 ]]\n" +
             "then\n" +

@@ -41,10 +41,9 @@ public class AccessibilityServiceTool {
         } catch (Exception e) {
             String msg = e.getMessage();
             if (msg != null && (msg.contains("error=13") || msg.contains("Permission denied"))) {
-                Log.e("AccessibilityService", "su命令无权限 (error=13)");
-                Context context = GlobalAppContext.get();
-                GlobalAppContext.toast(context.getString(R.string.text_root_permission_incomplete) + context.getString(R.string.app_name));
-                return false;
+                // 仅记录日志，不再在此处提示“root权限不完整”。
+                // 具体提示（完全没有 root / 仅 :script 未授权）由主进程统一判断。
+                Log.e("AccessibilityService", "su命令无权限 (error=13)：应用未获得 root，或 root 未授权给 :script 进程");
             }
             return false;
         }

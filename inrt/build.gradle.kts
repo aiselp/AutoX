@@ -2,6 +2,7 @@
 plugins {
     id("com.android.application")
     id("kotlin-android")
+    alias(libs.plugins.kotlin.compose)
 }
 java {
     toolchain {
@@ -36,15 +37,12 @@ android {
         compose = true
         buildConfig = true
     }
-    composeOptions{
-        kotlinCompilerExtensionVersion = compose_version
-    }
     buildTypes {
         named("debug") {
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"
                 )
             )
@@ -53,7 +51,7 @@ android {
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"
                 )
             )

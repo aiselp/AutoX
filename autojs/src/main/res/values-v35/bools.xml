@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- targetSdk 35 在 Android 15 强制边到边，脚本 UI opt-out 以恢复状态栏占位 -->
+    <bool name="script_ui_opt_out_edge_to_edge">true</bool>
+</resources>

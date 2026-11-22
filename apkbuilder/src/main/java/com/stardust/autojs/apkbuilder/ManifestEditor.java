@@ -98,6 +98,17 @@ public class ManifestEditor {
 
             @Override
             protected void onAttr(AxmlWriter.Attr a) {
+                // 模板 APK 若由 Android Studio 的 Run 生成，manifest 会带
+                // android:testOnly="true"（IDE 注入 android.injected.testOnly）。
+                // 打包产物会原样继承，导致系统拒绝普通安装并报
+                // "Failed to install test-only apk"。分发用的脚本 APK 不应保留
+                // 该标记，这里直接丢弃此属性；AxmlWriter.NodeImpl.onAttr 只做
+                // attrs.add(a)，跳过不会留下任何副作用。
+                if (a.name != null && a.ns != null
+                        && NS_ANDROID.equals(a.ns.data)
+                        && "testOnly".equals(a.name.data)) {
+                    return;
+                }
                 ManifestEditor.this.onAttr(a);
                 super.onAttr(a);
             }

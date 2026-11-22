@@ -3,6 +3,7 @@ package com.stardust.app
 import android.annotation.SuppressLint
 import android.app.Application
 import android.content.Context
+import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
 import android.util.Log
 import androidx.core.content.ContextCompat
@@ -91,10 +92,11 @@ object GlobalAppContext {
     val appName: String by lazy {
         try {
             val packageManager = get().packageManager
-            val packageInfo = packageManager.getPackageInfo(
-                get().packageName, 0
+            val appInfo = packageManager.getApplicationInfo(
+                get().packageName,
+                PackageManager.GET_META_DATA
             )
-            packageManager.getApplicationLabel(packageInfo.applicationInfo).toString()
+            packageManager.getApplicationLabel(appInfo).toString()
         } catch (e: Exception) {
             Log.e(TAG, e.stackTraceToString())
             "unknown app"
@@ -106,15 +108,16 @@ object GlobalAppContext {
     @get:Synchronized
     val appIcon: Drawable?
         get() {
-            try {
+            return try {
                 val packageManager = get().packageManager
-                val packageInfo = packageManager.getPackageInfo(
-                    get().packageName, 0
+                val appInfo = packageManager.getApplicationInfo(
+                    get().packageName,
+                    PackageManager.GET_META_DATA
                 )
-                return packageManager.getApplicationIcon(packageInfo.applicationInfo)
+                packageManager.getApplicationIcon(appInfo)
             } catch (e: Exception) {
-                e.printStackTrace()
+                Log.e(TAG, "Failed to get app icon", e)
+                null
             }
-            return null
         }
 }
