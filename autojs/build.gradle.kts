@@ -1,6 +1,7 @@
 plugins {
-    id("com.android.library")
-    id("kotlin-android")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 java {
     toolchain {
@@ -22,7 +23,7 @@ android {
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"
                 )
             )
@@ -33,14 +34,12 @@ android {
         buildConfig = true
         aidl = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = compose_version
-    }
 
     lint.abortOnError = false
     sourceSets {
         named("main") {
-            res.srcDirs("src/main/res", "src/main/res-i18n")
+            res.directories.add("src/main/res")
+            res.directories.add("src/main/res-i18n")
         }
     }
     namespace = "com.stardust.autojs"
@@ -88,7 +87,7 @@ dependencies {
     implementation(libs.bundles.mlkit)
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.22.0")
 }
-tasks.register("buildV7Api") {
+tasks.register<Exec>("buildV7Api") {
     group = "build"
     val v7ApiDir = File(projectDir, "src/main/js/v7-api")
     val v7ModuleDir = File(projectDir, "src/main/assets/v7modules")
@@ -101,11 +100,9 @@ tasks.register("buildV7Api") {
     })
     outputs.dir(v7ModuleDir)
 
+    workingDir = v7ApiDir
+    commandLine("node", "build.mjs")
     doLast {
-        exec {
-            workingDir = v7ApiDir
-            commandLine("node", "build.mjs")
-        }
         sync {
             from(File(v7ApiDir, "dist")) {
                 include("**/*.js")
@@ -115,7 +112,7 @@ tasks.register("buildV7Api") {
     }
 }
 
-tasks.register("buildV6Api") {
+tasks.register<Exec>("buildV6Api") {
     group = "build"
     val v6ApiDir = File(projectDir, "src/main/js/v6-api")
     val v6ModuleDir = File(projectDir, "src/main/assets/v6modules")
@@ -127,11 +124,9 @@ tasks.register("buildV6Api") {
     })
     outputs.dir(v6ModuleDir)
 
+    workingDir = v6ApiDir
+    commandLine("node", "build.mjs")
     doLast {
-        exec {
-            workingDir = v6ApiDir
-            commandLine("node", "build.mjs")
-        }
         sync {
             from(File(v6ApiDir, "dist")) {
                 include("**/*.js")

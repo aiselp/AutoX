@@ -3,6 +3,7 @@ plugins {
     id("kotlin-android")
     id("kotlin-kapt")
     id("de.undercouch.download") version "5.6.0"
+    alias(libs.plugins.kotlin.compose)
 }
 java {
     toolchain {
@@ -22,9 +23,6 @@ android {
     buildFeatures {
         compose = true
         viewBinding = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = compose_version
     }
 
     buildTypes {

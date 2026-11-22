@@ -4,7 +4,8 @@ import java.util.Base64
 
 plugins {
     id("com.android.application")
-    id("kotlin-android")
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
 java {
@@ -28,16 +29,27 @@ android {
         buildConfigField("boolean", "isMarket", "false")
 
         resourceConfigurations.addAll(
-            listOf("zh-rCN", "en", "es", "ar", "ja", "zh_TW", "fr", "de", "it", "ko", "ru", "tr", "lt")
+            listOf(
+                "zh-rCN",
+                "en",
+                "es",
+                "ar",
+                "ja",
+                "zh_TW",
+                "fr",
+                "de",
+                "it",
+                "ko",
+                "ru",
+                "tr",
+                "lt"
+            )
         )
     }
     buildFeatures {
         compose = true
         viewBinding = true
         buildConfig = true
-    }
-    composeOptions {
-        kotlinCompilerExtensionVersion = compose_version
     }
     lint {
         abortOnError = false
@@ -290,7 +302,7 @@ tasks.register("buildDocs") {
             throw FileNotFoundException("${v2DocDir.path} not found")
         }
         val buildFile = File.createTempFile("buildJs", ".mjs")
-        exec {
+        providers.exec {
             workingDir(jsApiDir)
             buildFile.writeText(
                 """
@@ -300,13 +312,13 @@ tasks.register("buildDocs") {
             """.trimIndent()
             )
             execCommand("node " + buildFile.path)
-        }
+        }.result.get()
         copy {
             from(File(jsApiDir, "docs"))
             delete(File(v2DocDir, "docs/nodejs/modules"))
             into(File(v2DocDir, "docs/nodejs/modules"))
         }
-        exec {
+        providers.exec {
             workingDir(v2DocDir)
             buildFile.writeText(
                 """
@@ -316,7 +328,7 @@ tasks.register("buildDocs") {
             """.trimIndent()
             )
             execCommand("node " + buildFile.path)
-        }
+        }.result.get()
         copy {
             from(File(v2DocDir, "build"))
             into(File(projectDir, "src/main/assets/docs/v2"))

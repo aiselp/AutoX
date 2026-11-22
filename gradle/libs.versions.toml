@@ -19,6 +19,9 @@ junit-ktx = "1.2.1"
 mlkit-common-version = "18.11.0"
 mlkit-barcode-scanning = "17.3.0"
 tesseract4android = "4.8.0"
+kotlin = "2.2.10"
+agp = "9.2.1"
+android-built-in1-kotlin = "9.2.1"
 
 [libraries]
 # androidx
@@ -135,6 +138,11 @@ commonmark = "com.atlassian.commonmark:commonmark:0.13.0"
 commonmark-ext-heading-anchor = "com.atlassian.commonmark:commonmark-ext-heading-anchor:0.13.0"
 markwon = "io.noties.markwon:core:4.6.2"
 [plugins]
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+android-library = { id = "com.android.library" }
+kotlin-android = { id = "kotlin-android" }
+kotlin-plugin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version = "2.4.21" }
+android-built-in1-kotlin = { id = "com.android.built-in-kotlin", version.ref = "android-built-in1-kotlin" }
 
 [bundles]
 ktor = ["ktor-server-core", "ktor-server-cio", "ktor-server-websockets", "ktor-client-websockets", "ktor-client-okhttp", "ktor-client-core"]
