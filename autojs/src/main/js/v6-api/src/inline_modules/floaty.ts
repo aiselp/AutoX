@@ -1,5 +1,23 @@
 import { XML } from "@/ui";
 
+/**
+ * rawWindow 的可选配置。后续新增选项时在这里扩展，脚本的调用方式保持不变。
+ */
+export interface RawWindowOptions {
+    /** 窗口初始 x 坐标（相对屏幕左上角，px） */
+    x?: number;
+    /** 窗口初始 y 坐标（相对屏幕左上角，px） */
+    y?: number;
+    /** 窗口初始宽度（px），默认包裹内容 */
+    width?: number;
+    /** 窗口初始高度（px），默认包裹内容 */
+    height?: number;
+    /** 是否可触摸，默认 true */
+    touchable?: boolean;
+    /** 是否覆盖状态栏，默认 false */
+    coverStatusBar?: boolean;
+}
+
 function window(xml: XML | string) {
     if (typeof (xml) !== 'string') {
         xml = xml.toXMLString();
@@ -14,7 +32,7 @@ function window(xml: XML | string) {
     return window;
 }
 
-function rawWindow(xml: XML | string) {
+function rawWindow(xml: XML | string, options?: RawWindowOptions) {
     if (typeof (xml) !== 'string') {
         xml = xml.toXMLString();
     }
@@ -23,7 +41,7 @@ function rawWindow(xml: XML | string) {
         window = wrap(runtime.floaty.rawWindow(function (context: android.Context, parent: unknown) {
             runtime.ui.layoutInflater.setContext(context);
             return runtime.ui.layoutInflater.inflate(xml.toString(), parent, true);
-        }));
+        }, options || {}));
     })
     return window;
 }
