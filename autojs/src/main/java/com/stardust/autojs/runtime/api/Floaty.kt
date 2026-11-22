@@ -17,6 +17,7 @@ import com.stardust.autojs.util.FloatingPermission
 import com.stardust.enhancedfloaty.FloatyService
 import com.stardust.util.UiHandler
 import com.stardust.util.ViewUtil
+import org.mozilla.javascript.ScriptableObject
 import java.util.concurrent.CopyOnWriteArraySet
 
 /**
@@ -49,29 +50,39 @@ class Floaty(private val mUiHandler: UiHandler, ui: UI, private val mRuntime: Sc
         return window
     }
 
-    fun rawWindow(floaty: RawFloaty): JsRawWindow {
-        checkFloatingPermission()
-        return rawWindow(floaty, 0, 0)
-    }
+    fun rawWindow(floaty: RawFloaty): JsRawWindow = rawWindow(floaty, null)
 
-    fun rawWindow(floaty: RawFloaty, x: Int, y: Int): JsRawWindow {
+    /**
+     * @param options 可选配置对象，支持 x / y（相对屏幕左上角的初始坐标，单位 px）。
+     */
+    fun rawWindow(floaty: RawFloaty, options: ScriptableObject?): JsRawWindow {
         checkFloatingPermission()
+        val x = readCoordinate(options, "x")
+        val y = readCoordinate(options, "y")
         val window = JsRawWindow(floaty, x, y)
         addWindow(window)
         return window
     }
 
-    fun rawWindow(view: View): JsRawWindow {
-        checkFloatingPermission()
-        return rawWindow(view, 0, 0)
-    }
+    fun rawWindow(view: View): JsRawWindow = rawWindow(view, null)
 
-    fun rawWindow(view: View, x: Int, y: Int): JsRawWindow {
+    fun rawWindow(view: View, options: ScriptableObject?): JsRawWindow {
         checkFloatingPermission()
         val floaty = RawFloaty { _, _ -> view }
+        val x = readCoordinate(options, "x")
+        val y = readCoordinate(options, "y")
         val window = JsRawWindow(floaty, x, y)
         addWindow(window)
         return window
+    }
+
+    private fun readCoordinate(options: ScriptableObject?, key: String): Int {
+        if (options == null) return 0
+        return when (val value = ScriptableObject.getProperty(options, key)) {
+            is Number -> value.toInt()
+            is String -> value.toIntOrNull() ?: 0
+            else -> 0
+        }
     }
 
     @Synchronized
