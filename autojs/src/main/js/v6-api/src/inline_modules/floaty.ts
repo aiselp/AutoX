@@ -8,6 +8,14 @@ export interface RawWindowOptions {
     x?: number;
     /** 窗口初始 y 坐标（相对屏幕左上角，px） */
     y?: number;
+    /** 窗口初始宽度（px），默认包裹内容 */
+    width?: number;
+    /** 窗口初始高度（px），默认包裹内容 */
+    height?: number;
+    /** 是否可触摸，默认 true */
+    touchable?: boolean;
+    /** 是否覆盖状态栏，默认 false */
+    coverStatusBar?: boolean;
 }
 
 function window(xml: XML | string) {
