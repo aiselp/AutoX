@@ -1,4 +1,5 @@
 import { setGlobal, setGlobalAnd$ } from './utils'
+import './inline_modules/toast'
 import _shizuku from './shizuku'
 import _base64 from './base64'
 import _shell from './shell'

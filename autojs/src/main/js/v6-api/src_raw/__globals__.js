@@ -1,27 +1,5 @@
 
 module.exports = function (runtime, global) {
-    global.toast = function (text) {
-        runtime.toast(text);
-    }
-
-    // 自定义 Toast：沿用 toast 全局，不新增全局变量。
-    // toast(text) 仍是系统 Toast；toast.init(config) 设默认样式，toast.show(msg[, config]) 走队列化自定义 Toast。
-    global.toast.init = function (config) {
-        runtime.toastX.init(config);
-    }
-
-    global.toast.show = function (text, config) {
-        if (arguments.length >= 2) {
-            runtime.toastX.show(text, config);
-        } else {
-            runtime.toastX.show(text);
-        }
-    }
-
-    global.toastLog = function (text) {
-        runtime.toast(text);
-        global.log(text);
-    }
 
     global.sleep = function (t) {
         if (ui.isUiThread()) {

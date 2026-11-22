@@ -69,10 +69,6 @@ public abstract class ScriptRuntime {
     @ScriptVariable
     public final Dialogs dialogs;
 
-    /** 队列化自定义 Toast，供 __globals__.js 里的 toast.init/show 桥接调用；不直接暴露为脚本全局变量。 */
-    @ScriptVariable
-    public CustomToastView toastX;
-
     @ScriptVariable
     public Events events;
 
@@ -138,7 +134,6 @@ public abstract class ScriptRuntime {
         floaty = new Floaty(uiHandler, ui, this);
         files = new Files(this);
         media = new Media(context, this);
-        toastX = new CustomToastView(context, console);
     }
 
     public abstract void init();
