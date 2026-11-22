@@ -1,6 +1,7 @@
 plugins {
-    id("com.android.library")
-    id("kotlin-android")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 java {
     toolchain {
@@ -22,7 +23,7 @@ android {
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"
                 )
             )
@@ -33,14 +34,12 @@ android {
         buildConfig = true
         aidl = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = compose_version
-    }
 
     lint.abortOnError = false
     sourceSets {
         named("main") {
-            res.srcDirs("src/main/res", "src/main/res-i18n")
+            res.directories.add("src/main/res")
+            res.directories.add("src/main/res-i18n")
         }
     }
     namespace = "com.stardust.autojs"
@@ -102,7 +101,7 @@ tasks.register("buildV7Api") {
     outputs.dir(v7ModuleDir)
 
     doLast {
-        exec {
+        providers.exec {
             workingDir = v7ApiDir
             commandLine("node", "build.mjs")
         }
@@ -128,7 +127,7 @@ tasks.register("buildV6Api") {
     outputs.dir(v6ModuleDir)
 
     doLast {
-        exec {
+        providers.exec {
             workingDir = v6ApiDir
             commandLine("node", "build.mjs")
         }

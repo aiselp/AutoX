@@ -5,6 +5,8 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.util.Log
+import java.util.Locale
+import java.util.Locale.getDefault
 
 object ImagePreprocessor {
 
@@ -162,8 +164,8 @@ object ImagePreprocessor {
      * 检测模型类型并返回相应配置
      */
     private fun detectModelConfig(metadata: Map<String, String>, inputSize: Int): PreprocessConfig {
-        val description = metadata["description"]?.toLowerCase() ?: ""
-        val task = metadata["task"]?.toLowerCase() ?: ""
+        val description = metadata["description"]?.lowercase(getDefault()) ?: ""
+        val task = metadata["task"]?.lowercase(getDefault()) ?: ""
         
         // YOLOv8 分类模型
         if ((description.contains("yolov8") && task == "classify") || 
