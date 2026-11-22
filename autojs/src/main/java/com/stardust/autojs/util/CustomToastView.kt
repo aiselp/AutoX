@@ -32,6 +32,9 @@ class CustomToastView(
     private val mainHandler = Handler(Looper.getMainLooper())
     private val toastQueue = mutableListOf<ToastTask>()
     private var isShowing = false
+    // dismissAll() 会递增；post 出去的 addView/dismissView 回调用旧 generation 判断直接丢弃，
+    // 避免 override 清场后，之前排队的主线程任务又把旧 toast 加回来。
+    private var generation = 0
 
     private data class ToastTask(
         val msg: String,
@@ -72,10 +75,14 @@ class CustomToastView(
                 configMap["textSize"]?.let { target.textSize = (it as Number).toFloat() }
                 configMap["radius"]?.let { target.radius = (it as Number).toFloat() }
                 configMap["padding"]?.let { target.padding = (it as Number).toInt() }
-                configMap["icon"]?.let {
-                    target.icon = when (it) {
-                        is String -> it.replace(Regex("^data:image/\\w+;base64,"), "")
-                        else -> it.toString()
+                if (configMap.containsKey("icon")) {
+                    val rawIcon = configMap["icon"]
+                    // Rhino 传进来的字符串不一定是 java.lang.String，统一 toString 后再剥 data URI 前缀，
+                    // 否则带前缀的图标会把 "data:image/png;base64," 一起送进 Base64.decode。
+                    target.icon = if (rawIcon == null) {
+                        null
+                    } else {
+                        rawIcon.toString().replace(Regex("^data:image/\\w+;base64,"), "")
                     }
                 }
                 configMap["override"]?.let { target.override = it as Boolean }
@@ -164,9 +171,19 @@ class CustomToastView(
 
         val iv = view.findViewById<ImageView>(R.id.iv_toast_icon)
         if (!icon.isNullOrEmpty()) {
-            val data = Base64.decode(icon, Base64.DEFAULT)
-            iv.setImageBitmap(BitmapFactory.decodeByteArray(data, 0, data.size))
-            iv.visibility = View.VISIBLE
+            try {
+                val data = Base64.decode(icon, Base64.DEFAULT)
+                val bitmap = BitmapFactory.decodeByteArray(data, 0, data.size)
+                if (bitmap != null) {
+                    iv.setImageBitmap(bitmap)
+                    iv.visibility = View.VISIBLE
+                } else {
+                    iv.visibility = View.GONE
+                }
+            } catch (e: IllegalArgumentException) {
+                console?.log("自定义 Toast icon base64 解码失败: ${e.message}")
+                iv.visibility = View.GONE
+            }
         } else {
             iv.visibility = View.GONE
         }
@@ -190,21 +207,27 @@ class CustomToastView(
             y = yOffset
         }
 
+        val showGeneration = generation
         mainHandler.post {
+            val currentGeneration = generation
+            if (showGeneration != currentGeneration) return@post
             val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
             wm.addView(view, layoutParams)
             toastViews.add(view)
             // 计时从真正 addView 之后开始。原先在 showFull 中直接 postDelayed，
             // 会把主线程排队与加窗口的时间算进 duration，短时长（如 500ms）
-            // 会被削掉几百毫秒。放在这里仍可被 dismissAll() 正常取消。
+            // 会被削掉几百毫秒。这里同时撤销主线程/计时线程上的旧回调，
+            // dismissAll() 后旧 toast 不会再被 addView 或触发 showNext()。
             toastHandler.postDelayed({
-                dismissView(view)
+                if (currentGeneration == generation) dismissView(view)
             }, duration)
         }
     }
 
     private fun dismissView(view: View) {
+        val dismissGeneration = generation
         mainHandler.post {
+            if (dismissGeneration != generation) return@post
             try {
                 val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager
                 wm.removeView(view)
@@ -215,7 +238,9 @@ class CustomToastView(
     }
 
     fun dismissAll() {
+        generation++
         toastHandler.removeCallbacksAndMessages(null)
+        mainHandler.removeCallbacksAndMessages(null)
         toastViews.forEach { view ->
             try {
                 val wm = context.getSystemService(Context.WINDOW_SERVICE) as WindowManager

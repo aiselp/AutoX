@@ -69,7 +69,7 @@ public abstract class ScriptRuntime {
     @ScriptVariable
     public final Dialogs dialogs;
 
-    /** 队列化自定义 Toast，供 global.toastX 使用（暴露给脚本的入口）。 */
+    /** 队列化自定义 Toast，供 __globals__.js 里的 toast.init/show 桥接调用；不直接暴露为脚本全局变量。 */
     @ScriptVariable
     public CustomToastView toastX;
 
