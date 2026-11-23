@@ -28,7 +28,9 @@ import com.stardust.util.ScreenMetrics
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers
 import io.reactivex.rxjava3.disposables.Disposable
 import io.reactivex.rxjava3.functions.Consumer
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.opencv.core.Point
 import org.opencv.core.Rect
 import org.opencv.imgproc.Imgproc
@@ -42,6 +44,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.sqrt
+import kotlin.time.Duration.Companion.milliseconds
 
 /** legacy 截图权限请求的默认超时：给系统授权与内部重试留足时间。 */
 private const val DEFAULT_CAPTURE_TIMEOUT_MS = 15_000L
@@ -526,51 +529,20 @@ class Images(
         (value as? Number)?.toLong()?.takeIf { it > 0 } ?: DEFAULT_CAPTURE_TIMEOUT_MS
 
     private fun requestLegacyWithTimeout(orientation: Int, timeoutMs: Long): Boolean {
-        val latch = CountDownLatch(1)
-        val result = AtomicBoolean(false)
-        val delivered = AtomicBoolean(false)
-
-        requestLegacyCapture(orientation) { ok ->
-            if (delivered.compareAndSet(false, true)) {
-                result.set(ok)
-                latch.countDown()
-            }
-        }
-
-        return try {
-            if (latch.await(timeoutMs, TimeUnit.MILLISECONDS)) {
-                result.get()
-            } else {
+        val innerPromise = mScreenCaptureRequester.requestScreenCaptureLegacy(mContext, orientation)
+        val result = runBlocking {
+            try {
+                withTimeout(timeoutMs.milliseconds) {
+                    innerPromise.await()
+                }
+            } catch (e: TimeoutCancellationException) {
                 Log.w(Images::class.java.name, "请求截图权限超时: ${timeoutMs}ms")
-                false
+                throw e
+            } catch (e: InterruptedException) {
+                Log.w(Images::class.java.name, "请求截图权限等待被中断")
+                throw e
             }
-        } catch (e: InterruptedException) {
-            Thread.currentThread().interrupt()
-            Log.w(Images::class.java.name, "请求截图权限等待被中断")
-            false
         }
-    }
-
-    /** 内部实现：把 ScreenCaptureRequester 的 Promise 转成一次性回调。 */
-    private fun requestLegacyCapture(orientation: Int, callback: (Boolean) -> Unit) {
-        try {
-            val innerPromise = mScreenCaptureRequester.requestScreenCaptureLegacy(mContext, orientation)
-            innerPromise.onResolve(object : ScriptPromiseAdapter.Callback {
-                override fun call(arg: Any?) {
-                    callback((arg as? Boolean) ?: true)
-                }
-            })
-            innerPromise.onReject(object : ScriptPromiseAdapter.Callback {
-                override fun call(arg: Any?) {
-                    mScriptRuntime.toast(arg?.toString())
-                    Log.e(Images::class.java.name, "请求截图权限失败: $arg")
-                    callback(false)
-                }
-            })
-        } catch (e: Exception) {
-            mScriptRuntime.toast(e.message)
-            Log.e(Images::class.java.name, "请求截图权限失败", e)
-            callback(false)
-        }
+        return result
     }
 }

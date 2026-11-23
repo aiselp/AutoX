@@ -12,7 +12,6 @@ import android.util.Log
 import androidx.activity.result.contract.ActivityResultContract
 import com.github.aiselp.autox.activity.TransparentActivity
 import com.stardust.autojs.core.image.capture.ScreenCaptureRequester.Callback
-import com.stardust.autojs.core.util.ScriptPromiseAdapter
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -99,7 +98,7 @@ class ScreenCaptureManager : ScreenCaptureRequester {
 
         try {
             // 服务被系统拒绝或迟迟不回调时不能无限挂起脚本线程。
-            withTimeout(BIND_TIMEOUT_MILLIS) { serviceConnected.await() }
+            withTimeout(BIND_TIMEOUT_MILLIS.milliseconds) { serviceConnected.await() }
         } catch (e: kotlinx.coroutines.TimeoutCancellationException) {
             // 从未回调时 onServiceConnected 的 finally 不会解绑，这里补上。
             currentConnection?.let {
@@ -110,15 +109,18 @@ class ScreenCaptureManager : ScreenCaptureRequester {
         }
     }
 
-    override fun requestScreenCaptureLegacy(context: Context, orientation: Int): ScriptPromiseAdapter {
-        val promiseAdapter = ScriptPromiseAdapter()
+    override fun requestScreenCaptureLegacy(
+        context: Context,
+        orientation: Int
+    ): CompletableDeferred<Boolean> {
+        val job = CompletableDeferred<Boolean>()
         var retryCount = 0
         val maxRetry = 3
 
         fun doRequest() {
             if (screenCapture?.isValid() == true) {
                 screenCapture?.setOrientation(orientation, context)
-                promiseAdapter.resolve(true)
+                job.complete(true)
                 return
             }
 
@@ -129,7 +131,7 @@ class ScreenCaptureManager : ScreenCaptureRequester {
                 override fun onRequestResult(result: Int, data: Intent?) {
                     val manager = weakManager.get()
                     if (manager == null) {
-                        promiseAdapter.resolve(false)
+                        job.complete(false)
                         return
                     }
 
@@ -140,9 +142,9 @@ class ScreenCaptureManager : ScreenCaptureRequester {
                         try {
                             if (result == Activity.RESULT_OK && data != null) {
                                 manager.setupScreenCapture(data, orientation, context)
-                                promiseAdapter.resolve(true)
+                                job.complete(true)
                             } else {
-                                promiseAdapter.resolve(false)
+                                job.complete(false)
                             }
                         } catch (e: SecurityException) {
                             if (e.message?.contains("non-current") == true && retryCount < maxRetry) {
@@ -152,11 +154,11 @@ class ScreenCaptureManager : ScreenCaptureRequester {
                                 doRequest()
                             } else {
                                 Log.e("SCREEN_LEGACY", "Failed after $maxRetry retries", e)
-                                promiseAdapter.resolve(false)
+                                job.complete(false)
                             }
                         } catch (e: Exception) {
                             Log.e("SCREEN_LEGACY", "创建失败: ${e.message}")
-                            promiseAdapter.resolve(false)
+                            job.complete(false)
                         } finally {
                             scope.cancel()
                             manager.currentCoroutineScope = null
@@ -169,7 +171,7 @@ class ScreenCaptureManager : ScreenCaptureRequester {
         }
 
         doRequest()
-        return promiseAdapter
+        return job
     }
 
     class ScreenCaptureRequester : ActivityResultContract<Context, Intent?>() {
