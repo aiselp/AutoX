@@ -355,7 +355,7 @@ images.findImage = function (img: Image, template: Image, options?: FindImageOpt
 
 images.matchTemplate = function (img: Image, template: Image,
     options?: FindImageOptions & { max?: number }) {
-     return images.matchMultiTemplates(img, [template], options);
+    return images.matchMultiTemplates(img, [template], options);
 }
 
 images.matchMultiTemplates = function (img: Image, templates: Image[],
@@ -445,21 +445,6 @@ images.getBrightness = function (img: Image, sampleCount?: number, region?: [num
     return javaImages.getBrightness(img, sampleCount, rect);
 };
 
-images.enableImageTracking = function () {
-    return javaImages.enableImageTracking();
-};
-
-images.disableImageTracking = function () {
-    return javaImages.disableImageTracking();
-};
-
-images.recycleAllImages = function () {
-    return javaImages.recycleAllImages();
-};
-
-images.getAliveImageCount = function () {
-    return javaImages.getAliveImageCount();
-};
 
 function toPointArray(points: unknown[]) {
     var arr = [];

@@ -573,32 +573,4 @@ class Images(
             callback(false)
         }
     }
-
-    /**
-     * 回收所有追踪的图像
-     */
-    fun recycleAllImages() {
-        ImageWrapper.recycleAllTrackedImages()
-    }
-
-    /**
-     * 获取存活图像数量
-     */
-    fun getAliveImageCount(): Int {
-        return ImageWrapper.getTrackedImageCount()
-    }
-
-    /**
-     * 启用图像追踪
-     */
-    fun enableImageTracking() {
-        ImageWrapper.enableTracking()
-    }
-
-    /**
-     * 禁用图像追踪
-     */
-    fun disableImageTracking() {
-        ImageWrapper.disableTracking()
-    }
 }
