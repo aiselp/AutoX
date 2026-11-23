@@ -165,6 +165,10 @@ public class ViewAttributes {
         }
     }
 
+    public void setAttr(String name, Object value) {
+        setAttrValue(name, String.valueOf(value));
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     private void init() {
         onRegisterAttrs();

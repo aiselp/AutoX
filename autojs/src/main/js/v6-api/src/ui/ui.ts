@@ -57,7 +57,6 @@ const __inflate__ = function (ctx: android.Context, xml: XML | string,
     return runtime.ui.layoutInflater.inflate(ctx, xml.toString(), parent, attachToParent);
 }
 
-
 export const findView = function (id: string): android.View | null {
     return findById(id);
 }
@@ -72,10 +71,10 @@ export const run = function <T>(action: () => T) {
     runtime.getUiHandler().post(function () {
         try {
             result = action();
-            disposable.setAndNotify(true);
+            disposable.setAndNotify(null);
         } catch (e) {
             err = e;
-            disposable.setAndNotify(true);
+            disposable.setAndNotify(null);
         }
     });
     disposable.blockedGet();

@@ -5,7 +5,7 @@ import android.util.AttributeSet;
 
 import com.google.android.material.tabs.TabLayout;
 
-public class JsTabLayout extends TabLayout {
+public class JsTabLayout extends TabLayout implements AttrSupport {
 
     public JsTabLayout(Context context) {
         super(context);

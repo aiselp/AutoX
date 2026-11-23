@@ -13,7 +13,7 @@ import com.stardust.autojs.core.ui.JsViewHelper;
  * Created by Stardust on 2017/5/14.
  */
 
-public class JsRelativeLayout extends RelativeLayout {
+public class JsRelativeLayout extends RelativeLayout implements AttrSupport {
     public JsRelativeLayout(Context context) {
         super(context);
     }
