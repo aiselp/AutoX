@@ -32,6 +32,7 @@ import com.stardust.autojs.runtime.api.UI;
 import com.stardust.autojs.runtime.exception.ScriptEnvironmentException;
 import com.stardust.autojs.runtime.exception.ScriptException;
 import com.stardust.autojs.runtime.exception.ScriptInterruptedException;
+import com.stardust.autojs.util.CustomToastView;
 import com.stardust.lang.ThreadCompat;
 import com.stardust.util.ScreenMetrics;
 import com.stardust.util.SdkVersionUtil;

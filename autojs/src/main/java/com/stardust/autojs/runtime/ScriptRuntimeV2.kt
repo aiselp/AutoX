@@ -29,6 +29,7 @@ import com.stardust.autojs.runtime.api.SevenZip
 import com.stardust.autojs.runtime.api.Shizuku
 import com.stardust.autojs.runtime.api.Threads
 import com.stardust.autojs.runtime.api.Timers
+import com.stardust.autojs.util.CustomToastView
 import com.stardust.autojs.util.ObjectWatcher
 import com.stardust.autojs.util.runOnUiThread
 import com.stardust.pio.UncheckedIOException
@@ -72,6 +73,10 @@ class ScriptRuntimeV2(val builder: Builder) : ScriptRuntime(builder) {
 
     @ScriptVariable
     val onnx: OnnxModule = OnnxModule(this)
+
+    /** 队列化自定义 Toast，供 __globals__.js 里的 toast.init/show 桥接调用；不直接暴露为脚本全局变量。  */
+    @ScriptVariable
+    var toastX: CustomToastView = CustomToastView(uiHandler.context, console);
 
     init {
         automator.setScreenMetrics(mScreenMetrics)

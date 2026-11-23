@@ -1,14 +1,5 @@
 
 module.exports = function (runtime, global) {
-    global.toast = function (text) {
-        runtime.toast(text);
-    }
-
-
-    global.toastLog = function (text) {
-        runtime.toast(text);
-        global.log(text);
-    }
 
     global.sleep = function (t) {
         if (ui.isUiThread()) {

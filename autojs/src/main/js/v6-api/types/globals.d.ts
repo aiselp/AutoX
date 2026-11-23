@@ -48,19 +48,6 @@ declare function setClip(text: string): void;
  */
 declare function getClip(): string;
 
-/**
- * 以气泡显示信息 message 几秒。(具体时间取决于安卓系统，一般都是 2 秒)。
- * 注意，信息的显示是"异步"执行的。
- * @param message 要显示的信息
- */
-declare function toast(message: string): void;
-
-/**
- * 相当于 toast(message); log(message)。
- * 显示信息 message 并在控制台中输出。
- * @param message 要显示的信息
- */
-declare function toastLog(message: string): void;
 
 /**
  * 等待指定的 Activity 出现。
