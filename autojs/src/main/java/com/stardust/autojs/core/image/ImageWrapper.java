@@ -3,7 +3,6 @@ package com.stardust.autojs.core.image;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.media.Image;
-import android.os.Build;
 
 import com.stardust.autojs.core.opencv.Mat;
 import com.stardust.autojs.core.opencv.OpenCVHelper;
@@ -17,7 +16,6 @@ import java.io.FileOutputStream;
 import java.nio.ByteBuffer;
 
 import androidx.annotation.NonNull;
-import androidx.annotation.RequiresApi;
 
 /**
  * Created by Stardust on 2017/11/25.

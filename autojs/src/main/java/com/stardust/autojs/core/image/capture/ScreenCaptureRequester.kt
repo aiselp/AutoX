@@ -15,7 +15,7 @@ import kotlin.coroutines.cancellation.CancellationException
 interface ScreenCaptureRequester {
     var screenCapture: ScreenCapturer?
     suspend fun requestScreenCapture(context: Context, orientation: Int)
-    fun requestScreenCaptureLegacy(context: Context, orientation: Int): ScriptPromiseAdapter
+    fun requestScreenCaptureLegacy(context: Context, orientation: Int): CompletableDeferred<Boolean>
     fun recycle()
 
     interface Callback {
