@@ -7,6 +7,8 @@ import com.stardust.autojs.core.image.ImageWrapper
 import com.stardust.autojs.runtime.ScriptRuntime
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.Locale
+import java.util.Locale.getDefault
 
 class OnnxModule(private val runtime: ScriptRuntime) {
 
@@ -752,7 +754,7 @@ class OnnxModule(private val runtime: ScriptRuntime) {
     fun setClassifierOutputType(name: String, type: String): String {
         return try {
             val c = classifiers[name] ?: throw IllegalArgumentException("Classifier $name not loaded")
-            when (type.toLowerCase()) {
+            when (type.lowercase(getDefault())) {
                 "logits" -> c.setOutputType(OnnxClassifier.OutputType.LOGITS)
                 "probabilities" -> c.setOutputType(OnnxClassifier.OutputType.PROBABILITIES)
                 "auto" -> c.setOutputType(OnnxClassifier.OutputType.AUTO_DETECT)

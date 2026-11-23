@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- API 35 以下没有强制边到边，无需 opt-out -->
+    <bool name="script_ui_opt_out_edge_to_edge">false</bool>
+</resources>

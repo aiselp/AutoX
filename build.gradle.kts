@@ -1,11 +1,6 @@
 initVersions(file("project-versions.json"))
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 buildscript {
-
-    extra.apply {
-        set("kotlin_version", kotlin_version)
-    }
-
     repositories {
         mavenLocal()
         //首选国外镜像加快github CI
@@ -17,8 +12,7 @@ buildscript {
         mavenCentral { url = uri("https://maven.aliyun.com/repository/public") }
     }
     dependencies {
-        classpath("com.android.tools.build:gradle:8.11.2")
-        classpath(kotlin("gradle-plugin", version = kotlin_version))
+        classpath("com.android.tools.build:gradle:9.2.1")
     }
 }
 

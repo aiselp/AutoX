@@ -1,8 +1,10 @@
 //import org.jetbrains.kotlin.config.KotlinCompilerVersion
 
 plugins {
-    id("com.android.library")
-    id("kotlin-android")
+    alias(libs.plugins.android.library)
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.plugin.serialization)
+    alias(libs.plugins.kotlin.compose)
 }
 java {
     toolchain {
@@ -20,15 +22,12 @@ android {
         compose = true
         buildConfig = true
     }
-    composeOptions {
-        kotlinCompilerExtensionVersion = compose_version
-    }
     buildTypes {
         named("release") {
             isMinifyEnabled = false
             setProguardFiles(
                 listOf(
-                    getDefaultProguardFile("proguard-android.txt"),
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"
                 )
             )
@@ -54,6 +53,7 @@ dependencies {
     api(libs.androidx.webkit)
     api(libs.commons.exec)
     api(libs.androidx.datastore)
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
     api("com.github.hyb1996:settingscompat:1.1.5")
     implementation(libs.androidx.activity.ktx)
     implementation(libs.appcompat)

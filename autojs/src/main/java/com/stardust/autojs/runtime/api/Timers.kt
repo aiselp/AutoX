@@ -56,16 +56,19 @@ class Timers(private val mRuntime: ScriptRuntime) {
         return timerForCurrentThread.setInterval(listener, delay, *args.drop(2).toTypedArray())
     }
 
-    fun clearTimeout(id: Int): Boolean {
-        return timerForCurrentThread.clearTimeout(id)
+    fun clearTimeout(id: Any?): Boolean {
+        val intId = (id as? Number)?.toInt() ?: return false
+        return timerForCurrentThread.clearTimeout(intId)
     }
 
-    fun clearInterval(id: Int): Boolean {
-        return timerForCurrentThread.clearInterval(id)
+    fun clearInterval(id: Any?): Boolean {
+        val intId = (id as? Number)?.toInt() ?: return false
+        return timerForCurrentThread.clearInterval(intId)
     }
 
-    fun clearImmediate(id: Int): Boolean {
-        return timerForCurrentThread.clearImmediate(id)
+    fun clearImmediate(id: Any?): Boolean {
+        val intId = (id as? Number)?.toInt() ?: return false
+        return timerForCurrentThread.clearImmediate(intId)
     }
 
     fun recycle() {

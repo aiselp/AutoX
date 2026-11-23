@@ -12,6 +12,8 @@
         <item name="colorAccent">@color/colorAccent</item>
         <item name="android:windowAnimationStyle">@null</item>
         <item name="android:popupTheme" tools:ignore="NewApi">@style/ScriptTheme.PopupOverlay</item>
+        <!-- targetSdk 35 在 Android 15 强制边到边；opt-out 恢复状态栏占位（仅 v35 为 true） -->
+        <item name="android:windowOptOutEdgeToEdgeEnforcement">@bool/script_ui_opt_out_edge_to_edge</item>
     </style>
 
     <style name="ScriptTheme.PopupOverlay" parent="ThemeOverlay.AppCompat.Dark.ActionBar"/>
