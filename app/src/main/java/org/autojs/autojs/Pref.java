@@ -41,9 +41,6 @@ public class Pref {
         public void onSharedPreferenceChanged(SharedPreferences p, String key) {
             if (key.equals(getString(R.string.key_guard_mode))) {
                 AccessibilityConfig.setIsUnintendedGuardEnabled(p.getBoolean(getString(R.string.key_guard_mode), false));
-            } else if ((key.equals(getString(R.string.key_use_volume_control_record)) || key.equals(getString(R.string.key_use_volume_control_running)))
-                    && p.getBoolean(key, false)) {
-                GlobalKeyObserver.init();
             }
         }
     };

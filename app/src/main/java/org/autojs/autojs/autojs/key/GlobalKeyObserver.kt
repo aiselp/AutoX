@@ -1,119 +1,125 @@
-package org.autojs.autojs.autojs.key;
+package org.autojs.autojs.autojs.key
 
-import android.util.Log;
-import android.view.KeyEvent;
-
-import com.stardust.app.GlobalAppContext;
-import com.stardust.autojs.core.inputevent.InputEventObserver;
-import com.stardust.autojs.core.inputevent.ShellKeyObserver;
-import com.stardust.event.EventDispatcher;
-import org.autojs.autojs.Pref;
-import org.autojs.autojs.autojs.AutoJs;
-import com.stardust.view.accessibility.AccessibilityService;
-import com.stardust.view.accessibility.OnKeyListener;
+import android.content.Context
+import android.util.Log
+import android.view.KeyEvent
+import com.aiselp.autox.utils.multiProcessAppConfig
+import com.stardust.app.GlobalAppContext
+import com.stardust.autojs.core.inputevent.InputEventObserver
+import com.stardust.autojs.core.inputevent.ShellKeyObserver
+import com.stardust.event.EventDispatcher
+import com.stardust.view.accessibility.AccessibilityService
+import com.stardust.view.accessibility.OnKeyListener
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import org.autojs.autojs.autojs.AutoJs
 
 /**
  * Created by Stardust on 2017/8/14.
  */
+class GlobalKeyObserver internal constructor() : OnKeyListener, ShellKeyObserver.KeyListener {
 
-public class GlobalKeyObserver implements OnKeyListener, ShellKeyObserver.KeyListener {
-
-
-    public interface OnVolumeDownListener {
-        void onVolumeDown();
+    fun interface OnVolumeDownListener {
+        fun onVolumeDown()
     }
 
-    private static final EventDispatcher.Event<OnVolumeDownListener> VOLUME_DOWN_EVENT = OnVolumeDownListener::onVolumeDown;
-    private static final String LOG_TAG = "GlobalKeyObserver";
-    private static final long EVENT_TIMEOUT = 200;
-    private static GlobalKeyObserver sSingleton;
-    private EventDispatcher<OnVolumeDownListener> mVolumeDownEventDispatcher = new EventDispatcher<>();
-    private boolean mVolumeDownFromShell, mVolumeDownFromAccessibility;
-    private boolean mVolumeUpFromShell, mVolumeUpFromAccessibility;
+    private val mVolumeDownEventDispatcher = EventDispatcher<OnVolumeDownListener>()
+    private var mVolumeDownFromShell = false
+    private var mVolumeDownFromAccessibility = false
+    private var mVolumeUpFromShell = false
+    private var mVolumeUpFromAccessibility = false
+    var isRunningVolumeControlEnabled = false
 
-    GlobalKeyObserver() {
-        AccessibilityService.Companion.getStickOnKeyObserver()
-                .addListener(this);
-        ShellKeyObserver observer = new ShellKeyObserver();
-        observer.setKeyListener(this);
-        InputEventObserver.getGlobal(GlobalAppContext.get()).addListener(observer);
-    }
-
-    public static GlobalKeyObserver getSingleton() {
-        if (sSingleton == null) {
-            sSingleton = new GlobalKeyObserver();
+    fun onVolumeUp() {
+        Log.d(LOG_TAG, "onVolumeUp at ${System.currentTimeMillis()}")
+        if (isRunningVolumeControlEnabled) {
+            Log.d(LOG_TAG, "stop all scripts when volume up")
+            AutoJs.getInstance().scriptEngineService.stopAllAndToast()
         }
-        return sSingleton;
+
     }
 
-    public static void init() {
-        getSingleton();
+    fun onVolumeDown() {
+        Log.d(LOG_TAG, "onVolumeDown at ${System.currentTimeMillis()}")
+        mVolumeDownEventDispatcher.dispatchEvent(VOLUME_DOWN_EVENT)
     }
 
-    public void onVolumeUp() {
-        Log.d(LOG_TAG, "onVolumeUp at " + System.currentTimeMillis());
-        if (Pref.isRunningVolumeControlEnabled()) {
-            Log.d(LOG_TAG, "stop all scripts when volume up");
-            AutoJs.getInstance().getScriptEngineService().stopAllAndToast();
-        }
+    fun addVolumeDownListener(listener: OnVolumeDownListener) {
+        mVolumeDownEventDispatcher.addListener(listener)
     }
 
-    public void onVolumeDown() {
-        Log.d(LOG_TAG, "onVolumeDown at " + System.currentTimeMillis());
-        mVolumeDownEventDispatcher.dispatchEvent(VOLUME_DOWN_EVENT);
+    fun removeVolumeDownListener(listener: OnVolumeDownListener): Boolean {
+        return mVolumeDownEventDispatcher.removeListener(listener)
     }
 
-    public void addVolumeDownListener(OnVolumeDownListener listener) {
-        mVolumeDownEventDispatcher.addListener(listener);
-    }
-
-    public boolean removeVolumeDownListener(OnVolumeDownListener listener) {
-        return mVolumeDownEventDispatcher.removeListener(listener);
-    }
-
-    @Override
-    public void onKeyEvent(int keyCode, KeyEvent event) {
-        if (event.getAction() != KeyEvent.ACTION_UP)
-            return;
+    override fun onKeyEvent(keyCode: Int, event: KeyEvent) {
+        if (event.action != KeyEvent.ACTION_UP) return
         if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
             if (mVolumeDownFromShell) {
-                mVolumeDownFromShell = false;
-                return;
+                mVolumeDownFromShell = false
+                return
             }
-            mVolumeUpFromAccessibility = true;
-            onVolumeDown();
+            mVolumeUpFromAccessibility = true
+            onVolumeDown()
         } else if (keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
             if (mVolumeUpFromShell) {
-                mVolumeUpFromShell = false;
-                return;
+                mVolumeUpFromShell = false
+                return
             }
-            mVolumeUpFromAccessibility = true;
-            onVolumeUp();
+            mVolumeUpFromAccessibility = true
+            onVolumeUp()
         }
     }
 
-
-    @Override
-    public void onKeyDown(String keyName) {
-
+    override fun onKeyDown(keyName: String?) {
     }
 
-    @Override
-    public void onKeyUp(String keyName) {
-        if ("KEY_VOLUMEUP".equals(keyName)) {
+    override fun onKeyUp(keyName: String?) {
+        if ("KEY_VOLUMEUP" == keyName) {
             if (mVolumeUpFromAccessibility) {
-                mVolumeUpFromAccessibility = false;
-                return;
+                mVolumeUpFromAccessibility = false
+                return
             }
-            mVolumeUpFromShell = true;
-            onVolumeUp();
-        } else if ("KEY_VOLUMEDOWN".equals(keyName)) {
+            mVolumeUpFromShell = true
+            onVolumeUp()
+        } else if ("KEY_VOLUMEDOWN" == keyName) {
             if (mVolumeDownFromAccessibility) {
-                mVolumeDownFromAccessibility = false;
-                return;
+                mVolumeDownFromAccessibility = false
+                return
             }
-            mVolumeDownFromShell = true;
-            onVolumeDown();
+            mVolumeDownFromShell = true
+            onVolumeDown()
+        }
+    }
+
+    companion object {
+
+        private val VOLUME_DOWN_EVENT =
+            EventDispatcher.Event<OnVolumeDownListener> { listener -> listener.onVolumeDown() }
+        private const val LOG_TAG = "GlobalKeyObserver"
+        private val init = Job()
+        private val globalKeyObserver: GlobalKeyObserver by lazy {
+            val keyObserver = GlobalKeyObserver()
+            AccessibilityService.stickOnKeyObserver.addListener(keyObserver)
+            val observer = ShellKeyObserver()
+            observer.setKeyListener(keyObserver)
+            InputEventObserver.getGlobal(GlobalAppContext.get()).addListener(observer)
+            keyObserver
+        }
+
+        @Synchronized
+        fun init(context: Context) {
+            if (init.isCompleted) return
+            val scope = CoroutineScope(Dispatchers.Main)
+            scope.launch {
+                context.multiProcessAppConfig.data.collect {
+                    globalKeyObserver.isRunningVolumeControlEnabled =
+                        it.isRunningVolumeControlEnabled
+                }
+            }
+            init.complete()
         }
     }
 }
